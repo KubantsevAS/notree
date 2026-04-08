@@ -11,3 +11,8 @@ CREATE TABLE nodes (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 )
+
+CREATE TABLE note_contents (
+    node_id UUID PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
+    content JSONB NOT NULL
+)
