@@ -19,7 +19,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT}:8080"
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -29,5 +29,17 @@ services:
       - CONFIG_PATH=${CONFIG_PATH}
     depends_on:
       - db
+  frontend:
+    container_name: frontend_ts
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - backend
 volumes:
   postgres_data:
