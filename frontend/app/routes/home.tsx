@@ -1,5 +1,5 @@
 import type { Route } from './+types/home';
-import { Welcome } from '../../pages/welcome/welcome';
+import { Welcome } from '../../pages/welcome';
 
 // eslint-disable-next-line no-empty-pattern
 export function meta({}: Route.MetaArgs) {
