@@ -3,6 +3,6 @@
   "jsxSingleQuote": true,
   "semi": true,
   "tabWidth": 2,
-  "prettier.printWidth": 120,
+  "printWidth": 120,
   "trailingComma": "es5"
 }
