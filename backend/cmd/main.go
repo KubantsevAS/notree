@@ -1,14 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
+	sqlc "github.com/KubantsevAS/notree/backend/internal/db/sqlc"
+	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
+	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
+	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -20,12 +24,29 @@ func main() {
 	dbpool := db.CreateDbPool(&cfg.DB, log)
 	defer dbpool.Close()
 
-	port := os.Getenv("SERVER_PORT")
-	address := fmt.Sprintf(":%s", port)
-	server := http.Server{
-		Addr: address,
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(mwLogger.New(log))
+	router.Use(middleware.URLFormat)
+
+	queries := sqlc.New(dbpool)
+	nodeService := service.NewNodeService(queries)
+
+	router.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+
+	server := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
 	}
 
-	log.Info("Server is listening", slog.String("port", address))
-	server.ListenAndServe()
+	if err := server.ListenAndServe(); err != nil {
+		log.Error("Failed to start server")
+	}
+
+	log.Error("Server stopped")
 }

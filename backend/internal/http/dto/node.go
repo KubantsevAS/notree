@@ -5,9 +5,9 @@ import (
 )
 
 type CreateNodeRequest struct {
-	ParentID *pgtype.UUID `json:"parent_id"`
-	Type     string       `json:"type" validate:"required,oneof=folder note task"`
-	Title    string       `json:"title" validate:"required,max=255"`
+	ParentID *string `json:"parent_id"`
+	Type     string  `json:"type" validate:"required,oneof=folder note task"`
+	Title    string  `json:"title" validate:"required,max=255"`
 }
 
 type CreateNodeResponse struct {

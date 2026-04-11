@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
@@ -33,7 +34,15 @@ func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dbNode, err := h.service.CreateNode(r.Context(), userID, &reqDTO)
 	if err != nil {
-		http.Error(w, "DB Error", http.StatusInternalServerError)
+		if errors.Is(err, service.ErrInvalidParentID) {
+			http.Error(w, "Invalid parent_id UUID", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrParentNotFound) {
+			http.Error(w, "parent_id does not reference an existing node", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "DB Error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
