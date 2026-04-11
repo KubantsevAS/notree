@@ -1,0 +1,15 @@
+version: '3'
+
+dotenv:
+  - ../.env
+
+tasks:
+  generate-sqlc:
+    cmds:
+      - sqlc generate -f ./db/sqlc.yaml
+  
+
+  # Set path variable: `export PATH="$PATH:$HOME/go/bin"`
+  migrate:
+    cmds:
+      - migrate -path ./db/migrations -database "postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable" up

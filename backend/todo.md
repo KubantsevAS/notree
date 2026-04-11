@@ -3,14 +3,14 @@
 - [x] init config: cleanenv
 - [x] init storage: postgres
 - [x] init logger: log/slog
+- [x] работа с Postgres:  pgx + sqlc
+- [x] init router: chi, net/http (chi render)
+- [x] run server
 
-- [ ] init router: chi, net/http (chi render)
-- [ ] работа с Postgres:  pgx + sqlc
 - [ ] Валидация: go-playground/validator
-- [ ] run server
 - [ ] air
 
-## Architecture draft
+## Architecture - draft
 
 repo-name/
 ├── docker-compose.yml
@@ -38,7 +38,7 @@ repo-name/
     ├── init.sql
     └── migrations/
 
-### Backend
+### Backend - draft
 
 backend/
 ├── cmd/

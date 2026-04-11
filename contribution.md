@@ -5,7 +5,7 @@ Rules for commit messages and branch names to maintain consistency and readabili
 ## Branch Naming Conventions
 
 We use a prefix based on the type of work, the task ID from our task tracker, and a short description.
-Format: `<type>/TASK-XXX-<short-description>`
+Format: `<type>/task-XXX-<short-description>`
 
 Where:
 
@@ -20,13 +20,13 @@ Where:
 
 **Example Branch Names:**
 
-* **`feature/TASK-001-add-user-auth`**
-* **`refactor/TASK-015-update-react-19`**
-* **`build/TASK-021-update-deploy-scripts`**
-* **`test/TASK-008-will-it-work-or-wont`**
-* **`docs/TASK-005-update-contribution`**
-* **`fix/TASK-042-resolve-login-bug`**
-* **`ops/TASK-033-backup-utils`**
+* **`feature/task-001-add-user-auth`**
+* **`refactor/task-015-update-react-19`**
+* **`build/task-021-update-deploy-scripts`**
+* **`test/task-008-will-it-work-or-wont`**
+* **`docs/task-005-update-contribution`**
+* **`fix/task-042-resolve-login-bug`**
+* **`ops/task-033-backup-utils`**
 
 **Invalid Branch Names:**
 
