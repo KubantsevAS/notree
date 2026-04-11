@@ -26,6 +26,7 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
+      - SERVER_PORT=${SERVER_PORT}
       - CONFIG_PATH=${CONFIG_PATH}
     depends_on:
       - db
