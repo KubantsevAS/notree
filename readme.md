@@ -1,27 +1,48 @@
-# Readme
+# Notree
 
-## Prerequisites
+## Quick start
 
-Docker Desktop version >= v4.6
+**Clone the repository:**
 
-## Installation
+```bash
+git clone https://github.com/KubantsevAS/notree.git
+cd notree
+```
 
-Поднять БД
+**Set up environment variables:**
+
+```bash
+cp .env.example .env
+```
+
+**Launch DB:**
 
 ```bash
 docker compose up -d
 ```
 
-Очистить БД
+**Launch DB migrations (with Taskfile):**
 
 ```bash
-docker-compose down -v
+cd backend
+task migrate
+```
+
+**If Taskfile not installed:**
+
+```bash
+cd backend
+migrate -path ./migrations -database "postgres://YOUR_POSTGRES_USER:YOUR_POSTGRES_PASSWORD@localhost:5432/YOUR_POSTGRES_DB?sslmode=disable" up
+```
+
+## Drop DB && Rebuild App
+
+```bash
+docker compose down -v
 docker compose up --build -d
 ```
 
-## Additional
-
-Установка Taskfile:
+## Install Taskfile
 
 ```bash
 sudo snap install task --classic
