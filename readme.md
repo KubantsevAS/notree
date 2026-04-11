@@ -18,3 +18,9 @@ docker compose up -d
 docker-compose down -v
 docker compose up --build -d
 ```
+
+Установка Taskfile:
+
+```bash
+sudo snap install task --classic
+```
