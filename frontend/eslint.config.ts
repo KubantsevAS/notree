@@ -2,8 +2,9 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactX from 'eslint-plugin-react-x';
 import prettierConfig from 'eslint-config-prettier';
+import { defineConfig } from 'eslint/config';
 
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: ['**/.react-router/**'],
   },
@@ -23,5 +24,5 @@ export default tseslint.config(
       },
     },
   },
-  prettierConfig
-);
+  prettierConfig,
+]);
