@@ -13,6 +13,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 func main() {
@@ -30,6 +31,14 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(mwLogger.New(log))
 	router.Use(middleware.URLFormat)
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	queries := sqlc.New(dbpool)
 	nodeService := service.NewNodeService(queries)
