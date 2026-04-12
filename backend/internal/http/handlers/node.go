@@ -35,11 +35,11 @@ func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	dbNode, err := h.service.CreateNode(r.Context(), userID, &reqDTO)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidParentID) {
-			http.Error(w, "Invalid parent_id UUID", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, service.ErrParentNotFound) {
-			http.Error(w, "parent_id does not reference an existing node", http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		http.Error(w, "DB Error: "+err.Error(), http.StatusInternalServerError)

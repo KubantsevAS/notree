@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrInvalidParentID = errors.New("invalid parent_id UUID")
-	ErrParentNotFound  = errors.New("parent_id does not reference an existing node")
+	ErrParentNotFound  = errors.New("parent_id references on nonexistent node")
 )
 
 type NodeService struct {
