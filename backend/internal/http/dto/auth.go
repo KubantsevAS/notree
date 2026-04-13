@@ -6,17 +6,13 @@ type RegisterRequest struct {
 	Username string `json:"username" validate:"required"`
 }
 
-type RegisterResponse struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
-}
-
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
-type LoginResponse struct {
+type User struct {
+	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Username string `json:"username"`
 }

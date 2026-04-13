@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
@@ -13,6 +12,13 @@ import (
 type AuthHandler struct {
 	Config  *config.Config
 	Service *service.AuthService
+}
+
+type authHTTPResponse struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Token    string `json:"token"`
 }
 
 func NewAuthHandler(c *config.Config, s *service.AuthService) *AuthHandler {
@@ -28,15 +34,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resDTO, err := h.Service.Register(r.Context(), body)
+	user, err := h.Service.Register(r.Context(), body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resDTO)
+	resDTO := authHTTPResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
+		Token:    "",
+	}
+
+	httputil.WriteResponseJSON(w, resDTO, http.StatusCreated)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -45,13 +56,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resDTO, err := h.Service.Login(r.Context(), body)
+	user, err := h.Service.Login(r.Context(), body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resDTO)
+	resDTO := authHTTPResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
+		Token:    "",
+	}
+
+	httputil.WriteResponseJSON(w, resDTO, http.StatusOK)
 }

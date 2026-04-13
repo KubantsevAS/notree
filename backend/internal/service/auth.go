@@ -17,15 +17,15 @@ func NewAuthService(db *sqlc.Queries) *AuthService {
 	return &AuthService{db: db}
 }
 
-func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (dto.RegisterResponse, error) {
+func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.User, error) {
 	_, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err == nil {
-		return dto.RegisterResponse{}, ErrUserExist
+		return nil, ErrUserExist
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return dto.RegisterResponse{}, err
+		return nil, err
 	}
 
 	user, err := s.db.CreateUser(ctx, sqlc.CreateUserParams{
@@ -34,27 +34,29 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (d
 		Username:     pgtype.Text{String: req.Username, Valid: true},
 	})
 	if err != nil {
-		return dto.RegisterResponse{}, err
+		return nil, err
 	}
 
-	return dto.RegisterResponse{
+	return &dto.User{
+		ID:       user.ID.String(),
 		Email:    user.Email,
 		Username: user.Username.String,
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (dto.LoginResponse, error) {
+func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.User, error) {
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return dto.LoginResponse{}, ErrWrongCredentials
+		return nil, ErrWrongCredentials
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
-		return dto.LoginResponse{}, ErrWrongCredentials
+		return nil, ErrWrongCredentials
 	}
 
-	return dto.LoginResponse{
+	return &dto.User{
+		ID:       user.ID.String(),
 		Email:    user.Email,
 		Username: user.Username.String,
 	}, nil
