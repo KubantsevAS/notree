@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -18,6 +19,8 @@ import (
 
 func main() {
 	cfg := config.MustLoad()
+
+	fmt.Println(cfg.JWT.Secret)
 
 	log := logger.SetupLogger(cfg.Env)
 	log.Info("Starting Notree backend", slog.String("env", cfg.Env))
@@ -42,7 +45,15 @@ func main() {
 
 	queries := sqlc.New(dbpool)
 	nodeService := service.NewNodeService(queries)
+	authService := service.NewAuthService(queries)
 
+	authHandler := handlers.NewAuthHandler(cfg, authService)
+
+	router.Route("/auth", func(r chi.Router) {
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+
+	})
 	router.Post("/node", handlers.NewNodeHandler(nodeService).Create)
 
 	server := &http.Server{
