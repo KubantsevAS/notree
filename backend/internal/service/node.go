@@ -11,11 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var (
-	ErrInvalidParentID = errors.New("invalid parent_id UUID")
-	ErrParentNotFound  = errors.New("parent_id does not reference an existing node")
-)
-
 type NodeService struct {
 	db *sqlc.Queries
 }

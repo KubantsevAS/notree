@@ -17,9 +17,14 @@ type DBConfig struct {
 	DBName   string `env:"DB_NAME" env-default:"notree"`
 }
 
+type JWTConfig struct {
+	Secret string `env:"JWT_SECRET" env-required:"true"`
+}
+
 type Config struct {
-	Env        string   `yaml:"env" env-default:"local"`
-	DB         DBConfig `yaml:"-"`
+	Env        string    `yaml:"env" env-default:"local"`
+	DB         DBConfig  `yaml:"-"`
+	JWT        JWTConfig `yaml:"-"`
 	HTTPServer `yaml:"http_server"`
 }
 
