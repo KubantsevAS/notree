@@ -72,6 +72,12 @@ type NoteContent struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type RefreshToken struct {
+	TokenHash string             `json:"token_hash"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
