@@ -14,6 +14,7 @@ func GenerateAccessToken(userID pgtype.UUID, secret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID.String(),
 		"exp":     time.Now().Add(time.Hour).Unix(),
+		"type":    "access",
 	})
 
 	s, err := token.SignedString([]byte(secret))

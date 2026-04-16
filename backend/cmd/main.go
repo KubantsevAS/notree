@@ -34,7 +34,6 @@ func main() {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(mwLogger.New(log))
-	router.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 	router.Use(middleware.URLFormat)
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
@@ -56,9 +55,11 @@ func main() {
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh-tokens", authHandler.RefreshTokens)
 		r.Post("/logout", authHandler.Logout)
-
 	})
-	router.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+	router.Group(func(r chi.Router) {
+		r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
+		r.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+	})
 
 	server := &http.Server{
 		Addr:         cfg.Address,
