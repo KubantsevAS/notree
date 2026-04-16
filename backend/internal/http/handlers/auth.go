@@ -1,16 +1,15 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 )
 
 type AuthHandler struct {
-	Config  *config.Config
 	Service *service.AuthService
 }
 
@@ -21,9 +20,12 @@ type authHTTPResponse struct {
 	Token    string `json:"token"`
 }
 
-func NewAuthHandler(c *config.Config, s *service.AuthService) *AuthHandler {
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+func NewAuthHandler(s *service.AuthService) *AuthHandler {
 	return &AuthHandler{
-		Config:  c,
 		Service: s,
 	}
 }
@@ -70,4 +72,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteResponseJSON(w, resDTO, http.StatusOK)
+}
+
+func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[RefreshRequest](&w, r)
+	if err != nil {
+		return
+	}
+
+	tokens, err := h.Service.RefreshTokens(r.Context(), body.RefreshToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidRefreshToken) {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, tokens, http.StatusOK)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+
 }

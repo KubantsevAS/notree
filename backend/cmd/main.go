@@ -45,13 +45,15 @@ func main() {
 
 	queries := sqlc.New(dbpool)
 	nodeService := service.NewNodeService(queries)
-	authService := service.NewAuthService(queries)
+	authService := service.NewAuthService(cfg, queries)
 
-	authHandler := handlers.NewAuthHandler(cfg, authService)
+	authHandler := handlers.NewAuthHandler(authService)
 
 	router.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
+		r.Post("/refresh-tokens", authHandler.RefreshTokens)
+		r.Post("/logout", authHandler.Logout)
 
 	})
 	router.Post("/node", handlers.NewNodeHandler(nodeService).Create)
