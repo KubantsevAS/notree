@@ -9,6 +9,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlc "github.com/KubantsevAS/notree/backend/internal/db/sqlc"
 	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
+	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
@@ -33,6 +34,7 @@ func main() {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(mwLogger.New(log))
+	router.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 	router.Use(middleware.URLFormat)
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},

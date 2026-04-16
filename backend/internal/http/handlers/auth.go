@@ -13,13 +13,6 @@ type AuthHandler struct {
 	Service *service.AuthService
 }
 
-type authHTTPResponse struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Token    string `json:"token"`
-}
-
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
@@ -36,20 +29,13 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.Service.Register(r.Context(), body)
+	tokens, err := h.Service.Register(r.Context(), body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	resDTO := authHTTPResponse{
-		ID:       user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-		Token:    "",
-	}
-
-	httputil.WriteResponseJSON(w, resDTO, http.StatusCreated)
+	httputil.WriteResponseJSON(w, tokens, http.StatusCreated)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -58,20 +44,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.Service.Login(r.Context(), body)
+	tokens, err := h.Service.Login(r.Context(), body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	resDTO := authHTTPResponse{
-		ID:       user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-		Token:    "",
-	}
-
-	httputil.WriteResponseJSON(w, resDTO, http.StatusOK)
+	httputil.WriteResponseJSON(w, tokens, http.StatusOK)
 }
 
 func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
@@ -94,5 +73,15 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[RefreshRequest](&w, r)
+	if err != nil {
+		return
+	}
 
+	if err := h.Service.Logout(r.Context(), body.RefreshToken); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

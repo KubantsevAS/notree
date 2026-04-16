@@ -31,7 +31,7 @@ func NewAuthService(c *config.Config, db *sqlc.Queries) *AuthService {
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.User, error) {
+func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*TokenPair, error) {
 	_, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err == nil {
 		return nil, ErrUserExist
@@ -51,14 +51,10 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		return nil, err
 	}
 
-	return &dto.User{
-		ID:       user.ID.String(),
-		Email:    user.Email,
-		Username: user.Username.String,
-	}, nil
+	return s.generateTokenPair(ctx, user.ID)
 }
 
-func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.User, error) {
+func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenPair, error) {
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, ErrWrongCredentials
@@ -69,15 +65,11 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Us
 		return nil, ErrWrongCredentials
 	}
 
-	return &dto.User{
-		ID:       user.ID.String(),
-		Email:    user.Email,
-		Username: user.Username.String,
-	}, nil
+	return s.generateTokenPair(ctx, user.ID)
 }
 
-func (s *AuthService) Logout(ctx context.Context, req *dto.LoginRequest) {
-
+func (s *AuthService) Logout(ctx context.Context, incomingRT string) error {
+	return s.db.DeleteRefreshToken(ctx, incomingRT)
 }
 
 func (s *AuthService) RefreshTokens(ctx context.Context, incomingRT string) (*TokenPair, error) {
