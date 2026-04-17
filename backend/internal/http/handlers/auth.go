@@ -35,7 +35,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, tokens, http.StatusCreated)
+	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	httputil.WriteResponseJSON(w, map[string]string{"message": "success"}, http.StatusCreated)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -50,16 +52,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, tokens, http.StatusOK)
+	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	httputil.WriteResponseJSON(w, map[string]string{"message": "success"}, http.StatusOK)
 }
 
 func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[RefreshRequest](&w, r)
+	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
+		http.Error(w, "Missing refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	tokens, err := h.Service.RefreshTokens(r.Context(), body.RefreshToken)
+	tokens, err := h.Service.RefreshTokens(r.Context(), cookie.Value)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidRefreshToken) {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -69,19 +74,18 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, tokens, http.StatusOK)
+	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[RefreshRequest](&w, r)
-	if err != nil {
-		return
+	cookie, err := r.Cookie("refresh_token")
+	if err == nil {
+		_ = h.Service.Logout(r.Context(), cookie.Value)
 	}
 
-	if err := h.Service.Logout(r.Context(), body.RefreshToken); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
+	httputil.ClearCookie(w, "access_token")
+	httputil.ClearCookie(w, "refresh_token")
 	w.WriteHeader(http.StatusNoContent)
 }

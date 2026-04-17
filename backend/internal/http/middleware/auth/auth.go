@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 )
@@ -11,13 +10,13 @@ import (
 func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			header := r.Header.Get("Authorization")
-			if header == "" {
+			cookie, err := r.Cookie("access_token")
+			if err != nil {
 				http.Error(w, "Missing token", http.StatusUnauthorized)
 				return
 			}
 
-			tokenString := strings.TrimPrefix(header, "Bearer ")
+			tokenString := cookie.Value
 
 			userID, err := jwt.ParseAccessToken(tokenString, secret)
 			if err != nil {
