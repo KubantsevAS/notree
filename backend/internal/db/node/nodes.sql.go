@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: nodes.sql
 
-package sqlc
+package node
 
 import (
 	"context"

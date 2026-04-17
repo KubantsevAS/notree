@@ -7,7 +7,9 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
-	sqlc "github.com/KubantsevAS/notree/backend/internal/db/sqlc"
+	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
+	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
+	sqlcUser "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
@@ -44,9 +46,12 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	queries := sqlc.New(dbpool)
-	nodeService := service.NewNodeService(queries)
-	authService := service.NewAuthService(cfg, queries)
+	authDB := sqlcAuth.New(dbpool)
+	nodesDB := sqlcNode.New(dbpool)
+	usersDB := sqlcUser.New(dbpool)
+
+	nodeService := service.NewNodeService(nodesDB)
+	authService := service.NewAuthService(cfg, authDB, usersDB)
 
 	authHandler := handlers.NewAuthHandler(authService)
 

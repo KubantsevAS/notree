@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
-	"github.com/KubantsevAS/notree/backend/internal/db/sqlc"
+	"github.com/KubantsevAS/notree/backend/internal/db/auth"
+	"github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,8 +16,9 @@ import (
 )
 
 type AuthService struct {
-	db     *sqlc.Queries
 	config *config.Config
+	db     *auth.Queries
+	userDb *user.Queries
 }
 
 type TokenPair struct {
@@ -24,15 +26,16 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func NewAuthService(c *config.Config, db *sqlc.Queries) *AuthService {
+func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries) *AuthService {
 	return &AuthService{
 		config: c,
-		db:     db,
+		db:     authDb,
+		userDb: userDb,
 	}
 }
 
 func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*TokenPair, error) {
-	_, err := s.db.GetUserByEmail(ctx, req.Email)
+	_, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err == nil {
 		return nil, ErrUserExist
 	}
@@ -42,7 +45,7 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		return nil, err
 	}
 
-	user, err := s.db.CreateUser(ctx, sqlc.CreateUserParams{
+	user, err := s.userDb.CreateUser(ctx, user.CreateUserParams{
 		Email:        req.Email,
 		PasswordHash: string(passwordHash),
 		Username:     pgtype.Text{String: req.Username, Valid: true},
@@ -55,7 +58,7 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 }
 
 func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenPair, error) {
-	user, err := s.db.GetUserByEmail(ctx, req.Email)
+	user, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, ErrWrongCredentials
 	}
@@ -103,7 +106,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		return nil, err
 	}
 
-	err = s.db.CreateRefreshToken(ctx, sqlc.CreateRefreshTokenParams{
+	err = s.db.CreateRefreshToken(ctx, auth.CreateRefreshTokenParams{
 		TokenHash: refreshToken,
 		UserID:    userID,
 		ExpiresAt: pgtype.Timestamptz{
