@@ -13,10 +13,6 @@ type AuthHandler struct {
 	Service *service.AuthService
 }
 
-type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
-}
-
 func NewAuthHandler(s *service.AuthService) *AuthHandler {
 	return &AuthHandler{
 		Service: s,
