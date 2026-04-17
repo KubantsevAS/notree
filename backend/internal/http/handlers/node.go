@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -26,9 +27,14 @@ func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO user_id from JWT token
+	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	userID := pgtype.UUID{
-		Bytes: uuid.MustParse("11111111-2222-3333-4444-555555555555"), // TODO Mock data used
+		Bytes: uuid.MustParse(userIDContext),
 		Valid: true,
 	}
 

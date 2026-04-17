@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.30.0
 
-package sqlc
+package user
 
 import (
 	"database/sql/driver"
@@ -70,6 +70,12 @@ type NoteContent struct {
 	NodeID    pgtype.UUID        `json:"node_id"`
 	Content   []byte             `json:"content"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	TokenHash string             `json:"token_hash"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 type User struct {
