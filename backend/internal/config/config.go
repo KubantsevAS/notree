@@ -10,15 +10,21 @@ import (
 )
 
 type DBConfig struct {
-	Host     string `env:"DB_HOST" env-default:"localhost"`
-	Port     string `env:"DB_PORT" env-default:"5432"`
-	User     string `env:"DB_USER" env-default:"postgres"`
-	Password string `env:"DB_PASSWORD" env-default:"password"`
-	DBName   string `env:"DB_NAME" env-default:"notree"`
+	Host     string `env:"POSTGRES_HOST" env-default:"localhost"`
+	Port     string `env:"POSTGRES_PORT" env-default:"5432"`
+	User     string `env:"POSTGRES_USER" env-default:"postgres"`
+	Password string `env:"POSTGRES_PASSWORD" env-default:"password"`
+	DBName   string `env:"POSTGRES_DB" env-default:"notree"`
 }
 
 type JWTConfig struct {
 	Secret string `env:"JWT_SECRET" env-required:"true"`
+}
+
+type HTTPServer struct {
+	Address     string        `yaml:"address" env-default:"0.0.0.0:8080"`
+	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }
 
 type Config struct {
@@ -26,12 +32,6 @@ type Config struct {
 	DB         DBConfig  `yaml:"-"`
 	JWT        JWTConfig `yaml:"-"`
 	HTTPServer `yaml:"http_server"`
-}
-
-type HTTPServer struct {
-	Address     string        `yaml:"address" env-default:"localhost:8080"`
-	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }
 
 func (c *DBConfig) DSN() string {
