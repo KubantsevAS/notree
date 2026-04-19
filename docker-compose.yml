@@ -11,35 +11,38 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+
   backend:
     container_name: backend_go
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT}:8080"
+      - "8080:8080"
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - CONFIG_PATH=${CONFIG_PATH}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
+      - CONFIG_PATH=/app/config/local.yaml
     depends_on:
       - db
+
   frontend:
     container_name: frontend_ts
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_PORT}:5173"
+      - "5173:5173"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html
     depends_on:
       - backend
+
 volumes:
-  postgres_data:
+  postgres-data:

@@ -39,7 +39,6 @@ migrate -path ./migrations -database "postgres://YOUR_POSTGRES_USER:YOUR_POSTGRE
 
 ```bash
 docker compose down -v
-sudo rm -rf ./postgres-data
 docker compose up --build -d
 ```
 
