@@ -11,7 +11,7 @@
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      localhost:8080
-// @BasePath  /docs
+// @BasePath  /api
 
 // @securityDefinitions.basic  BasicAuth
 
@@ -25,7 +25,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/docs"
+	_ "github.com/KubantsevAS/notree/backend/docs"
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
@@ -55,8 +55,6 @@ func main() {
 
 	router := chi.NewRouter()
 
-	docs.SwaggerInfo.BasePath = "/"
-
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(mwLogger.New(log))
@@ -81,15 +79,17 @@ func main() {
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	router.Route("/auth", func(r chi.Router) {
-		r.Post("/register", authHandler.Register)
-		r.Post("/login", authHandler.Login)
-		r.Post("/refresh-tokens", authHandler.RefreshTokens)
-		r.Post("/logout", authHandler.Logout)
-	})
-	router.Group(func(r chi.Router) {
-		r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
-		r.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+	router.Route("/api", func(r chi.Router) {
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", authHandler.Register)
+			r.Post("/login", authHandler.Login)
+			r.Post("/refresh-tokens", authHandler.RefreshTokens)
+			r.Post("/logout", authHandler.Logout)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
+			r.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+		})
 	})
 
 	server := &http.Server{

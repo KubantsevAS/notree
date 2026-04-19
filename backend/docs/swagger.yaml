@@ -1,4 +1,4 @@
-basePath: /docs
+basePath: /api
 definitions:
   dto.LoginRequest:
     properties:

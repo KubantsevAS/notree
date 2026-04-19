@@ -17,3 +17,7 @@ tasks:
   swag:
     cmds:
       - swag init -g cmd/main.go
+
+  go-run:
+    cmds:
+      - CONFIG_PATH=./config/local.yaml go run cmd/main.go
