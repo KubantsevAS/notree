@@ -1,0 +1,139 @@
+basePath: /docs
+definitions:
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API server for Notree app.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Notree API
+  version: "0.1"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates user and returns access/refresh tokens in HttpOnly
+        cookies
+      parameters:
+      - description: User credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            type: string
+        "400":
+          description: Invalid credentials
+          schema:
+            type: string
+      summary: User login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      description: Deletes refresh token from database and clears cookies
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+      summary: User logout
+      tags:
+      - Auth
+  /auth/refresh-tokens:
+    post:
+      description: Takes refresh_token from cookie, deletes it, issues a new token
+        pair and sets new cookies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tokens refreshed successfully
+          schema:
+            type: string
+        "401":
+          description: Missing or invalid refresh token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Refresh tokens
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user and returns access/refresh tokens in HttpOnly
+        cookies
+      parameters:
+      - description: Data for registration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Success
+          schema:
+            type: string
+        "400":
+          description: Incorrect request format
+          schema:
+            type: string
+        "409":
+          description: User with that email already exists
+          schema:
+            type: string
+      summary: User registration
+      tags:
+      - Auth
+securityDefinitions:
+  BasicAuth:
+    type: basic
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

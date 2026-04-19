@@ -1,3 +1,23 @@
+// @title           Notree API
+// @version         0.1
+// @description     API server for Notree app.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /docs
+
+// @securityDefinitions.basic  BasicAuth
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
@@ -5,6 +25,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/KubantsevAS/notree/backend/docs"
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
@@ -18,6 +39,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -32,6 +54,8 @@ func main() {
 	defer dbpool.Close()
 
 	router := chi.NewRouter()
+
+	docs.SwaggerInfo.BasePath = "/"
 
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
@@ -54,6 +78,8 @@ func main() {
 	authService := service.NewAuthService(cfg, authDB, usersDB)
 
 	authHandler := handlers.NewAuthHandler(authService)
+
+	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	router.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
