@@ -79,10 +79,31 @@ type RefreshToken struct {
 }
 
 type User struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	Username     pgtype.Text        `json:"username"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID              pgtype.UUID        `json:"id"`
+	Email           string             `json:"email"`
+	PasswordHash    string             `json:"password_hash"`
+	Username        pgtype.Text        `json:"username"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	AvatarUrl       pgtype.Text        `json:"avatar_url"`
+	Timezone        pgtype.Text        `json:"timezone"`
+	Locale          pgtype.Text        `json:"locale"`
+	Preferences     []byte             `json:"preferences"`
+	IsEmailVerified pgtype.Bool        `json:"is_email_verified"`
+	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type UsersPublic struct {
+	ID              pgtype.UUID        `json:"id"`
+	Email           string             `json:"email"`
+	Username        pgtype.Text        `json:"username"`
+	AvatarUrl       pgtype.Text        `json:"avatar_url"`
+	Timezone        pgtype.Text        `json:"timezone"`
+	Locale          pgtype.Text        `json:"locale"`
+	Preferences     []byte             `json:"preferences"`
+	IsEmailVerified pgtype.Bool        `json:"is_email_verified"`
+	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
