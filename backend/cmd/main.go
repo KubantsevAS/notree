@@ -74,8 +74,10 @@ func main() {
 
 	nodeService := service.NewNodeService(nodesDB)
 	authService := service.NewAuthService(cfg, authDB, usersDB)
+	userService := service.NewUserService(usersDB)
 
 	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(userService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
@@ -89,6 +91,12 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 			r.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+
+			r.Route("/profile", func(r chi.Router) {
+				r.Get("/me", userHandler.GetProfile)
+				r.Patch("/me", userHandler.UpdateProfile)
+				r.Patch("/me/preference", userHandler.UpdatePreferences)
+			})
 		})
 	})
 
