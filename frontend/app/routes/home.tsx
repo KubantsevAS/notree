@@ -1,14 +1,21 @@
-import type { Route } from './+types/home';
-import { Welcome } from '../../pages/welcome';
-
-// eslint-disable-next-line no-empty-pattern
-export function meta({}: Route.MetaArgs) {
+export function meta() {
   return [
-    { title: 'New React Router App' },
-    { name: 'description', content: 'Welcome to React Router!' },
+    { title: 'Very cool app' },
+    {
+      name: 'description',
+      content: 'This app is the best',
+    },
   ];
 }
 
 export default function Home() {
-  return <Welcome />;
+  return (
+    <main className='flex items-center justify-center pt-16 pb-4'>
+      <div className='flex-1 flex flex-col items-center gap-16 min-h-0'>
+        <div className='max-w-[300px] w-full space-y-6 px-4'>
+          <h1>Welcome page</h1>
+        </div>
+      </div>
+    </main>
+  );
 }
