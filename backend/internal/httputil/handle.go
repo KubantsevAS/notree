@@ -2,6 +2,8 @@ package httputil
 
 import (
 	"net/http"
+
+	"github.com/KubantsevAS/notree/backend/internal/validator"
 )
 
 func HandleBody[T any](r *http.Request) (*T, error) {
@@ -10,7 +12,7 @@ func HandleBody[T any](r *http.Request) (*T, error) {
 		return nil, err
 	}
 
-	if err = IsValid(body); err != nil {
+	if err = validator.Check(body); err != nil {
 		return nil, err
 	}
 

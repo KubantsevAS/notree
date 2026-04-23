@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
@@ -84,14 +83,6 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	if body.Preferences != nil {
-		var m map[string]interface{}
-		if err := json.Unmarshal(*body.Preferences, &m); err != nil {
-			http.Error(w, "Preferences must be a JSON object", http.StatusBadRequest)
-			return
-		}
 	}
 
 	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
