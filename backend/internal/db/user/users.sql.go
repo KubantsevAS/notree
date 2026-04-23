@@ -103,7 +103,7 @@ SET
     locale = COALESCE($1, locale),
     timezone = COALESCE($2, timezone),
     preferences = COALESCE(
-        $3::jsonb || preferences, 
+        preferences || $3::jsonb, 
         preferences
     ),
     updated_at = NOW()

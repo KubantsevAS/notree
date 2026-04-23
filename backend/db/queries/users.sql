@@ -28,7 +28,7 @@ SET
     locale = COALESCE(sqlc.narg('locale'), locale),
     timezone = COALESCE(sqlc.narg('timezone'), timezone),
     preferences = COALESCE(
-        sqlc.narg('preferences')::jsonb || preferences, 
+        preferences || sqlc.narg('preferences')::jsonb, 
         preferences
     ),
     updated_at = NOW()
