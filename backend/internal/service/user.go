@@ -18,3 +18,7 @@ func NewUserService(db *user.Queries) *UserService {
 func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (user.UsersPublic, error) {
 	return s.db.GetUserById(ctx, id)
 }
+
+func (s *UserService) UpdateUserProfile(ctx context.Context, arg user.UpdateUserProfileParams) (user.UpdateUserProfileRow, error) {
+	return s.db.UpdateUserProfile(ctx, arg)
+}
