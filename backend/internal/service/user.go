@@ -22,3 +22,7 @@ func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (user.Use
 func (s *UserService) UpdateUserProfile(ctx context.Context, arg user.UpdateUserProfileParams) (user.UpdateUserProfileRow, error) {
 	return s.db.UpdateUserProfile(ctx, arg)
 }
+
+func (s *UserService) UpdateUserPreferences(ctx context.Context, arg user.UpdateUserPreferencesParams) (user.UpdateUserPreferencesRow, error) {
+	return s.db.UpdateUserPreferences(ctx, arg)
+}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
@@ -65,7 +66,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profileResponse, err := h.Service.UpdateUserProfile(r.Context(), user.UpdateUserProfileParams{
+	userProfile, err := h.Service.UpdateUserProfile(r.Context(), user.UpdateUserProfileParams{
 		Username:  httputil.PgTextFromString(body.Username),
 		AvatarUrl: httputil.PgTextFromString(body.AvatarUrl),
 		ID:        userID,
@@ -75,7 +76,46 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, profileResponse, http.StatusOK)
+	httputil.WriteResponseJSON(w, userProfile, http.StatusOK)
 }
 
-func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {}
+func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.UpdateUserPreferencesRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if body.Preferences != nil {
+		var m map[string]interface{}
+		if err := json.Unmarshal(*body.Preferences, &m); err != nil {
+			http.Error(w, "Preferences must be a JSON object", http.StatusBadRequest)
+			return
+		}
+	}
+
+	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	userPreferences, err := h.Service.UpdateUserPreferences(r.Context(), user.UpdateUserPreferencesParams{
+		Locale:      httputil.PgTextFromString(body.Locale),
+		Timezone:    httputil.PgTextFromString(body.Timezone),
+		Preferences: httputil.RawMsgFromPtr(body.Preferences),
+		ID:          userID,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, userPreferences, http.StatusOK)
+}
