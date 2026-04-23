@@ -31,8 +31,9 @@ func NewAuthHandler(s *service.AuthService) *AuthHandler {
 // @Failure      409  {string}  string "User with that email already exists"
 // @Router       /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.RegisterRequest](&w, r)
+	body, err := httputil.HandleBody[dto.RegisterRequest](r)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -63,8 +64,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure      400  {string}  string "Invalid credentials"
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.LoginRequest](&w, r)
+	body, err := httputil.HandleBody[dto.LoginRequest](r)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 

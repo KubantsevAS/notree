@@ -47,8 +47,9 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.UpdateProfileRequest](&w, r)
+	body, err := httputil.HandleBody[dto.UpdateProfileRequest](r)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
