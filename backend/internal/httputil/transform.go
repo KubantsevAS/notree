@@ -1,6 +1,8 @@
 package httputil
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,4 +21,11 @@ func PgUUIDFromString(s *string) (pgtype.UUID, error) {
 	}
 
 	return pgtype.UUID{Bytes: parsedUUID, Valid: true}, err
+}
+
+func RawMsgFromPtr(m *json.RawMessage) json.RawMessage {
+	if m == nil {
+		return nil
+	}
+	return *m
 }
