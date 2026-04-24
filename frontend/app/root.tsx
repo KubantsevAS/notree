@@ -1,11 +1,9 @@
 import '../core/ui/app.css';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect } from 'react';
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
 
-import { HttpAxiosProvider, useHttpAxiosRequester } from '../core/network';
+import { HttpRequesterFactory, HttpRequesterProvider } from '../core/network';
+import { TaskClientProvider, TaskDevtools } from '../core/server-state';
 import type { Route } from './+types/root';
 
 export const links: Route.LinksFunction = () => [
@@ -39,36 +37,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function HttpAxiosRequesterTest() {
-  const requester = useHttpAxiosRequester();
-
-  useEffect(() => {
-    const todo = async () => {
-      const result = await requester.get('/todos/1');
-      console.log(result);
-      return result;
-    };
-
-    todo();
-  });
-
-  return 'HttpRequesterTest';
-}
-
 export default function App() {
-  const queryClient = new QueryClient();
+  const httpRequester = HttpRequesterFactory.create({
+    baseURL: 'https://jsonplaceholder.typicode.com',
+  });
 
   const isDevMode = import.meta.env.MODE === 'development';
 
   return (
-    <HttpAxiosProvider
-      config={{ baseURL: 'https://jsonplaceholder.typicode.com' }}
-    >
-      <QueryClientProvider client={queryClient}>
-        {isDevMode && <ReactQueryDevtools initialIsOpen={false} />}
-        <HttpAxiosRequesterTest />
-        <Outlet />
-      </QueryClientProvider>
-    </HttpAxiosProvider>
+    <HttpRequesterProvider requesterInstance={httpRequester}>
+      <TaskClientProvider>
+        {isDevMode && <TaskDevtools initialIsOpen={false} />}
+      </TaskClientProvider>
+      <Outlet />
+    </HttpRequesterProvider>
   );
 }
