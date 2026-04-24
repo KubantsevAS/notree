@@ -2,8 +2,10 @@ import '../core/ui/app.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { useEffect } from 'react';
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
 
+import { HttpAxiosProvider, useHttpAxiosRequester } from '../core/network';
 import type { Route } from './+types/root';
 
 export const links: Route.LinksFunction = () => [
@@ -24,10 +26,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang='en'>
       <head>
         <meta charSet='utf-8' />
-        <meta
-          name='viewport'
-          content='width=device-width, initial-scale=1'
-        />
+        <meta name='viewport' content='width=device-width, initial-scale=1' />
         <Meta />
         <Links />
       </head>
@@ -40,15 +39,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
-  const isDevMode = import.meta.env.MODE === 'development';
+function HttpAxiosRequesterTest() {
+  const requester = useHttpAxiosRequester();
 
+  useEffect(() => {
+    const todo = async () => {
+      const result = await requester.get('/todos/1');
+      console.log(result);
+      return result;
+    };
+
+    todo();
+  });
+
+  return 'HttpRequesterTest';
+}
+
+export default function App() {
   const queryClient = new QueryClient();
 
+  const isDevMode = import.meta.env.MODE === 'development';
+
   return (
-    <QueryClientProvider client={queryClient}>
-      {isDevMode && <ReactQueryDevtools initialIsOpen={false} />}
-      <Outlet />
-    </QueryClientProvider>
+    <HttpAxiosProvider
+      config={{ baseURL: 'https://jsonplaceholder.typicode.com' }}
+    >
+      <QueryClientProvider client={queryClient}>
+        {isDevMode && <ReactQueryDevtools initialIsOpen={false} />}
+        <HttpAxiosRequesterTest />
+        <Outlet />
+      </QueryClientProvider>
+    </HttpAxiosProvider>
   );
 }
