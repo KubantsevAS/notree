@@ -20,6 +20,16 @@ func NewUserHandler(s *service.UserService) *UserHandler {
 	}
 }
 
+// GetProfile   godoc
+// @Summary     Get the current user's profile
+// @Description Returns the profile data of an authorized user
+// @Tags        User
+// @Produce     json
+// @Success     200 {object} dto.GetProfileResponse
+// @Failure     401 {string} string "Unauthorized"
+// @Failure     404 {string} string "User not found"
+// @Failure     500 {string} string "Internal Server Error"
+// @Router      /profile/me [get]
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
 	if err != nil {
@@ -43,9 +53,35 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, user, http.StatusOK)
+	response := dto.GetProfileResponse{
+		ID:              user.ID.String(),
+		Email:           user.Email,
+		Username:        &user.Username.String,
+		AvatarUrl:       &user.AvatarUrl.String,
+		Timezone:        &user.Timezone.String,
+		Locale:          &user.Locale.String,
+		Preferences:     &user.Preferences,
+		IsEmailVerified: &user.IsEmailVerified.Bool,
+		LastLoginAt:     &user.LastLoginAt.Time,
+		CreatedAt:       &user.CreatedAt.Time,
+		UpdatedAt:       &user.UpdatedAt.Time,
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
+// UpdateProfile godoc
+// @Summary      Update user profile
+// @Description  Updates the name and profile picture of the logged-in user
+// @Tags         User
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.UpdateProfileRequest true "Information to update profile"
+// @Success      200 {object} dto.UpdateUserProfileResponse
+// @Failure      400 {string} string "Bad Request"
+// @Failure      401 {string} string "Unauthorized"
+// @Failure      500 {string} string "Internal Server Error"
+// @Router       /profile/me [patch]
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.UpdateProfileRequest](r)
 	if err != nil {
@@ -75,9 +111,27 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, userProfile, http.StatusOK)
+	response := dto.UpdateUserProfileResponse{
+		Username:  &userProfile.Username.String,
+		AvatarUrl: &userProfile.AvatarUrl.String,
+		UpdatedAt: &userProfile.UpdatedAt.Time,
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
+// UpdatePreferences godoc
+// @Summary          Update user preferences
+// @Description      Updates the locale, time zone, and user preferences
+// @Tags             User
+// @Accept           json
+// @Produce          json
+// @Param            request body dto.UpdateUserPreferencesRequest true "New user preferences"
+// @Success          200 {object} dto.UpdateUserPreferencesResponse
+// @Failure          400 {string} string "Bad Request"
+// @Failure          401 {string} string "Unauthorized"
+// @Failure          500 {string} string "Internal Server Error"
+// @Router           /profile/me/preference [patch]
 func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.UpdateUserPreferencesRequest](r)
 	if err != nil {
@@ -108,5 +162,12 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	httputil.WriteResponseJSON(w, userPreferences, http.StatusOK)
+	response := dto.UpdateUserPreferencesResponse{
+		Locale:      &userPreferences.Locale.String,
+		Timezone:    &userPreferences.Timezone.String,
+		Preferences: &userPreferences.Preferences,
+		UpdatedAt:   &userPreferences.UpdatedAt.Time,
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
