@@ -1,9 +1,15 @@
 export type {
   IActions as IClientActions,
   IConfig as IClientConfig,
+  IException as IClientException,
 } from './client';
 export type {
+  IException as IMutationException,
   IParams as IMutationParams,
   IResult as IMutationResult,
 } from './mutation';
-export type { IParams as IQueryParams, IResult as IQueryResult } from './query';
+export type {
+  IException as IQueryException,
+  IParams as IQueryParams,
+  IResult as IQueryResult,
+} from './query';

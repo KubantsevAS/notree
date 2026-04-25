@@ -1,4 +1,10 @@
-export interface IParams<TData = unknown, TVariables = void, TError = Error> {
+import type { IException as IMutationException } from './exception.interface';
+
+export interface IParams<
+  TData = unknown,
+  TVariables = void,
+  TError = IMutationException,
+> {
   mutationKey?: unknown[];
   executor: (variables: TVariables) => Promise<TData>;
 

@@ -1,4 +1,10 @@
-export interface IResult<TData = unknown, TError = Error, TVariables = void> {
+import type { IException as IMutationException } from './exception.interface';
+
+export interface IResult<
+  TData = unknown,
+  TVariables = void,
+  TError = IMutationException,
+> {
   data: TData | undefined;
   isError: boolean;
   error: TError | null;
