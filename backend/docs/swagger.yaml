@@ -49,15 +49,6 @@ definitions:
     - password
     - username
     type: object
-  dto.UpdateProfileRequest:
-    properties:
-      avatar_url:
-        maxLength: 500
-        type: string
-      username:
-        maxLength: 100
-        type: string
-    type: object
   dto.UpdateUserPreferencesRequest:
     properties:
       locale:
@@ -78,6 +69,15 @@ definitions:
       timezone:
         type: string
       updated_at:
+        type: string
+    type: object
+  dto.UpdateUserProfileRequest:
+    properties:
+      avatar_url:
+        maxLength: 500
+        type: string
+      username:
+        maxLength: 100
         type: string
     type: object
   dto.UpdateUserProfileResponse:
@@ -229,7 +229,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateProfileRequest'
+          $ref: '#/definitions/dto.UpdateUserProfileRequest'
       produces:
       - application/json
       responses:

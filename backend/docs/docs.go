@@ -215,7 +215,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateProfileRequest"
+                            "$ref": "#/definitions/dto.UpdateUserProfileRequest"
                         }
                     }
                 ],
@@ -374,19 +374,6 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateProfileRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string",
-                    "maxLength": 500
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 100
-                }
-            }
-        },
         "dto.UpdateUserPreferencesRequest": {
             "type": "object",
             "properties": {
@@ -417,6 +404,19 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.UpdateUserProfileRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 100
                 }
             }
         },

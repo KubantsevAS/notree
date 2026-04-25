@@ -209,7 +209,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateProfileRequest"
+                            "$ref": "#/definitions/dto.UpdateUserProfileRequest"
                         }
                     }
                 ],
@@ -368,19 +368,6 @@
                 }
             }
         },
-        "dto.UpdateProfileRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string",
-                    "maxLength": 500
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 100
-                }
-            }
-        },
         "dto.UpdateUserPreferencesRequest": {
             "type": "object",
             "properties": {
@@ -411,6 +398,19 @@
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.UpdateUserProfileRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 100
                 }
             }
         },

@@ -5,17 +5,6 @@ import (
 	"time"
 )
 
-type UpdateProfileRequest struct {
-	Username  *string `json:"username" validate:"omitempty,max=100"`
-	AvatarUrl *string `json:"avatar_url" validate:"omitempty,max=500"`
-}
-
-type UpdateUserPreferencesRequest struct {
-	Locale      *string          `json:"locale" validate:"omitempty,max=10"`
-	Timezone    *string          `json:"timezone" validate:"omitempty,max=50"`
-	Preferences *json.RawMessage `json:"preferences" validate:"omitempty,json_object" swaggertype:"object"`
-}
-
 type GetProfileResponse struct {
 	ID              string           `json:"id"`
 	Email           string           `json:"email"`
@@ -30,15 +19,26 @@ type GetProfileResponse struct {
 	UpdatedAt       *time.Time       `json:"updated_at"`
 }
 
-type UpdateUserPreferencesResponse struct {
-	Locale      *string          `json:"locale"`
-	Timezone    *string          `json:"timezone"`
-	Preferences *json.RawMessage `json:"preferences" swaggertype:"object"`
-	UpdatedAt   *time.Time       `json:"updated_at"`
+type UpdateUserProfileRequest struct {
+	Username  *string `json:"username" validate:"omitempty,max=100"`
+	AvatarUrl *string `json:"avatar_url" validate:"omitempty,max=500"`
 }
 
 type UpdateUserProfileResponse struct {
 	Username  *string    `json:"username"`
 	AvatarUrl *string    `json:"avatar_url"`
 	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+type UpdateUserPreferencesRequest struct {
+	Locale      *string          `json:"locale" validate:"omitempty,max=10"`
+	Timezone    *string          `json:"timezone" validate:"omitempty,max=50"`
+	Preferences *json.RawMessage `json:"preferences" validate:"omitempty,json_object" swaggertype:"object"`
+}
+
+type UpdateUserPreferencesResponse struct {
+	Locale      *string          `json:"locale"`
+	Timezone    *string          `json:"timezone"`
+	Preferences *json.RawMessage `json:"preferences" swaggertype:"object"`
+	UpdatedAt   *time.Time       `json:"updated_at"`
 }
