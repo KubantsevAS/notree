@@ -2,8 +2,8 @@ import '../core/ui/app.css';
 
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
 
+import { ServerTaskClientProvider, ServerTaskDevtools } from '../core/bridge';
 import { HttpRequesterFactory, HttpRequesterProvider } from '../core/network';
-import { TaskClientProvider, TaskDevtools } from '../core/server-state';
 import type { Route } from './+types/root';
 
 export const links: Route.LinksFunction = () => [
@@ -46,9 +46,9 @@ export default function App() {
 
   return (
     <HttpRequesterProvider requesterInstance={httpRequester}>
-      <TaskClientProvider>
-        {isDevMode && <TaskDevtools initialIsOpen={false} />}
-      </TaskClientProvider>
+      <ServerTaskClientProvider>
+        {isDevMode && <ServerTaskDevtools initialIsOpen={false} />}
+      </ServerTaskClientProvider>
       <Outlet />
     </HttpRequesterProvider>
   );
