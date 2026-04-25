@@ -1,4 +1,4 @@
-export class ClientException extends Error {
+export class Exception extends Error {
   public readonly name: string;
   public readonly statusCode: number;
   public readonly details?: unknown;
@@ -6,11 +6,11 @@ export class ClientException extends Error {
   constructor(message: string, statusCode: number = 0, details?: unknown) {
     super(message);
 
-    this.name = 'HttpClientException';
+    this.name = 'NetworkHttpClientException';
 
     this.statusCode = statusCode;
     this.details = details;
 
-    Object.setPrototypeOf(this, ClientException.prototype);
+    Object.setPrototypeOf(this, Exception.prototype);
   }
 }

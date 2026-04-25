@@ -1,6 +1,7 @@
+export { Exception as ClientException } from './client';
 export {
-  ClientException,
-  RequesterException,
-  RequestException,
-} from './exception';
-export { Request, RequestFactory } from './request';
+  Request,
+  Exception as RequestException,
+  RequestFactory,
+} from './request';
+export { Exception as RequesterException } from './requester';
