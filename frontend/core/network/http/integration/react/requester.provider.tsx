@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { RequesterContext } from './requester.context';
-import type { IRequesterProviderProps } from './requesterprovider.interface';
+import type { IRequesterProviderProps } from './requester.provider.interface';
 
 export const RequesterProvider: React.FC<IRequesterProviderProps> = ({
   children,

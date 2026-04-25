@@ -1,4 +1,5 @@
 export { Exception as ClientException } from './client';
+export { Exception as GeneralException } from './general';
 export {
   Request,
   Exception as RequestException,

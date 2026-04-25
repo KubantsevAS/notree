@@ -1,12 +1,8 @@
-import { Exception as ClientException } from '../client';
+import { Exception as GeneralException } from '../general';
 
-export class Exception extends ClientException {
-  public readonly name: string;
-
-  constructor(message: string, statusCode: number = 400, details?: unknown) {
-    super(message, statusCode, details);
-
-    this.name = 'NetworkHttpRequestException';
+export class Exception extends GeneralException {
+  constructor(message: string, statusCode: number = 0, details?: unknown) {
+    super('NetworkHttpRequestException', message, statusCode, details);
 
     Object.setPrototypeOf(this, Exception.prototype);
   }

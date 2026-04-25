@@ -1,12 +1,8 @@
-import { Exception as RequestException } from '../request';
+import { Exception as GeneralException } from '../general';
 
-export class Exception extends RequestException {
-  public readonly name: string;
-
+export class Exception extends GeneralException {
   constructor(message: string, statusCode: number = 0, details?: unknown) {
-    super(message, statusCode, details);
-
-    this.name = 'NetworkHttpRequesterException';
+    super('NetworkHttpRequesterException', message, statusCode, details);
 
     Object.setPrototypeOf(this, Exception.prototype);
   }

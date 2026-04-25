@@ -2,6 +2,7 @@ export type {
   IClient,
   IClientException,
   IClientResponse,
+  IGeneralException as IHttpGeneralException,
   IRequest as IHttpRequest,
   IRequester as IHttpRequester,
   IRequesterException as IHttpRequesterException,
@@ -13,6 +14,7 @@ export type {
 } from './contract';
 export {
   ClientException as HttpClientException,
+  GeneralException as HttpGeneralException,
   Request as HttpRequest,
   RequesterException as HttpRequesterException,
   RequestException as HttpRequestException,

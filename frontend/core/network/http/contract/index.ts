@@ -4,6 +4,7 @@ export type {
   IException as IClientException,
   TResponse as IClientResponse,
 } from './client';
+export type { IException as IGeneralException } from './general';
 export type {
   IRequest as IRequest,
   IException as IRequestException,

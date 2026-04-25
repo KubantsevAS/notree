@@ -1,11 +1,11 @@
-import { createContext, use } from 'react';
+import { createContext, useContext } from 'react';
 
 import type { IRequester } from '../../contract';
 
 export const RequesterContext = createContext<IRequester | null>(null);
 
 export const useRequester = (): IRequester => {
-  const context = use(RequesterContext);
+  const context = useContext(RequesterContext);
 
   if (!context) {
     throw new Error(

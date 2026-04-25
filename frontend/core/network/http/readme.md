@@ -13,7 +13,7 @@
 1.  **Contract Layer (Контракты)**
     Чистые TypeScript-интерфейсы и типы (`IRequest`, `IRequester`, `IClientResponse`, `IHttpRequesterConfig`). Все поля запроса помечены как `readonly`. Конфигурация описывается абстрактными интерфейсами без привязки к Axios.
 2.  **Implementation Layer (Реализация)**
-    Базовые реализации. Включает DTO запроса (`Request`) со встроенным механизмом безопасного клонирования, фабрику для его создания и иерархию исключений.
+    Базовые реализации. Включает DTO запроса (`Request`) со встроенным механизмом безопасного клонирования, фабрику для его создания и независимую иерархию исключений.
 3.  **Integration Layer (Интеграция)**
     Адаптеры для конкретных библиотек (Axios) и UI-фреймворков (React). Интеграция с React реализована по паттерну IoC: провайдер не знает о создании Axios-инстанса, он принимает готовый абстрактный `IRequester`.
 
@@ -43,7 +43,7 @@ async function fetchTodos() {
   try {
     const response: IClientResponse<Todo[]> = await api.get<Todo[]>('/todos');
     console.log(response.data); 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Ошибка запроса:', error);
   }
 }
@@ -138,45 +138,60 @@ requester.use(retryMiddleware);
 
 ### Создание производных экземпляров
 
-Метод `create` позволяет создать новый `Requester`, наследующий настройки текущего (удобно для микросервисов).
+Метод `create` позволяет создать новый `Requester`, наследующий базовые настройки текущего (удобно для микросервисов). Перехватчики и middleware главного API **не копируются** в новый экземпляр.
 
 ```typescript
 import { HttpRequesterFactory } from './http';
 
 const mainApi = HttpRequesterFactory.create({ baseURL: 'https://api.mysite.com/v1' });
 
-// Создаем копию с новым baseURL, перехватчики главного API НЕ копируются
-const authApi = mainApi.create({ baseURL: 'https://auth.mysite.com/v1' }, mainApi.constructor as any);
+// Создаем изолированную копию с новым baseURL
+const authApi = mainApi.create({ baseURL: 'https://auth.mysite.com/v1' });
 ```
 
 ---
 
-## 🛡️ Обработка ошибок и Сохранение Stack Trace
+## 🛡️ Обработка ошибок
 
-Модуль использует "умную" обработку ошибок. Главная задача пайплайна — **не уничтожить оригинальный Stack Trace** при оборачивании ошибок.
+Модуль использует "плоскую" (независимую) иерархию исключений. Все ошибки реализуют общий базовый контракт `IHttpException`, но при этом **не наследуются друг от друга**. Это исключает пересечение зон ответственности и делает проверки через `instanceof` предсказуемыми и строгими.
 
-*   Если в процессе выполнения произошла ошибка транспорта (например, таймаут сети), выбрасывается **оригинальная** `HttpClientException`.
-*   Если `Error Interceptors` изменили ошибку и вернули *новый объект* ошибки, пайплайн оборачивает её в `HttpRequesterException` (чтобы показать, что ошибка была модифицирована), но сохраняет оригинал в `details`.
-*   Если `Error Interceptors` вернули *ту же самую* ошибку без изменений, она пробрасывается как есть (без создания новых оберток, что сохраняет идеальный Stack Trace для дебага в консоли браузера).
+### Зоны ответственности исключений:
+1.  **`HttpClientException`** — Ошибка транспортного уровня. Выбрасывается низкоуровневым адаптером, если Axios не смог выполнить запрос (отвал сети, таймаут, сбой парсинга, ответ сервера с ошибкой).
+2.  **`HttpRequestException`** — Ошибка структуры запроса (DTO). Выбрасывается на этапе валидации или сборки объекта запроса *до* отправки в сеть (например, невалидный URL).
+3.  **`HttpRequesterException`** — Ошибка пайплайна. Выбрасывается `Requester`'ом, если ошибка транспорта была перехвачена, изменена (модифицировано сообщение или статус) в `Error Interceptors` и проброшена дальше.
+
+### Сохранение Stack Trace
+Пайплайн спроектирован так, чтобы минимизировать обертки:
+* Если `Error Interceptors` вернули *ту же самую* ошибку без изменений, она пробрасывается как есть.
+* Если интерцептор вернул *новый объект* ошибки, пайплайн оборачивает его в `HttpRequesterException`, но сохраняет оригинал в свойство `details`.
+
+### Пример обработки в коде:
 
 ```typescript
-import { HttpClientException, HttpRequesterException } from './http';
+import { 
+  HttpClientException, 
+  HttpRequesterException, 
+  HttpRequestException 
+} from './http';
 
 try {
   await requester.get('/protected');
-} catch (error) {
+} catch (error: unknown) {
+  // Порядок проверок важен! Благодаря плоской иерархии они не перекрывают друг друга.
+
   if (error instanceof HttpRequesterException) {
-    // Ошибка была изменена перехватчиками. Оригинал в error.details
+    // Ошибка была изменена перехватчиками пайплайна. 
+    // Оригинальная ошибка доступна в error.details
     console.error('Модифицированная ошибка пайплайна:', error.message);
   } 
   else if (error instanceof HttpClientException) {
-    // Оригинальная ошибка сети/транспорта. 
+    // Чистая ошибка транспорта/сети. 
     // Stack Trace в консоли будет указывать прямо на место падения!
     console.error(`Транспортная ошибка [${error.statusCode}]:`, error.message);
-    
-    if (error.details) {
-      console.log('Дополнительные данные:', error.details);
-    }
+  }
+  else if (error instanceof HttpRequestException) {
+    // Ошибка сборки или валидации DTO запроса
+    console.error(`Ошибка запроса [${error.statusCode}]:`, error.message);
   }
 }
 ```
@@ -185,7 +200,8 @@ try {
 
 ## 📚 Справочник API (Экспорты)
 
-### Типы (Contracts)
+### Базовые типы (Contracts)
+*   `IHttpException` — Базовый интерфейс для всех исключений модуля (`message`, `statusCode`, `details?`).
 *   `IRequest<TData>` — Структура исходящего запроса (строго `readonly`).
 *   `IClientResponse<T>` — Структура ответа (`{ data: T, status: number }`).
 *   `IHttpRequesterConfig` — Абстрактный интерфейс конфигурации (`baseURL`, `headers`, `timeout`). Не содержит типов Axios.
@@ -199,9 +215,10 @@ try {
     *   **`clone(partial: Partial<IRequest<TData>>): HttpRequest<TData>`** — Создает новый экземпляр запроса, сливая текущие данные с переданными изменениями.
 
 ### Классы (Исключения)
-*   `HttpClientException` — Базовая ошибка транспорта (наследует `Error`).
-*   `HttpRequestException` — Ошибка уровня запроса.
-*   `HttpRequesterException` — Ошибка пайплайна Requester'а (содержит измененную ошибку в `details`).
+Все исключения независимы друг от друга (не наследуются по цепочке), но имеют идентичную структуру.
+*   `HttpClientException` — Ошибка транспортного уровня (дефолтный `statusCode: 0`).
+*   `HttpRequestException` — Ошибка уровня валидации DTO запроса (дефолтный `statusCode: 400`).
+*   `HttpRequesterException` — Ошибка пайплайна Requester'а. Содержит исходную ошибку в `details`.
 
 ### Интеграция (Скрытая под капотом)
 *   `HttpClient` — Низкоуровневый адаптер (реализует `IClient`).

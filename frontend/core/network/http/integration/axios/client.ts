@@ -8,9 +8,7 @@ import {
 import { ClientException } from '../../implementation';
 
 export class Client implements IClient {
-  constructor(private readonly instance: AxiosInstance) {
-    this.instance = instance;
-  }
+  constructor(private readonly instance: AxiosInstance) {}
 
   async request<T>(
     method: TRequestMethod,

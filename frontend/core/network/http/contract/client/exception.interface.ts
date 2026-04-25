@@ -1,5 +1,4 @@
-export interface IException extends Error {
-  message: string;
-  statusCode: number;
-  details?: unknown;
-}
+import type { IException as IGeneralException } from '../general';
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface IException extends IGeneralException {}
