@@ -13,36 +13,21 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash, username)
-VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at
+INSERT INTO users (email, password_hash)
+VALUES ($1, $2)
+RETURNING id
 `
 
 type CreateUserParams struct {
-	Email        string      `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	Username     pgtype.Text `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash, arg.Username)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Username,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.AvatarUrl,
-		&i.Timezone,
-		&i.Locale,
-		&i.Preferences,
-		&i.IsEmailVerified,
-		&i.LastLoginAt,
-		&i.DeletedAt,
-	)
-	return i, err
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one

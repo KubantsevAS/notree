@@ -45,16 +45,15 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		return nil, err
 	}
 
-	user, err := s.userDb.CreateUser(ctx, user.CreateUserParams{
+	userID, err := s.userDb.CreateUser(ctx, user.CreateUserParams{
 		Email:        req.Email,
 		PasswordHash: string(passwordHash),
-		Username:     pgtype.Text{String: req.Username, Valid: true},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return s.generateTokenPair(ctx, user.ID)
+	return s.generateTokenPair(ctx, userID)
 }
 
 func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenPair, error) {
