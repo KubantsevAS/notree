@@ -33,7 +33,7 @@ func NewAuthHandler(s *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.RegisterRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -62,17 +62,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Param        request body dto.LoginRequest true "User credentials"
 // @Success      200  {string}  string "Success"
 // @Failure      400  {string}  string "Invalid credentials"
+// @Failure      401  {string}  string "Invalid credentials"
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.LoginRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	tokens, err := h.Service.Login(r.Context(), body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
