@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
@@ -133,4 +134,36 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 	}
 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
+
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.ChangePasswordRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.Service.UpdateUserPassword(r.Context(), userID, body); err != nil {
+		if errors.Is(err, service.ErrWrongCredentials) {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		http.Error(w, service.ErrInternalServerError.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password updated"}, http.StatusOK)
 }

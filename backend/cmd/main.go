@@ -96,6 +96,7 @@ func main() {
 				r.Get("/me", userHandler.GetProfile)
 				r.Patch("/me", userHandler.UpdateProfile)
 				r.Patch("/me/preference", userHandler.UpdatePreferences)
+				r.Patch("/me/change-password", userHandler.ChangePassword)
 			})
 		})
 	})

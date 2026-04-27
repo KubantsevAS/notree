@@ -7,6 +7,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -82,4 +83,27 @@ func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID,
 	}
 
 	return response, nil
+}
+
+func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, req *dto.ChangePasswordRequest) error {
+	hashRow, err := s.db.GetUserPasswordHashById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(hashRow), []byte(req.OldPassword)); err != nil {
+		return ErrWrongCredentials
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.UpdateUserPasswordParams{
+		PasswordHash: string(passwordHash),
+		ID:           id,
+	}
+
+	return s.db.UpdateUserPassword(ctx, dbParams)
 }
