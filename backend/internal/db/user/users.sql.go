@@ -98,6 +98,24 @@ func (q *Queries) GetUserPasswordHashById(ctx context.Context, id pgtype.UUID) (
 	return password_hash, err
 }
 
+const setResetPasswordToken = `-- name: SetResetPasswordToken :exec
+UPDATE users
+SET 
+    reset_password_token = $1, 
+    reset_password_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2
+`
+
+type SetResetPasswordTokenParams struct {
+	ResetPasswordToken pgtype.Text `json:"reset_password_token"`
+	ID                 pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetResetPasswordToken(ctx context.Context, arg SetResetPasswordTokenParams) error {
+	_, err := q.db.Exec(ctx, setResetPasswordToken, arg.ResetPasswordToken, arg.ID)
+	return err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET

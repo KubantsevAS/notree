@@ -44,3 +44,10 @@ WHERE id = $2;
 -- name: GetUserPasswordHashById :one
 SELECT password_hash FROM users 
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: SetResetPasswordToken :exec
+UPDATE users
+SET 
+    reset_password_token = $1, 
+    reset_password_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2;
