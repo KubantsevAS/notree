@@ -86,6 +86,18 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (UsersPublic,
 	return i, err
 }
 
+const getUserPasswordHashById = `-- name: GetUserPasswordHashById :one
+SELECT password_hash FROM users 
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserPasswordHashById(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getUserPasswordHashById, id)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET

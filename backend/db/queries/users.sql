@@ -40,3 +40,7 @@ UPDATE users
 SET
     password_hash = $1, reset_password_token = NULL, reset_password_token_expires_at = NULL
 WHERE id = $2;
+
+-- name: GetUserPasswordHashById :one
+SELECT password_hash FROM users 
+WHERE id = $1 AND deleted_at IS NULL;
