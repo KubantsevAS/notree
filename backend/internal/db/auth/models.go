@@ -80,19 +80,23 @@ type RefreshToken struct {
 }
 
 type User struct {
-	ID              pgtype.UUID        `json:"id"`
-	Email           string             `json:"email"`
-	PasswordHash    string             `json:"password_hash"`
-	Username        pgtype.Text        `json:"username"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	AvatarUrl       pgtype.Text        `json:"avatar_url"`
-	Timezone        pgtype.Text        `json:"timezone"`
-	Locale          pgtype.Text        `json:"locale"`
-	Preferences     json.RawMessage    `json:"preferences"`
-	IsEmailVerified pgtype.Bool        `json:"is_email_verified"`
-	LastLoginAt     pgtype.Timestamptz `json:"last_login_at"`
-	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	ID                          pgtype.UUID        `json:"id"`
+	Email                       string             `json:"email"`
+	PasswordHash                string             `json:"password_hash"`
+	Username                    pgtype.Text        `json:"username"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AvatarUrl                   pgtype.Text        `json:"avatar_url"`
+	Timezone                    pgtype.Text        `json:"timezone"`
+	Locale                      pgtype.Text        `json:"locale"`
+	Preferences                 json.RawMessage    `json:"preferences"`
+	IsEmailVerified             pgtype.Bool        `json:"is_email_verified"`
+	LastLoginAt                 pgtype.Timestamptz `json:"last_login_at"`
+	DeletedAt                   pgtype.Timestamptz `json:"deleted_at"`
+	VerificationToken           pgtype.Text        `json:"verification_token"`
+	VerificationTokenExpiresAt  pgtype.Timestamptz `json:"verification_token_expires_at"`
+	ResetPasswordToken          pgtype.Text        `json:"reset_password_token"`
+	ResetPasswordTokenExpiresAt pgtype.Timestamptz `json:"reset_password_token_expires_at"`
 }
 
 type UsersPublic struct {

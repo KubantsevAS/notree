@@ -31,7 +31,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at FROM users
+SELECT id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at, verification_token, verification_token_expires_at, reset_password_token, reset_password_token_expires_at FROM users
 WHERE email = $1
 LIMIT 1
 `
@@ -53,6 +53,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsEmailVerified,
 		&i.LastLoginAt,
 		&i.DeletedAt,
+		&i.VerificationToken,
+		&i.VerificationTokenExpiresAt,
+		&i.ResetPasswordToken,
+		&i.ResetPasswordTokenExpiresAt,
 	)
 	return i, err
 }
@@ -80,6 +84,23 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (UsersPublic,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET
+    password_hash = $1, reset_password_token = NULL, reset_password_token_expires_at = NULL
+WHERE id = $2
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string      `json:"password_hash"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
+	return err
 }
 
 const updateUserPreferences = `-- name: UpdateUserPreferences :one
