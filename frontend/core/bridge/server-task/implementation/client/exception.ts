@@ -1,16 +1,8 @@
-import type { IClientException } from '../../contract';
+import { Exception as GeneralException } from '../general';
 
-export class Exception extends Error implements IClientException {
-  public readonly code: string;
-  public readonly timestamp: Date;
-
-  constructor(message: string, code: string) {
-    super(message);
-
-    this.name = 'BridgeServerTaskClientException';
-
-    this.code = code;
-    this.timestamp = new Date();
+export class Exception extends GeneralException {
+  constructor(message: string, code: string, details?: unknown) {
+    super('BridgeServerTaskClientException', message, code, details);
 
     Object.setPrototypeOf(this, Exception.prototype);
   }

@@ -1,12 +1,16 @@
-import type { IQueryException } from '../../contract';
-import { Exception as ClientException } from '../client';
+import { Exception as GeneralException } from '../general';
 
-export class Exception extends ClientException implements IQueryException {
+export class Exception extends GeneralException {
   public readonly queryKey: unknown[];
 
-  constructor(message: string, code: string, queryKey: unknown[]) {
-    super(message, code);
-    this.name = 'BridgeServerTaskQueryException';
+  constructor(
+    message: string,
+    code: string,
+    queryKey: unknown[],
+    details?: unknown,
+  ) {
+    super('BridgeServerTaskQueryException', message, code, details);
+
     this.queryKey = queryKey;
 
     Object.setPrototypeOf(this, Exception.prototype);

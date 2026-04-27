@@ -3,6 +3,7 @@ export type {
   IConfig as IClientConfig,
   IException as IClientException,
 } from './client';
+export type { IException as IGeneralException } from './general';
 export type {
   IException as IMutationException,
   IParams as IMutationParams,

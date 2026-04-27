@@ -2,5 +2,9 @@ export {
   DefaultConfig as ClientDefaultConfig,
   Exception as ClientException,
 } from './client';
+export {
+  Exception as GeneralException,
+  normalizeException as normalizeGeneralException,
+} from './general';
 export { Exception as MutationException } from './mutation';
 export { Exception as QueryException } from './query';

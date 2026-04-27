@@ -1,5 +1,5 @@
-import type { IException as IClientException } from '../client/exception.interface';
+import type { IException as IGeneralException } from '../general/exception';
 
-export interface IException extends IClientException {
+export interface IException extends IGeneralException {
   queryKey: unknown[];
 }

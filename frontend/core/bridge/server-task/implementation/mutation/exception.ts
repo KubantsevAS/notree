@@ -1,7 +1,6 @@
-import type { IMutationException } from '../../contract';
-import { Exception as ClientException } from '../client';
+import { Exception as GeneralException } from '../general';
 
-export class Exception extends ClientException implements IMutationException {
+export class Exception extends GeneralException {
   public readonly mutationKey?: unknown[];
   public readonly variables?: unknown;
 
@@ -10,9 +9,10 @@ export class Exception extends ClientException implements IMutationException {
     code: string,
     mutationKey?: unknown[],
     variables?: unknown,
+    details?: unknown,
   ) {
-    super(message, code);
-    this.name = 'BridgeServerTaskMutationException';
+    super('BridgeServerTaskMutationException', message, code, details);
+
     this.mutationKey = mutationKey;
     this.variables = variables;
 
