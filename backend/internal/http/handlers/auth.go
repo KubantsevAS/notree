@@ -129,3 +129,19 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	httputil.ClearCookie(w, "refresh_token")
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.ForgotPasswordRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Service.ForgotPassword(r.Context(), body); err != nil {
+		http.Error(w, service.ErrInternalServerError.Error(), http.StatusInternalServerError)
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password reset link has been sent"}, http.StatusOK)
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {}
