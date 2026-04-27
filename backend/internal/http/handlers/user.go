@@ -165,5 +165,5 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, map[string]string{"message": "password_updated"}, http.StatusOK)
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password updated"}, http.StatusOK)
 }

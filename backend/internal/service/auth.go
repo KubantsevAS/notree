@@ -10,6 +10,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/db/auth"
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -121,4 +122,29 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
+	hasRow, err := s.userDb.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil
+	}
+
+	token, err := jwt.GenerateRefreshToken()
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.SetResetPasswordTokenParams{
+		ResetPasswordToken: httputil.PgTextFromString(&token),
+		ID:                 hasRow.ID,
+	}
+
+	if err := s.userDb.SetResetPasswordToken(ctx, dbParams); err != nil {
+		return err
+	}
+
+	//TODO Mail service
+
+	return nil
 }
