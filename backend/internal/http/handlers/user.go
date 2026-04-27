@@ -87,7 +87,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.Service.UpdateUserProfile(r.Context(), userID, *body)
+	response, err := h.Service.UpdateUserProfile(r.Context(), userID, body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -127,7 +127,7 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response, err := h.Service.UpdateUserPreferences(r.Context(), userID, *body)
+	response, err := h.Service.UpdateUserPreferences(r.Context(), userID, body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -165,5 +165,5 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteResponseJSON(w, map[string]string{"message": "password updated"}, http.StatusOK)
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password_updated"}, http.StatusOK)
 }

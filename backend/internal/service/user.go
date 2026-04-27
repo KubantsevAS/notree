@@ -41,10 +41,10 @@ func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetP
 	return response, nil
 }
 
-func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, arg dto.UpdateUserProfileRequest) (dto.UpdateUserProfileResponse, error) {
+func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserProfileRequest) (dto.UpdateUserProfileResponse, error) {
 	dbParams := user.UpdateUserProfileParams{
-		Username:  httputil.PgTextFromString(arg.Username),
-		AvatarUrl: httputil.PgTextFromString(arg.AvatarUrl),
+		Username:  httputil.PgTextFromString(req.Username),
+		AvatarUrl: httputil.PgTextFromString(req.AvatarUrl),
 		ID:        id,
 	}
 
@@ -62,11 +62,11 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, arg
 	return response, nil
 }
 
-func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, arg dto.UpdateUserPreferencesRequest) (dto.UpdateUserPreferencesResponse, error) {
+func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserPreferencesRequest) (dto.UpdateUserPreferencesResponse, error) {
 	dbParams := user.UpdateUserPreferencesParams{
-		Locale:      httputil.PgTextFromString(arg.Locale),
-		Timezone:    httputil.PgTextFromString(arg.Timezone),
-		Preferences: httputil.RawMsgFromPtr(arg.Preferences),
+		Locale:      httputil.PgTextFromString(req.Locale),
+		Timezone:    httputil.PgTextFromString(req.Timezone),
+		Preferences: httputil.RawMsgFromPtr(req.Preferences),
 		ID:          id,
 	}
 
