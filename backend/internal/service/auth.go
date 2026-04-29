@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
@@ -11,6 +12,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -20,6 +22,7 @@ type AuthService struct {
 	config *config.Config
 	db     *auth.Queries
 	userDb *user.Queries
+	mailer *mailer.ConsoleMailer
 }
 
 type TokenPair struct {
@@ -27,11 +30,12 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries) *AuthService {
+func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries, mailer *mailer.ConsoleMailer) *AuthService {
 	return &AuthService{
 		config: c,
 		db:     authDb,
 		userDb: userDb,
+		mailer: mailer,
 	}
 }
 
@@ -125,7 +129,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
-	hasRow, err := s.userDb.GetUserByEmail(ctx, req.Email)
+	userRecord, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil
 	}
@@ -137,14 +141,22 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	dbParams := user.SetResetPasswordTokenParams{
 		ResetPasswordToken: httputil.PgTextFromString(&token),
-		ID:                 hasRow.ID,
+		ID:                 userRecord.ID,
 	}
 
 	if err := s.userDb.SetResetPasswordToken(ctx, dbParams); err != nil {
 		return err
 	}
 
-	//TODO Mail service
+	go func() {
+		if err := s.mailer.SendPasswordReset(userRecord.Email, token); err != nil {
+			log.Printf("Failed to send email to %s: %v", userRecord.Email, err)
+		}
+	}()
 
+	return nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
 	return nil
 }

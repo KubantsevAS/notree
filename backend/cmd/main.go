@@ -34,6 +34,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
+	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
@@ -72,8 +73,10 @@ func main() {
 	nodesDB := sqlcNode.New(dbpool)
 	usersDB := sqlcUser.New(dbpool)
 
+	mailerService := mailer.NewConsoleMailer()
+
 	nodeService := service.NewNodeService(nodesDB)
-	authService := service.NewAuthService(cfg, authDB, usersDB)
+	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
 	userService := service.NewUserService(usersDB)
 
 	authHandler := handlers.NewAuthHandler(authService)
@@ -87,6 +90,8 @@ func main() {
 			r.Post("/login", authHandler.Login)
 			r.Post("/refresh-tokens", authHandler.RefreshTokens)
 			r.Post("/logout", authHandler.Logout)
+			r.Post("forgot-password", authHandler.ForgotPassword)
+			r.Post("reset-password", authHandler.ResetPassword)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
