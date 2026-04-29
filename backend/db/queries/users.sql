@@ -51,3 +51,9 @@ SET
     reset_password_token = $1, 
     reset_password_token_expires_at = NOW() + INTERVAL '15 minutes'
 WHERE id = $2;
+
+-- name: GetUserIdByResetPasswordToken :one
+SELECT id FROM users
+WHERE reset_password_token = $1
+    AND reset_password_token_expires_at > NOW()
+    AND deleted_at IS NULL;

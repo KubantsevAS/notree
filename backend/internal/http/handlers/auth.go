@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 
@@ -144,4 +145,21 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, map[string]string{"message": "password reset link has been sent"}, http.StatusOK)
 }
 
-func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {}
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.ResetPasswordRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Service.ResetPassword(r.Context(), body); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password has been reset successfully"}, http.StatusOK)
+}

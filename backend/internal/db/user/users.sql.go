@@ -86,6 +86,20 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (UsersPublic,
 	return i, err
 }
 
+const getUserIdByResetPasswordToken = `-- name: GetUserIdByResetPasswordToken :one
+SELECT id FROM users
+WHERE reset_password_token = $1
+    AND reset_password_token_expires_at > NOW()
+    AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserIdByResetPasswordToken(ctx context.Context, resetPasswordToken pgtype.Text) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getUserIdByResetPasswordToken, resetPasswordToken)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getUserPasswordHashById = `-- name: GetUserPasswordHashById :one
 SELECT password_hash FROM users 
 WHERE id = $1 AND deleted_at IS NULL

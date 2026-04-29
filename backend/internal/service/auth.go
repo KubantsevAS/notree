@@ -129,7 +129,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
-	userRecord, err := s.userDb.GetUserByEmail(ctx, req.Email)
+	userRow, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil
 	}
@@ -141,7 +141,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	dbParams := user.SetResetPasswordTokenParams{
 		ResetPasswordToken: httputil.PgTextFromString(&token),
-		ID:                 userRecord.ID,
+		ID:                 userRow.ID,
 	}
 
 	if err := s.userDb.SetResetPasswordToken(ctx, dbParams); err != nil {
@@ -149,14 +149,29 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	}
 
 	go func() {
-		if err := s.mailer.SendPasswordReset(userRecord.Email, token); err != nil {
-			log.Printf("Failed to send email to %s: %v", userRecord.Email, err)
+		if err := s.mailer.SendPasswordReset(userRow.Email, token); err != nil {
+			log.Printf("Failed to send email to %s: %v", userRow.Email, err)
 		}
 	}()
 
 	return nil
 }
 
-func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
-	return nil
+func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error {
+	userId, err := s.userDb.GetUserIdByResetPasswordToken(ctx, httputil.PgTextFromString(&req.Token))
+	if err != nil {
+		return err
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.UpdateUserPasswordParams{
+		PasswordHash: string(passwordHash),
+		ID:           userId,
+	}
+
+	return s.userDb.UpdateUserPassword(ctx, dbParams)
 }
