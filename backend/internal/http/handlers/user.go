@@ -136,6 +136,18 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
+// ChangePassword godoc
+// @Summary      Change user password
+// @Description  Updates authenticated user's password. Requires old password for verification.
+// @Tags         User
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ChangePasswordRequest true "Old and new passwords"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"password updated\"}"
+// @Failure      400 {object} string "Bad Request"
+// @Failure      401 {object} string "Unauthorized (Missing or invalid token, or wrong old password)"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /profile/me/change-password [patch]
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.ChangePasswordRequest](r)
 	if err != nil {

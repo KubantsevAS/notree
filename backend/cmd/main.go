@@ -90,8 +90,8 @@ func main() {
 			r.Post("/login", authHandler.Login)
 			r.Post("/refresh-tokens", authHandler.RefreshTokens)
 			r.Post("/logout", authHandler.Logout)
-			r.Post("forgot-password", authHandler.ForgotPassword)
-			r.Post("reset-password", authHandler.ResetPassword)
+			r.Post("/forgot-password", authHandler.ForgotPassword)
+			r.Post("/reset-password", authHandler.ResetPassword)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))

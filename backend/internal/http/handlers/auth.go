@@ -131,6 +131,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ForgotPassword godoc
+// @Summary      Request password reset
+// @Description  Sends a password reset link to the provided email address. Always returns 200 OK to prevent email enumeration.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ForgotPasswordRequest true "User email"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"password reset link has been sent\"}"
+// @Failure      400 {object} string "Bad Request"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /auth/forgot-password [post]
 func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.ForgotPasswordRequest](r)
 	if err != nil {
@@ -140,11 +151,23 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.Service.ForgotPassword(r.Context(), body); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	httputil.WriteResponseJSON(w, map[string]string{"message": "password reset link has been sent"}, http.StatusOK)
 }
 
+// ResetPassword godoc
+// @Summary      Reset password with token
+// @Description  Sets a new password using the token received from the forgot-password email.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ResetPasswordRequest true "Reset token and new password"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"password has been reset successfully\"}"
+// @Failure      400 {object} string "Bad Request (Invalid or expired token)"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /auth/reset-password [post]
 func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.ResetPasswordRequest](r)
 	if err != nil {
