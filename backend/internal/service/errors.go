@@ -8,4 +8,5 @@ var (
 	ErrUserExist           = errors.New("User with that email already exist")
 	ErrWrongCredentials    = errors.New("Invalid Credentials")
 	ErrInvalidRefreshToken = errors.New("Invalid or expired refresh token")
+	ErrInternalServerError = errors.New("Internal server error")
 )

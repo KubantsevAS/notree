@@ -34,6 +34,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
+	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
@@ -72,9 +73,11 @@ func main() {
 	nodesDB := sqlcNode.New(dbpool)
 	usersDB := sqlcUser.New(dbpool)
 
+	mailerService := mailer.NewConsoleMailer()
+
 	nodeService := service.NewNodeService(nodesDB)
-	authService := service.NewAuthService(cfg, authDB, usersDB)
-	userService := service.NewUserService(usersDB)
+	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
+	userService := service.NewUserService(usersDB, mailerService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
@@ -87,6 +90,8 @@ func main() {
 			r.Post("/login", authHandler.Login)
 			r.Post("/refresh-tokens", authHandler.RefreshTokens)
 			r.Post("/logout", authHandler.Logout)
+			r.Post("/forgot-password", authHandler.ForgotPassword)
+			r.Post("/reset-password", authHandler.ResetPassword)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
@@ -96,6 +101,9 @@ func main() {
 				r.Get("/me", userHandler.GetProfile)
 				r.Patch("/me", userHandler.UpdateProfile)
 				r.Patch("/me/preference", userHandler.UpdatePreferences)
+				r.Patch("/me/change-password", userHandler.ChangePassword)
+				r.Post("/me/send-verification", userHandler.SendVerificationToken)
+				r.Post("/me/verify-email", userHandler.VerifyEmailByToken)
 			})
 		})
 	})

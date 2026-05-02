@@ -1,5 +1,22 @@
 basePath: /api
 definitions:
+  dto.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  dto.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   dto.GetProfileResponse:
     properties:
       avatar_url:
@@ -42,12 +59,20 @@ definitions:
       password:
         minLength: 8
         type: string
-      username:
-        type: string
     required:
     - email
     - password
-    - username
+    type: object
+  dto.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
     type: object
   dto.UpdateUserPreferencesRequest:
     properties:
@@ -89,6 +114,13 @@ definitions:
       username:
         type: string
     type: object
+  dto.VerifyEmailByTokenRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -103,6 +135,39 @@ info:
   title: Notree API
   version: "0.1"
 paths:
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset link to the provided email address. Always
+        returns 200 OK to prevent email enumeration.
+      parameters:
+      - description: User email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"password reset link has been sent\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Request password reset
+      tags:
+      - Auth
   /auth/login:
     post:
       consumes:
@@ -124,6 +189,10 @@ paths:
           schema:
             type: string
         "400":
+          description: Invalid credentials
+          schema:
+            type: string
+        "401":
           description: Invalid credentials
           schema:
             type: string
@@ -194,6 +263,39 @@ paths:
       summary: User registration
       tags:
       - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Sets a new password using the token received from the forgot-password
+        email.
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"password has been reset successfully\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request (Invalid or expired token)
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Reset password with token
+      tags:
+      - Auth
   /profile/me:
     get:
       description: Returns the profile data of an authorized user
@@ -252,6 +354,43 @@ paths:
       summary: Update user profile
       tags:
       - User
+  /profile/me/change-password:
+    patch:
+      consumes:
+      - application/json
+      description: Updates authenticated user's password. Requires old password for
+        verification.
+      parameters:
+      - description: Old and new passwords
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"password updated\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized (Missing or invalid token, or wrong old password)
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Change user password
+      tags:
+      - User
   /profile/me/preference:
     patch:
       consumes:
@@ -284,6 +423,64 @@ paths:
           schema:
             type: string
       summary: Update user preferences
+      tags:
+      - User
+  /users/me/send-verification:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"email verification link has been
+            sent\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Send email verification token
+      tags:
+      - User
+  /users/me/verify-email:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.VerifyEmailByTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"email successfully verified\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid or expired code
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Verify email with token
       tags:
       - User
 securityDefinitions:

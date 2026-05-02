@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 
@@ -33,7 +34,7 @@ func NewAuthHandler(s *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.RegisterRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -62,17 +63,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Param        request body dto.LoginRequest true "User credentials"
 // @Success      200  {string}  string "Success"
 // @Failure      400  {string}  string "Invalid credentials"
+// @Failure      401  {string}  string "Invalid credentials"
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.LoginRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	tokens, err := h.Service.Login(r.Context(), body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -127,4 +129,62 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	httputil.ClearCookie(w, "access_token")
 	httputil.ClearCookie(w, "refresh_token")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ForgotPassword godoc
+// @Summary      Request password reset
+// @Description  Sends a password reset link to the provided email address. Always returns 200 OK to prevent email enumeration.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ForgotPasswordRequest true "User email"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"password reset link has been sent\"}"
+// @Failure      400 {object} string "Bad Request"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.ForgotPasswordRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// TODO Implement 429 code
+
+	if err := h.Service.ForgotPassword(r.Context(), body); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password reset link has been sent"}, http.StatusOK)
+}
+
+// ResetPassword godoc
+// @Summary      Reset password with token
+// @Description  Sets a new password using the token received from the forgot-password email.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ResetPasswordRequest true "Reset token and new password"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"password has been reset successfully\"}"
+// @Failure      400 {object} string "Bad Request (Invalid or expired token)"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.ResetPasswordRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Service.ResetPassword(r.Context(), body); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "password has been reset successfully"}, http.StatusOK)
 }

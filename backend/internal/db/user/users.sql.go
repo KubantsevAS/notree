@@ -13,40 +13,25 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash, username)
-VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at
+INSERT INTO users (email, password_hash)
+VALUES ($1, $2)
+RETURNING id
 `
 
 type CreateUserParams struct {
-	Email        string      `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	Username     pgtype.Text `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash, arg.Username)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Username,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.AvatarUrl,
-		&i.Timezone,
-		&i.Locale,
-		&i.Preferences,
-		&i.IsEmailVerified,
-		&i.LastLoginAt,
-		&i.DeletedAt,
-	)
-	return i, err
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at FROM users
+SELECT id, email, password_hash, username, created_at, updated_at, avatar_url, timezone, locale, preferences, is_email_verified, last_login_at, deleted_at, verification_token, verification_token_expires_at, reset_password_token, reset_password_token_expires_at FROM users
 WHERE email = $1
 LIMIT 1
 `
@@ -68,6 +53,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsEmailVerified,
 		&i.LastLoginAt,
 		&i.DeletedAt,
+		&i.VerificationToken,
+		&i.VerificationTokenExpiresAt,
+		&i.ResetPasswordToken,
+		&i.ResetPasswordTokenExpiresAt,
 	)
 	return i, err
 }
@@ -95,6 +84,85 @@ func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (UsersPublic,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUserIdByResetPasswordToken = `-- name: GetUserIdByResetPasswordToken :one
+SELECT id FROM users
+WHERE reset_password_token = $1
+    AND reset_password_token_expires_at > NOW()
+    AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserIdByResetPasswordToken(ctx context.Context, resetPasswordToken pgtype.Text) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getUserIdByResetPasswordToken, resetPasswordToken)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getUserPasswordHashById = `-- name: GetUserPasswordHashById :one
+SELECT password_hash FROM users 
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserPasswordHashById(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getUserPasswordHashById, id)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
+}
+
+const setResetPasswordToken = `-- name: SetResetPasswordToken :exec
+UPDATE users
+SET 
+    reset_password_token = $1, 
+    reset_password_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2
+`
+
+type SetResetPasswordTokenParams struct {
+	ResetPasswordToken pgtype.Text `json:"reset_password_token"`
+	ID                 pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetResetPasswordToken(ctx context.Context, arg SetResetPasswordTokenParams) error {
+	_, err := q.db.Exec(ctx, setResetPasswordToken, arg.ResetPasswordToken, arg.ID)
+	return err
+}
+
+const setVerificationToken = `-- name: SetVerificationToken :exec
+UPDATE users
+SET 
+    verification_token = $1, 
+    verification_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2
+`
+
+type SetVerificationTokenParams struct {
+	VerificationToken pgtype.Text `json:"verification_token"`
+	ID                pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetVerificationToken(ctx context.Context, arg SetVerificationTokenParams) error {
+	_, err := q.db.Exec(ctx, setVerificationToken, arg.VerificationToken, arg.ID)
+	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET
+    password_hash = $1, reset_password_token = NULL, reset_password_token_expires_at = NULL
+WHERE id = $2
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string      `json:"password_hash"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
+	return err
 }
 
 const updateUserPreferences = `-- name: UpdateUserPreferences :one
@@ -169,4 +237,28 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	var i UpdateUserProfileRow
 	err := row.Scan(&i.Username, &i.AvatarUrl, &i.UpdatedAt)
 	return i, err
+}
+
+const verifyEmailByToken = `-- name: VerifyEmailByToken :one
+UPDATE users
+SET 
+    is_email_verified = true, 
+    verification_token = NULL, 
+    verification_token_expires_at = NULL
+WHERE id = $1 
+  AND verification_token = $2 
+  AND verification_token_expires_at > NOW()
+RETURNING id
+`
+
+type VerifyEmailByTokenParams struct {
+	ID                pgtype.UUID `json:"id"`
+	VerificationToken pgtype.Text `json:"verification_token"`
+}
+
+func (q *Queries) VerifyEmailByToken(ctx context.Context, arg VerifyEmailByTokenParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmailByToken, arg.ID, arg.VerificationToken)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }

@@ -3,7 +3,23 @@ package httputil
 import (
 	"context"
 	"errors"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+func GetUserPgUUIDFromCtx(ctx context.Context) (pgtype.UUID, error) {
+	userIDContext, err := GetUserIDFromCtx(ctx)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+
+	userID, err := PgUUIDFromString(&userIDContext)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+
+	return userID, nil
+}
 
 func GetUserIDFromCtx(ctx context.Context) (string, error) {
 	val := ctx.Value("user_id")

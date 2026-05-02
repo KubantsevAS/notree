@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db/auth"
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +22,7 @@ type AuthService struct {
 	config *config.Config
 	db     *auth.Queries
 	userDb *user.Queries
+	mailer mailer.Mailer
 }
 
 type TokenPair struct {
@@ -26,11 +30,12 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries) *AuthService {
+func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries, mailer mailer.Mailer) *AuthService {
 	return &AuthService{
 		config: c,
 		db:     authDb,
 		userDb: userDb,
+		mailer: mailer,
 	}
 }
 
@@ -45,16 +50,15 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		return nil, err
 	}
 
-	user, err := s.userDb.CreateUser(ctx, user.CreateUserParams{
+	userID, err := s.userDb.CreateUser(ctx, user.CreateUserParams{
 		Email:        req.Email,
 		PasswordHash: string(passwordHash),
-		Username:     pgtype.Text{String: req.Username, Valid: true},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return s.generateTokenPair(ctx, user.ID)
+	return s.generateTokenPair(ctx, userID)
 }
 
 func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenPair, error) {
@@ -101,7 +105,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		return nil, err
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken()
+	refreshToken, err := httputil.GenerateSecureToken()
 	if err != nil {
 		return nil, err
 	}
@@ -122,4 +126,54 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
+	userRow, err := s.userDb.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil
+	}
+
+	// TODO 429 status code
+
+	token, err := httputil.GenerateSecureToken()
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.SetResetPasswordTokenParams{
+		ResetPasswordToken: httputil.PgTextFromString(&token),
+		ID:                 userRow.ID,
+	}
+
+	if err := s.userDb.SetResetPasswordToken(ctx, dbParams); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := s.mailer.SendPasswordReset(context.Background(), userRow.Email, token); err != nil {
+			log.Printf("Failed to send email to %s: %v", userRow.Email, err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error {
+	userId, err := s.userDb.GetUserIdByResetPasswordToken(ctx, httputil.PgTextFromString(&req.Token))
+	if err != nil {
+		return err
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.UpdateUserPasswordParams{
+		PasswordHash: string(passwordHash),
+		ID:           userId,
+	}
+
+	return s.userDb.UpdateUserPassword(ctx, dbParams)
 }
