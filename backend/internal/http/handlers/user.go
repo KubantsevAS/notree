@@ -31,13 +31,7 @@ func NewUserHandler(s *service.UserService) *UserHandler {
 // @Failure     500 {string} string "Internal Server Error"
 // @Router      /profile/me [get]
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -75,13 +69,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -115,13 +103,7 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -155,13 +137,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := httputil.PgUUIDFromString(&userIDContext)
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -172,7 +148,6 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-
 		http.Error(w, service.ErrInternalServerError.Error(), http.StatusInternalServerError)
 		return
 	}

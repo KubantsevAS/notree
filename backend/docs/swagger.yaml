@@ -66,6 +66,7 @@ definitions:
   dto.ResetPasswordRequest:
     properties:
       new_password:
+        minLength: 8
         type: string
       token:
         type: string

@@ -651,7 +651,8 @@ const docTemplate = `{
             ],
             "properties": {
                 "new_password": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 8
                 },
                 "token": {
                     "type": "string"
