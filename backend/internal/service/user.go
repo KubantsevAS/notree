@@ -2,20 +2,26 @@ package service
 
 import (
 	"context"
+	"log"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	db *user.Queries
+	db     *user.Queries
+	mailer *mailer.ConsoleMailer
 }
 
-func NewUserService(db *user.Queries) *UserService {
-	return &UserService{db: db}
+func NewUserService(db *user.Queries, mailer *mailer.ConsoleMailer) *UserService {
+	return &UserService{
+		db:     db,
+		mailer: mailer,
+	}
 }
 
 func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetProfileResponse, error) {
@@ -106,4 +112,52 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, re
 	}
 
 	return s.db.UpdateUserPassword(ctx, dbParams)
+}
+
+func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID) error {
+	userRow, err := s.db.GetUserById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if userRow.IsEmailVerified.Bool {
+		return nil
+	}
+
+	// TODO 429 status code
+
+	token, err := httputil.GenerateSecureToken()
+	if err != nil {
+		return err
+	}
+
+	dbParams := user.SetVerificationTokenParams{
+		VerificationToken: httputil.PgTextFromString(&token),
+		ID:                id,
+	}
+
+	if err := s.db.SetVerificationToken(ctx, dbParams); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := s.mailer.SendVerificationEmail(userRow.Email, token); err != nil {
+			log.Printf("Failed to send email to %s: %v", userRow.Email, err)
+		}
+	}()
+
+	return nil
+}
+
+func (s *UserService) VerifyEmailByToken(ctx context.Context, userID pgtype.UUID, token string) error {
+	dbParams := user.VerifyEmailByTokenParams{
+		ID:                userID,
+		VerificationToken: httputil.PgTextFromString(&token),
+	}
+
+	if _, err := s.db.VerifyEmailByToken(ctx, dbParams); err != nil {
+		return err
+	}
+
+	return nil
 }

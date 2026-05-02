@@ -105,7 +105,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		return nil, err
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken()
+	refreshToken, err := httputil.GenerateSecureToken()
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,9 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		return nil
 	}
 
-	token, err := jwt.GenerateRefreshToken()
+	// TODO 429 status code
+
+	token, err := httputil.GenerateSecureToken()
 	if err != nil {
 		return err
 	}

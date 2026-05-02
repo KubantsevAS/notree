@@ -113,6 +113,13 @@ definitions:
       username:
         type: string
     type: object
+  dto.VerifyEmailByTokenRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -415,6 +422,64 @@ paths:
           schema:
             type: string
       summary: Update user preferences
+      tags:
+      - User
+  /users/me/send-verification:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"email verification link has been
+            sent\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Send email verification token
+      tags:
+      - User
+  /users/me/verify-email:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.VerifyEmailByTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Example: {\"message\": \"email successfully verified\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid or expired code
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Verify email with token
       tags:
       - User
 securityDefinitions:

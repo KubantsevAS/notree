@@ -1,8 +1,6 @@
 package jwt
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"time"
 
@@ -23,17 +21,6 @@ func GenerateAccessToken(userID pgtype.UUID, secret string) (string, error) {
 	}
 
 	return s, nil
-}
-
-func GenerateRefreshToken() (string, error) {
-	b := make([]byte, 32)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.URLEncoding.EncodeToString(b), nil
 }
 
 func ParseAccessToken(tokenString string, secret string) (string, error) {

@@ -77,7 +77,7 @@ func main() {
 
 	nodeService := service.NewNodeService(nodesDB)
 	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
-	userService := service.NewUserService(usersDB)
+	userService := service.NewUserService(usersDB, mailerService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
@@ -103,7 +103,7 @@ func main() {
 				r.Patch("/me/preference", userHandler.UpdatePreferences)
 				r.Patch("/me/change-password", userHandler.ChangePassword)
 				r.Post("/me/send-verification", userHandler.SendVerificationToken)
-				r.Post("/me/verify-email", userHandler.VerifyEmailToken)
+				r.Post("/me/verify-email", userHandler.VerifyEmailByToken)
 			})
 		})
 	})

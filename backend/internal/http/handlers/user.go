@@ -180,5 +180,63 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, map[string]string{"message": "password updated"}, http.StatusOK)
 }
 
-func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {}
-func (h *UserHandler) VerifyEmailToken(w http.ResponseWriter, r *http.Request)      {}
+// SendVerificationToken godoc
+// @Summary      Send email verification token
+// @Tags         User
+// @Produce      json
+// @Success      200 {object} map[string]string "Example: {\"message\": \"email verification link has been sent\"}"
+// @Failure      400 {object} string "Bad Request"
+// @Failure      401 {string} string "Unauthorized"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /users/me/send-verification [post]
+func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// TODO Implement 429 code
+
+	if err := h.Service.SendVerificationEmail(r.Context(), userID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "email verification link has been sent"}, http.StatusOK)
+}
+
+// VerifyEmailByToken godoc
+// @Summary      Verify email with token
+// @Tags         User
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.VerifyEmailByTokenRequest true "token"
+// @Success      200 {object} map[string]string "Example: {\"message\": \"email successfully verified\"}"
+// @Failure      400 {object} string "Invalid or expired code"
+// @Failure      500 {object} string "Internal Server Error"
+// @Router       /users/me/verify-email [post]
+func (h *UserHandler) VerifyEmailByToken(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.VerifyEmailByTokenRequest](r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.Service.VerifyEmailByToken(r.Context(), userID, body.Token); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, map[string]string{"message": "email successfully verified"}, http.StatusOK)
+}
