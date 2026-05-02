@@ -22,7 +22,7 @@ type AuthService struct {
 	config *config.Config
 	db     *auth.Queries
 	userDb *user.Queries
-	mailer *mailer.ConsoleMailer
+	mailer mailer.Mailer
 }
 
 type TokenPair struct {
@@ -30,7 +30,7 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries, mailer *mailer.ConsoleMailer) *AuthService {
+func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries, mailer mailer.Mailer) *AuthService {
 	return &AuthService{
 		config: c,
 		db:     authDb,
@@ -151,7 +151,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	}
 
 	go func() {
-		if err := s.mailer.SendPasswordReset(userRow.Email, token); err != nil {
+		if err := s.mailer.SendPasswordReset(context.Background(), userRow.Email, token); err != nil {
 			log.Printf("Failed to send email to %s: %v", userRow.Email, err)
 		}
 	}()

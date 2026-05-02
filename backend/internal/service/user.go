@@ -14,10 +14,10 @@ import (
 
 type UserService struct {
 	db     *user.Queries
-	mailer *mailer.ConsoleMailer
+	mailer mailer.Mailer
 }
 
-func NewUserService(db *user.Queries, mailer *mailer.ConsoleMailer) *UserService {
+func NewUserService(db *user.Queries, mailer mailer.Mailer) *UserService {
 	return &UserService{
 		db:     db,
 		mailer: mailer,
@@ -141,7 +141,7 @@ func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID)
 	}
 
 	go func() {
-		if err := s.mailer.SendVerificationEmail(userRow.Email, token); err != nil {
+		if err := s.mailer.SendVerificationEmail(context.Background(), userRow.Email, token); err != nil {
 			log.Printf("Failed to send email to %s: %v", userRow.Email, err)
 		}
 	}()
