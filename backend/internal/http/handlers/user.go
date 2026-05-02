@@ -179,3 +179,6 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteResponseJSON(w, map[string]string{"message": "password updated"}, http.StatusOK)
 }
+
+func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {}
+func (h *UserHandler) VerifyEmailToken(w http.ResponseWriter, r *http.Request)      {}

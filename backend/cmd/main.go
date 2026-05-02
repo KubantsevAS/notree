@@ -102,6 +102,8 @@ func main() {
 				r.Patch("/me", userHandler.UpdateProfile)
 				r.Patch("/me/preference", userHandler.UpdatePreferences)
 				r.Patch("/me/change-password", userHandler.ChangePassword)
+				r.Post("/me/send-verification", userHandler.SendVerificationToken)
+				r.Post("/me/verify-email", userHandler.VerifyEmailToken)
 			})
 		})
 	})

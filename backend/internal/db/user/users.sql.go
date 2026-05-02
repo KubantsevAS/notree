@@ -130,6 +130,24 @@ func (q *Queries) SetResetPasswordToken(ctx context.Context, arg SetResetPasswor
 	return err
 }
 
+const setVerificationToken = `-- name: SetVerificationToken :exec
+UPDATE users
+SET 
+    verification_token = $1, 
+    verification_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2
+`
+
+type SetVerificationTokenParams struct {
+	VerificationToken pgtype.Text `json:"verification_token"`
+	ID                pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetVerificationToken(ctx context.Context, arg SetVerificationTokenParams) error {
+	_, err := q.db.Exec(ctx, setVerificationToken, arg.VerificationToken, arg.ID)
+	return err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET
@@ -219,4 +237,28 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	var i UpdateUserProfileRow
 	err := row.Scan(&i.Username, &i.AvatarUrl, &i.UpdatedAt)
 	return i, err
+}
+
+const verifyEmailByCode = `-- name: VerifyEmailByCode :one
+UPDATE users
+SET 
+    is_email_verified = true, 
+    verification_token = NULL, 
+    verification_token_expires_at = NULL
+WHERE id = $1 
+  AND verification_token = $2 
+  AND verification_token_expires_at > NOW()
+RETURNING id
+`
+
+type VerifyEmailByCodeParams struct {
+	ID                pgtype.UUID `json:"id"`
+	VerificationToken pgtype.Text `json:"verification_token"`
+}
+
+func (q *Queries) VerifyEmailByCode(ctx context.Context, arg VerifyEmailByCodeParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmailByCode, arg.ID, arg.VerificationToken)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }

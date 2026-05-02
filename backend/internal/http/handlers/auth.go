@@ -154,6 +154,8 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO Implement 429 code
+
 	httputil.WriteResponseJSON(w, map[string]string{"message": "password reset link has been sent"}, http.StatusOK)
 }
 

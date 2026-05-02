@@ -57,3 +57,21 @@ SELECT id FROM users
 WHERE reset_password_token = $1
     AND reset_password_token_expires_at > NOW()
     AND deleted_at IS NULL;
+
+-- name: SetVerificationToken :exec
+UPDATE users
+SET 
+    verification_token = $1, 
+    verification_token_expires_at = NOW() + INTERVAL '15 minutes'
+WHERE id = $2;
+
+-- name: VerifyEmailByCode :one
+UPDATE users
+SET 
+    is_email_verified = true, 
+    verification_token = NULL, 
+    verification_token_expires_at = NULL
+WHERE id = $1 
+  AND verification_token = $2 
+  AND verification_token_expires_at > NOW()
+RETURNING id;
