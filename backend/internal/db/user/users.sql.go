@@ -239,7 +239,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	return i, err
 }
 
-const verifyEmailByCode = `-- name: VerifyEmailByCode :one
+const verifyEmailByToken = `-- name: VerifyEmailByToken :one
 UPDATE users
 SET 
     is_email_verified = true, 
@@ -251,13 +251,13 @@ WHERE id = $1
 RETURNING id
 `
 
-type VerifyEmailByCodeParams struct {
+type VerifyEmailByTokenParams struct {
 	ID                pgtype.UUID `json:"id"`
 	VerificationToken pgtype.Text `json:"verification_token"`
 }
 
-func (q *Queries) VerifyEmailByCode(ctx context.Context, arg VerifyEmailByCodeParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, verifyEmailByCode, arg.ID, arg.VerificationToken)
+func (q *Queries) VerifyEmailByToken(ctx context.Context, arg VerifyEmailByTokenParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyEmailByToken, arg.ID, arg.VerificationToken)
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err

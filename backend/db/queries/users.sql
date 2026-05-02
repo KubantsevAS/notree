@@ -65,7 +65,7 @@ SET
     verification_token_expires_at = NOW() + INTERVAL '15 minutes'
 WHERE id = $2;
 
--- name: VerifyEmailByCode :one
+-- name: VerifyEmailByToken :one
 UPDATE users
 SET 
     is_email_verified = true, 
