@@ -264,7 +264,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Get the current user's profile",
                 "responses": {
@@ -303,7 +303,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Update user profile",
                 "parameters": [
@@ -355,7 +355,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Change user password",
                 "parameters": [
@@ -410,7 +410,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Update user preferences",
                 "parameters": [
@@ -458,7 +458,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Send email verification token",
                 "responses": {
@@ -501,7 +501,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Verify email with token",
                 "parameters": [

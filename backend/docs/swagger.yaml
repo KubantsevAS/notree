@@ -320,7 +320,7 @@ paths:
             type: string
       summary: Get the current user's profile
       tags:
-      - User
+      - Profile
     patch:
       consumes:
       - application/json
@@ -353,7 +353,7 @@ paths:
             type: string
       summary: Update user profile
       tags:
-      - User
+      - Profile
   /profile/me/change-password:
     patch:
       consumes:
@@ -390,7 +390,7 @@ paths:
             type: string
       summary: Change user password
       tags:
-      - User
+      - Profile
   /profile/me/preference:
     patch:
       consumes:
@@ -424,7 +424,7 @@ paths:
             type: string
       summary: Update user preferences
       tags:
-      - User
+      - Profile
   /profile/me/send-verification:
     post:
       produces:
@@ -451,7 +451,7 @@ paths:
             type: string
       summary: Send email verification token
       tags:
-      - User
+      - Profile
   /profile/me/verify-email:
     post:
       consumes:
@@ -482,7 +482,7 @@ paths:
             type: string
       summary: Verify email with token
       tags:
-      - User
+      - Profile
 securityDefinitions:
   BasicAuth:
     type: basic

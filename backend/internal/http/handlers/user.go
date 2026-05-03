@@ -23,7 +23,7 @@ func NewUserHandler(s *service.UserService) *UserHandler {
 // GetProfile   godoc
 // @Summary     Get the current user's profile
 // @Description Returns the profile data of an authorized user
-// @Tags        User
+// @Tags        Profile
 // @Produce     json
 // @Success     200 {object} dto.GetProfileResponse
 // @Failure     401 {string} string "Unauthorized"
@@ -53,7 +53,7 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // UpdateProfile godoc
 // @Summary      Update user profile
 // @Description  Updates the name and profile picture of the logged-in user
-// @Tags         User
+// @Tags         Profile
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.UpdateUserProfileRequest true "Information to update profile"
@@ -87,7 +87,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // UpdatePreferences godoc
 // @Summary          Update user preferences
 // @Description      Updates the locale, time zone, and user preferences
-// @Tags             User
+// @Tags             Profile
 // @Accept           json
 // @Produce          json
 // @Param            request body dto.UpdateUserPreferencesRequest true "New user preferences"
@@ -121,7 +121,7 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 // ChangePassword godoc
 // @Summary      Change user password
 // @Description  Updates authenticated user's password. Requires old password for verification.
-// @Tags         User
+// @Tags         Profile
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.ChangePasswordRequest true "Old and new passwords"
@@ -157,7 +157,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 // SendVerificationToken godoc
 // @Summary      Send email verification token
-// @Tags         User
+// @Tags         Profile
 // @Produce      json
 // @Success      200 {object} map[string]string "Example: {\"message\": \"email verification link has been sent\"}"
 // @Failure      400 {object} string "Bad Request"
@@ -183,7 +183,7 @@ func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Reque
 
 // VerifyEmailByToken godoc
 // @Summary      Verify email with token
-// @Tags         User
+// @Tags         Profile
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.VerifyEmailByTokenRequest true "token"
