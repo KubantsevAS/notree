@@ -16,7 +16,7 @@
         "version": "0.1"
     },
     "host": "localhost:8080",
-    "basePath": "/api",
+    "basePath": "/api/v1",
     "paths": {
         "/auth/forgot-password": {
             "post": {
