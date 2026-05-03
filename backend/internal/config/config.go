@@ -4,10 +4,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
+
+type Config struct {
+	Env                   string    `yaml:"env" env-default:"local"`
+	DB                    DBConfig  `yaml:"-"`
+	JWT                   JWTConfig `yaml:"-"`
+	HTTPServer            `yaml:"http_server"`
+	CORSAllowedOriginsRaw string `yaml:"-" env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:5173"`
+}
 
 type DBConfig struct {
 	Host     string `env:"POSTGRES_HOST" env-default:"localhost"`
@@ -27,11 +36,18 @@ type HTTPServer struct {
 	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }
 
-type Config struct {
-	Env        string    `yaml:"env" env-default:"local"`
-	DB         DBConfig  `yaml:"-"`
-	JWT        JWTConfig `yaml:"-"`
-	HTTPServer `yaml:"http_server"`
+func (c *Config) CORSAllowedOrigins() []string {
+	if c.CORSAllowedOriginsRaw == "" {
+		return nil
+	}
+
+	origins := strings.Split(c.CORSAllowedOriginsRaw, ",")
+
+	for i, origin := range origins {
+		origins[i] = strings.TrimSpace(origin)
+	}
+
+	return origins
 }
 
 func (c *DBConfig) DSN() string {
