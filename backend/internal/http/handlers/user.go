@@ -163,7 +163,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} string "Bad Request"
 // @Failure      401 {string} string "Unauthorized"
 // @Failure      500 {object} string "Internal Server Error"
-// @Router       /users/me/send-verification [post]
+// @Router       /profile/me/send-verification [post]
 func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {
 	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
@@ -190,7 +190,7 @@ func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Reque
 // @Success      200 {object} map[string]string "Example: {\"message\": \"email successfully verified\"}"
 // @Failure      400 {object} string "Invalid or expired code"
 // @Failure      500 {object} string "Internal Server Error"
-// @Router       /users/me/verify-email [post]
+// @Router       /profile/me/verify-email [post]
 func (h *UserHandler) VerifyEmailByToken(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.VerifyEmailByTokenRequest](r)
 	if err != nil {

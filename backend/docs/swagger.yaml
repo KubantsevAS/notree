@@ -425,7 +425,7 @@ paths:
       summary: Update user preferences
       tags:
       - User
-  /users/me/send-verification:
+  /profile/me/send-verification:
     post:
       produces:
       - application/json
@@ -452,7 +452,7 @@ paths:
       summary: Send email verification token
       tags:
       - User
-  /users/me/verify-email:
+  /profile/me/verify-email:
     post:
       consumes:
       - application/json

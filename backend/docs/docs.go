@@ -458,7 +458,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/me/send-verification": {
+        "/profile/me/send-verification": {
             "post": {
                 "produces": [
                     "application/json"
@@ -498,7 +498,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/me/verify-email": {
+        "/profile/me/verify-email": {
             "post": {
                 "consumes": [
                     "application/json"
