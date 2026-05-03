@@ -11,7 +11,7 @@
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      localhost:8080
-// @BasePath  /api
+// @BasePath  /api/v1
 
 // @securityDefinitions.basic  BasicAuth
 
@@ -21,7 +21,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -46,8 +45,6 @@ import (
 func main() {
 	cfg := config.MustLoad()
 
-	fmt.Println(cfg.JWT.Secret)
-
 	log := logger.SetupLogger(cfg.Env)
 	log.Info("Starting Notree backend", slog.String("env", cfg.Env))
 
@@ -61,7 +58,7 @@ func main() {
 	router.Use(mwLogger.New(log))
 	router.Use(middleware.URLFormat)
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedOrigins:   cfg.CORSAllowedOrigins(),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
@@ -81,10 +78,11 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
+	nodeHandler := handlers.NewNodeHandler(nodeService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	router.Route("/api", func(r chi.Router) {
+	router.Route("/api/v1", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)
@@ -95,7 +93,7 @@ func main() {
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
-			r.Post("/node", handlers.NewNodeHandler(nodeService).Create)
+			r.Post("/nodes", nodeHandler.Create)
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/me", userHandler.GetProfile)

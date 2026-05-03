@@ -50,24 +50,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Example: {\\\"message\\\": \\\"password reset link has been sent\\\"}",
+                        "description": "password reset link has been sent",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "bad request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -99,21 +96,24 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success",
-                        "schema": {
-                            "type": "string"
-                        }
+                        "description": "Success"
                     },
                     "400": {
                         "description": "Invalid credentials",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Invalid credentials",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -128,10 +128,7 @@ const docTemplate = `{
                 "summary": "User logout",
                 "responses": {
                     "204": {
-                        "description": "No Content",
-                        "schema": {
-                            "type": "string"
-                        }
+                        "description": "No Content"
                     }
                 }
             }
@@ -148,21 +145,18 @@ const docTemplate = `{
                 "summary": "Refresh tokens",
                 "responses": {
                     "200": {
-                        "description": "Tokens refreshed successfully",
-                        "schema": {
-                            "type": "string"
-                        }
+                        "description": "Tokens refreshed successfully"
                     },
                     "401": {
-                        "description": "Missing or invalid refresh token",
+                        "description": "missing refresh token",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -194,21 +188,18 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Success",
-                        "schema": {
-                            "type": "string"
-                        }
+                        "description": "Success"
                     },
                     "400": {
-                        "description": "Incorrect request format",
+                        "description": "incorrect request format",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
-                        "description": "User with that email already exists",
+                        "description": "user with that email already exists",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -240,24 +231,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Example: {\\\"message\\\": \\\"password has been reset successfully\\\"}",
+                        "description": "password has been reset successfully",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request (Invalid or expired token)",
+                        "description": "invalid or expired token",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -270,7 +258,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Get the current user's profile",
                 "responses": {
@@ -281,21 +269,21 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "unauthorized",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "user not found",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -309,7 +297,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Update user profile",
                 "parameters": [
@@ -331,21 +319,21 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "bad request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "unauthorized",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -361,7 +349,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Change user password",
                 "parameters": [
@@ -377,30 +365,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Example: {\\\"message\\\": \\\"password updated\\\"}",
+                        "description": "password updated",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "bad request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized (Missing or invalid token, or wrong old password)",
+                        "description": "wrong old password",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -416,7 +401,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Update user preferences",
                 "parameters": [
@@ -438,67 +423,64 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "bad request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "unauthorized",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/users/me/send-verification": {
+        "/profile/me/send-verification": {
             "post": {
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Send email verification token",
                 "responses": {
                     "200": {
-                        "description": "Example: {\\\"message\\\": \\\"email verification link has been sent\\\"}",
+                        "description": "email verification link has been sent",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "bad request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "unauthorized",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/users/me/verify-email": {
+        "/profile/me/verify-email": {
             "post": {
                 "consumes": [
                     "application/json"
@@ -507,7 +489,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "Profile"
                 ],
                 "summary": "Verify email with token",
                 "parameters": [
@@ -523,24 +505,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Example: {\\\"message\\\": \\\"email successfully verified\\\"}",
+                        "description": "email successfully verified",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.MessageResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid or expired code",
+                        "description": "invalid or expired token",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "internal server error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -559,6 +544,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "old_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
                     "type": "string"
                 }
             }
@@ -623,6 +616,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
                     "type": "string"
                 }
             }
@@ -747,7 +748,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "0.1",
 	Host:             "localhost:8080",
-	BasePath:         "/api",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Notree API",
 	Description:      "API server for Notree app.",

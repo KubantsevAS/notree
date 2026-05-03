@@ -1,0 +1,424 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: api-v1
+meta:
+  id: wrk_f91c7eb852074d069e3083bd19035c31
+  created: 1777841373625
+  modified: 1777841414432
+  description: ""
+collection:
+  - name: Auth
+    meta:
+      id: fld_c3cc4f5eaad54ebaa15e86d271029076
+      created: 1777841821120
+      modified: 1777842319427
+      sortKey: -1777841821120
+      description: ""
+    children:
+      - url: "{{ base_url}}auth/login"
+        name: Login
+        meta:
+          id: req_434903c5cb6a41c5b2e16a57bfc5da4e
+          created: 1777841373630
+          modified: 1777842294284
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880254
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "email": "john.pork@gmail.com",
+              "password": "EasyPeasy123"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}auth/forgot-password"
+        name: Forgot Password
+        meta:
+          id: req_0c31a405da824d9bbdece0b6426927e7
+          created: 1777842046277
+          modified: 1777842117832
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880204
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "email": "john.pork@gmail.com"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}auth/logout"
+        name: Logout
+        meta:
+          id: req_04bbfe94e99e44e6823b99bdc6a6c4ea
+          created: 1777842054562
+          modified: 1777842147507
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880154
+        method: POST
+        body:
+          mimeType: application/json
+          text: ""
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}auth/refresh-tokens"
+        name: Refresh Tokens
+        meta:
+          id: req_11eb783899064c27b20544f98c8eaa2a
+          created: 1777842068466
+          modified: 1777842162878
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880104
+        method: POST
+        body:
+          mimeType: application/json
+          text: ""
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}auth/register"
+        name: Register
+        meta:
+          id: req_84a0bdc45e0f40de82322f395bdc4510
+          created: 1777842078132
+          modified: 1777842182250
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880054
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "email": "john.pork@gmail.com",
+              "password": "EasyPeasy1"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}auth/reset-password"
+        name: Reset Password
+        meta:
+          id: req_3db814c38125482f8a1c7f705b3fa6bf
+          created: 1777842093593
+          modified: 1777842286317
+          isPrivate: false
+          description: ""
+          sortKey: -1777841880004
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "token": "PGBNGSbKuQ69MGumaGEfFGBwF2UZfcx7JcCUGYGGMSg=",
+              "new_password": "EasyPeasy123"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Profile
+    meta:
+      id: fld_2f656150ce684a31b5acecba9191efc1
+      created: 1777842310293
+      modified: 1777842567132
+      sortKey: -1777842310293
+      description: ""
+    children:
+      - url: "{{ base_url}}profile/me"
+        name: Current user
+        meta:
+          id: req_8cc12f1d30b6495a8203302b063f119c
+          created: 1777842639752
+          modified: 1777842654466
+          isPrivate: false
+          description: ""
+          sortKey: -1777842644144
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}profile/me"
+        name: Update Profile
+        meta:
+          id: req_f6df8d62830c4f6e837dd79ff63e140d
+          created: 1777842690644
+          modified: 1777842715956
+          isPrivate: false
+          description: ""
+          sortKey: -1777842262199
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "avatar_url": "string123",
+              "username": "John Pork"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}profile/me/change-password"
+        name: Change Password
+        meta:
+          id: req_40841c42ab604532a568f7450e17673a
+          created: 1777842779389
+          modified: 1777842816062
+          isPrivate: false
+          description: ""
+          sortKey: -1777842071226.5
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "new_password": "EasyPeasy123",
+              "old_password": "EasyPeasy1"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}profile/me/preference"
+        name: Update Preferences
+        meta:
+          id: req_0af217d6036f4711b0ac1ae3973cdb5f
+          created: 1777842848127
+          modified: 1777842886969
+          isPrivate: false
+          description: ""
+          sortKey: -1777841975740.25
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "locale": "ru",
+              "preferences": {},
+              "timezone": "LTS"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}profile/me/send-verification"
+        name: Send Verification Email
+        meta:
+          id: req_c4d7c36359ee4d11a8529525ec37782e
+          created: 1777842913642
+          modified: 1777842936697
+          isPrivate: false
+          description: ""
+          sortKey: -1777841927997.125
+        method: POST
+        body:
+          mimeType: application/json
+          text: ""
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url}}profile/me/verify-email"
+        name: Verify Email
+        meta:
+          id: req_e4e2ef991d3745b480d0572a9e088e20
+          created: 1777842959333
+          modified: 1777842990378
+          isPrivate: false
+          description: ""
+          sortKey: -1777841904125.5625
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "token": "string"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.5.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_543ef1bae9f722dcd2b577f670c56f2b2f48115f
+    created: 1777841373629
+    modified: 1777842294967
+  cookies:
+    - id: 4cc39260-5452-42df-86a0-6d68dd5321cb
+      key: access_token
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzc4NDU4OTQsInR5cGUiOiJhY2Nlc3MiLCJ1c2VyX2lkIjoiZWJkZTlkNzUtZGQyOS00NzAyLWFmZGUtMWY5Mzc3MmY5MDVkIn0.X3tJ5ENf84Nk8A1EvuL_hlV-iC56xda7x2YddhqHjPA
+      domain: localhost
+      path: /
+      secure: false
+      httpOnly: true
+      hostOnly: true
+    - id: 46cb830d-a53e-4476-bada-51eab203bce6
+      key: refresh_token
+      value: JFyuvLFmBnl_e-WwbTU1qiVGgR4mzsz6C24W82iOUWg=
+      domain: localhost
+      path: /
+      secure: false
+      httpOnly: true
+      hostOnly: true
+environments:
+  name: Base Environment
+  meta:
+    id: env_543ef1bae9f722dcd2b577f670c56f2b2f48115f
+    created: 1777841373628
+    modified: 1777841875897
+    isPrivate: false
+  data:
+    base_url: localhost:8080/api/v1/
