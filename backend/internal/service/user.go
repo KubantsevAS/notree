@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
@@ -27,6 +29,9 @@ func NewUserService(db *user.Queries, mailer mailer.Mailer) *UserService {
 func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetProfileResponse, error) {
 	user, err := s.db.GetUserById(ctx, id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return dto.GetProfileResponse{}, ErrUserNotFound
+		}
 		return dto.GetProfileResponse{}, err
 	}
 
@@ -94,6 +99,9 @@ func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID,
 func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, req *dto.ChangePasswordRequest) error {
 	hashRow, err := s.db.GetUserPasswordHashById(ctx, id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
 		return err
 	}
 
@@ -117,6 +125,9 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, re
 func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID) error {
 	userRow, err := s.db.GetUserById(ctx, id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
 		return err
 	}
 
@@ -156,6 +167,9 @@ func (s *UserService) VerifyEmailByToken(ctx context.Context, userID pgtype.UUID
 	}
 
 	if _, err := s.db.VerifyEmailByToken(ctx, dbParams); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrInvalidVerificationToken
+		}
 		return err
 	}
 

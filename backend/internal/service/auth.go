@@ -162,6 +162,9 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error {
 	userId, err := s.userDb.GetUserIdByResetPasswordToken(ctx, httputil.PgTextFromString(&req.Token))
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrInvalidResetToken
+		}
 		return err
 	}
 

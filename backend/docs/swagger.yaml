@@ -10,6 +10,11 @@ definitions:
     - new_password
     - old_password
     type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
   dto.ForgotPasswordRequest:
     properties:
       email:
@@ -51,6 +56,11 @@ definitions:
     required:
     - email
     - password
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
     type: object
   dto.RegisterRequest:
     properties:
@@ -152,19 +162,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Example: {\"message\": \"password reset link has been sent\"}'
+          description: password reset link has been sent
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.MessageResponse'
         "400":
-          description: Bad Request
+          description: bad request
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Request password reset
       tags:
       - Auth
@@ -186,16 +194,18 @@ paths:
       responses:
         "200":
           description: Success
-          schema:
-            type: string
         "400":
           description: Invalid credentials
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
           description: Invalid credentials
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: User login
       tags:
       - Auth
@@ -205,8 +215,6 @@ paths:
       responses:
         "204":
           description: No Content
-          schema:
-            type: string
       summary: User logout
       tags:
       - Auth
@@ -219,16 +227,14 @@ paths:
       responses:
         "200":
           description: Tokens refreshed successfully
-          schema:
-            type: string
         "401":
-          description: Missing or invalid refresh token
+          description: missing refresh token
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal server error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Refresh tokens
       tags:
       - Auth
@@ -250,16 +256,14 @@ paths:
       responses:
         "201":
           description: Success
-          schema:
-            type: string
         "400":
-          description: Incorrect request format
+          description: incorrect request format
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "409":
-          description: User with that email already exists
+          description: user with that email already exists
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: User registration
       tags:
       - Auth
@@ -280,19 +284,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Example: {\"message\": \"password has been reset successfully\"}'
+          description: password has been reset successfully
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.MessageResponse'
         "400":
-          description: Bad Request (Invalid or expired token)
+          description: invalid or expired token
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Reset password with token
       tags:
       - Auth
@@ -307,17 +309,17 @@ paths:
           schema:
             $ref: '#/definitions/dto.GetProfileResponse'
         "401":
-          description: Unauthorized
+          description: unauthorized
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: User not found
+          description: user not found
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Get the current user's profile
       tags:
       - Profile
@@ -340,17 +342,17 @@ paths:
           schema:
             $ref: '#/definitions/dto.UpdateUserProfileResponse'
         "400":
-          description: Bad Request
+          description: bad request
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: unauthorized
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Update user profile
       tags:
       - Profile
@@ -371,23 +373,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Example: {\"message\": \"password updated\"}'
+          description: password updated
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.MessageResponse'
         "400":
-          description: Bad Request
+          description: bad request
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized (Missing or invalid token, or wrong old password)
+          description: wrong old password
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Change user password
       tags:
       - Profile
@@ -411,17 +411,17 @@ paths:
           schema:
             $ref: '#/definitions/dto.UpdateUserPreferencesResponse'
         "400":
-          description: Bad Request
+          description: bad request
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: unauthorized
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Update user preferences
       tags:
       - Profile
@@ -431,24 +431,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Example: {\"message\": \"email verification link has been
-            sent\"}'
+          description: email verification link has been sent
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.MessageResponse'
         "400":
-          description: Bad Request
+          description: bad request
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: unauthorized
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Send email verification token
       tags:
       - Profile
@@ -467,19 +464,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Example: {\"message\": \"email successfully verified\"}'
+          description: email successfully verified
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.MessageResponse'
         "400":
-          description: Invalid or expired code
+          description: invalid or expired token
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: internal server error
           schema:
-            type: string
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Verify email with token
       tags:
       - Profile

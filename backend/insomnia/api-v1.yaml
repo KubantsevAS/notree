@@ -118,11 +118,7 @@ collection:
         method: POST
         body:
           mimeType: application/json
-          text: |-
-            {
-              "email": "john.pork@gmail.com",
-              "password": "EasyPeasy1"
-            }
+          text: ""
         headers:
           - name: Content-Type
             value: application/json
