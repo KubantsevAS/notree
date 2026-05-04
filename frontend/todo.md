@@ -36,95 +36,68 @@ base unit = 8px
 
 <details>
     <summary>
-       <i>core/network</i>
+        задокументировать
     </summary>
-    <details style="margin-left: 8px">
-        <summary>
-            <i>http</i>
-        </summary>
-        <div style="margin-left: 8px">
-            <div>
-                ✅ определить контракт <i>http/client</i>
-            </div>
-            <div>
-                ✅ определить контракт <i>http/request</i>
-            </div>
-            <div>
-                ✅ определить контракт <i>http/requester</i>
-            </div>
-            <div>
-                ✅ реализовать имплементацию <i>http/implementation/request</i>
-            </div>
-            <div>
-                ✅ реализовать имплементацию <i>http/implementation/exception</i>
-            </div>
-            <div>
-                ✅ реализовать интеграцию <i>http/integration/axios</i>
-            </div>
-            <div>
-                ✅ реализовать интеграцию <i>http/integration/react</i>
-            </div>
+    <div style="margin-left: 8px">
+        <div>
+            🧐 особенностей интерфейса (???)
         </div>
-    </details>  
-</details> 
-
-<details>
-    <summary>
-       <i>core/server-state</i>
-    </summary>
-    <details style="margin-left: 8px">
-        <summary>
-            <i>task</i>
-        </summary>
-        <div style="margin-left: 8px">
-            <div>
-                ✅ определить контракт <i>task/client</i>
-            </div>
-            <div>
-                ✅ определить контракт <i>task/query</i>
-            </div>
-            <div>
-                ✅ определить контракт <i>task/mutation</i>
-            </div>
-            <div>
-                ✅ реализовать интеграцию <i>task/integration/react</i>
-            </div>
+        <div>
+            🧐 архитектура
         </div>
-    </details>  
-</details> 
-
-<details>
-    <summary>
-        инструменты для разработки
-    </summary>
-    <details style="margin-left: 8px">
-        <summary>
-            стиль кода
-        </summary>
-        <div style="margin-left: 8px">
-            <div>
-                ✅ eslint
-            </div>
-            <div>
-                ✅ prettier  
-            </div>
+        <div>
+            🧐 договоренности по стилю кода
         </div>
-    </details>
-    <details style="margin-left: 8px">
-        <summary>
-            отладка
-        </summary>
-            <div style="margin-left: 8px">
-                ⌛ react-query-devtools
-            </div>
-    </details>
+        <div>
+            🧐 договоренности по использованию сторонних библ
+        </div>
+        <div>
+            🧐 договоренности по использованию react-query
+        </div>
+    </div>
 </details>
 
 <details>
     <summary>
-        переменные окружения
+       <i>app/injections</i>
     </summary>
     <div style="margin-left: 8px">
-        List Item
+        <div>
+            ✅ axios
+        </div>
+        <div>
+            ✅ react-query
+        </div>
     </div>
+</details>
+
+<details>
+    <summary>
+       <i>core/integrations</i>
+    </summary>
+    <details style="margin-left: 8px">
+        <summary>
+            <i>axios</i>
+        </summary>
+        <div style="margin-left: 8px">
+            <div>
+                ✅ реализовать <i>AxiosClientRegistry</i> с in-memory storage
+            </div>
+            <div>
+                ✅ подключить контекст <i>AxiosContext</i> для registry
+            </div>
+            <div>
+                ✅ реализовать <i>AxiosClientProvider</i> (режимы: <i>registry</i>, <i>clients</i>, <i>client</i>)
+            </div>
+            <div>
+                ✅ реализовать хук <i>useAxiosClient(clientKey?)</i> с fallback на default key
+            </div>
+            <div>
+                ✅ сформировать публичный API <i>core/integrations/axios/index.ts</i>
+            </div>
+            <div>
+                ✅ задокументировать</i>
+            </div>
+        </div>
+        </details>
 </details>

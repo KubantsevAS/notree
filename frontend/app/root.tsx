@@ -2,9 +2,8 @@ import '../core/ui/app.css';
 
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
 
-import { ServerTaskClientProvider, ServerTaskDevtools } from '../core/bridge';
-import { HttpRequesterFactory, HttpRequesterProvider } from '../core/network';
 import type { Route } from './+types/root';
+import { AxiosInjection, ReactQueryInjection } from './injections';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -38,18 +37,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const httpRequester = HttpRequesterFactory.create({
-    baseURL: 'https://jsonplaceholder.typicode.com',
-  });
-
-  const isDevMode = import.meta.env.MODE === 'development';
-
   return (
-    <HttpRequesterProvider requesterInstance={httpRequester}>
-      <ServerTaskClientProvider>
-        {isDevMode && <ServerTaskDevtools initialIsOpen={false} />}
-      </ServerTaskClientProvider>
-      <Outlet />
-    </HttpRequesterProvider>
+    <ReactQueryInjection>
+      <AxiosInjection>
+        <Outlet />
+      </AxiosInjection>
+    </ReactQueryInjection>
   );
 }
