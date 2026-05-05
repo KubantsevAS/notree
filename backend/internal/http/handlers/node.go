@@ -1,15 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/service"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type NodeHandler struct {
@@ -21,47 +18,31 @@ func NewNodeHandler(s *service.NodeService) *NodeHandler {
 }
 
 func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var reqDTO dto.CreateNodeRequest
-	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	userIDContext, err := httputil.GetUserIDFromCtx(r.Context())
+	body, err := httputil.HandleBody[dto.CreateNodeRequest](r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userID := pgtype.UUID{
-		Bytes: uuid.MustParse(userIDContext),
-		Valid: true,
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
-	dbNode, err := h.service.CreateNode(r.Context(), userID, &reqDTO)
+	node, err := h.service.CreateNode(r.Context(), userID, body)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidParentID) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			httputil.WriteErrorJSON(w, "invalid parent id", http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, service.ErrParentNotFound) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			httputil.WriteErrorJSON(w, "parent not found", http.StatusBadRequest)
 			return
 		}
-		http.Error(w, "DB Error: "+err.Error(), http.StatusInternalServerError)
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	responseDTO := dto.CreateNodeResponse{
-		ID:        dbNode.ID,
-		ParentID:  &dbNode.ParentID,
-		Type:      string(dbNode.Type),
-		Title:     dbNode.Title,
-		SortOrder: dbNode.SortOrder,
-		CreatedAt: dbNode.CreatedAt,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(responseDTO)
+	httputil.WriteResponseJSON(w, node, http.StatusCreated)
 }
