@@ -94,6 +94,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 			r.Post("/nodes", nodeHandler.Create)
+			r.Delete("/nodes/{id}", nodeHandler.Delete)
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/me", userHandler.GetProfile)

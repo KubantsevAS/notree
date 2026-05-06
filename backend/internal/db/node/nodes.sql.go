@@ -115,10 +115,11 @@ func (q *Queries) GetNodeByID(ctx context.Context, id pgtype.UUID) (Node, error)
 	return i, err
 }
 
-const softDeleteNode = `-- name: SoftDeleteNode :exec
+const softDeleteNode = `-- name: SoftDeleteNode :one
 UPDATE nodes
 SET deleted_at = NOW()
 WHERE id = $1 AND user_id = $2
+RETURNING id
 `
 
 type SoftDeleteNodeParams struct {
@@ -126,7 +127,9 @@ type SoftDeleteNodeParams struct {
 	UserID pgtype.UUID `json:"user_id"`
 }
 
-func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) error {
-	_, err := q.db.Exec(ctx, softDeleteNode, arg.ID, arg.UserID)
-	return err
+func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, softDeleteNode, arg.ID, arg.UserID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }

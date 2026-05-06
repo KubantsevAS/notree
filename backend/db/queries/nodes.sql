@@ -16,7 +16,8 @@ WHERE id = $1
   AND deleted_at IS NULL
 LIMIT 1;
 
--- name: SoftDeleteNode :exec
+-- name: SoftDeleteNode :one
 UPDATE nodes
 SET deleted_at = NOW()
-WHERE id = $1 AND user_id = $2;
+WHERE id = $1 AND user_id = $2
+RETURNING id;

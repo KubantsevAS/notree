@@ -11,4 +11,5 @@ var (
 	ErrInvalidParentID          = errors.New("invalid parent_id UUID")
 	ErrWrongCredentials         = errors.New("invalid credentials")
 	ErrUserNotFound             = errors.New("user not found")
+	ErrNodeNotFoundOrNoAccess   = errors.New("node not found or access denied")
 )
