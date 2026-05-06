@@ -56,20 +56,15 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 		Type:      string(nodeRow.Type),
 		Title:     nodeRow.Title,
 		SortOrder: nodeRow.SortOrder,
-		CreatedAt: nodeRow.CreatedAt,
+		CreatedAt: &nodeRow.CreatedAt.Time,
 	}
 
 	return response, nil
 }
 
-func (s *NodeService) DeleteNode(ctx context.Context, nodeId string, userID pgtype.UUID) error {
-	parsedNodeId, err := httputil.PgUUIDFromString(&nodeId)
-	if err != nil {
-		return err
-	}
-
+func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID) error {
 	dbParams := &node.SoftDeleteNodeCascadeParams{
-		ID:     parsedNodeId,
+		ID:     nodeId,
 		UserID: userID,
 	}
 

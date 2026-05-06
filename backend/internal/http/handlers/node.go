@@ -18,6 +18,17 @@ func NewNodeHandler(s *service.NodeService) *NodeHandler {
 	return &NodeHandler{service: s}
 }
 
+// Create godoc
+// @Summary      Create a new node
+// @Tags         Nodes
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.CreateNodeRequest true "Information to create node"
+// @Success      201 {object} dto.CreateNodeResponse
+// @Failure      400 {object} dto.ErrorResponse "bad request"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes [post]
 func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[dto.CreateNodeRequest](r)
 	if err != nil {
@@ -48,10 +59,24 @@ func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, node, http.StatusCreated)
 }
 
+// Delete godoc
+// @Summary      Delete a node
+// @Description  Soft deletes a specific node by ID and all its nested children recursively. The nodes are marked as deleted and can be restored later.
+// @Tags         Nodes
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      204 {object} nil "No Content"
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found or access denied"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id} [delete]
 func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	nodeId := chi.URLParam(r, "id")
-	if nodeId == "" {
-		httputil.WriteErrorJSON(w, "node id required", http.StatusBadRequest)
+
+	parsedNodeId, err := httputil.PgUUIDFromString(&nodeId)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
 		return
 	}
 
@@ -61,9 +86,9 @@ func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteNode(r.Context(), nodeId, userID); err != nil {
+	if err := h.service.DeleteNode(r.Context(), parsedNodeId, userID); err != nil {
 		if errors.Is(err, service.ErrNodeNotFoundOrNoAccess) {
-			httputil.WriteErrorJSON(w, "node not found or no access to delete it", http.StatusBadRequest)
+			httputil.WriteErrorJSON(w, "node not found or access denied", http.StatusNotFound)
 			return
 		}
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
