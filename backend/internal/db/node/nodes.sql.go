@@ -115,21 +115,46 @@ func (q *Queries) GetNodeByID(ctx context.Context, id pgtype.UUID) (Node, error)
 	return i, err
 }
 
-const softDeleteNode = `-- name: SoftDeleteNode :one
+const softDeleteNodeCascade = `-- name: SoftDeleteNodeCascade :many
+WITH RECURSIVE subtree AS (
+    SELECT id 
+    FROM nodes AS n
+    WHERE n.id = $1 AND n.user_id = $2 AND n.deleted_at IS NULL
+    
+    UNION ALL
+    
+    SELECT c.id 
+    FROM nodes AS c
+    INNER JOIN subtree AS p ON c.parent_id = p.id
+    WHERE c.user_id = $2 AND c.deleted_at IS NULL
+)
 UPDATE nodes
-SET deleted_at = NOW()
-WHERE id = $1 AND user_id = $2
+SET deleted_at = NOW() 
+WHERE id IN (SELECT id FROM subtree)
 RETURNING id
 `
 
-type SoftDeleteNodeParams struct {
+type SoftDeleteNodeCascadeParams struct {
 	ID     pgtype.UUID `json:"id"`
 	UserID pgtype.UUID `json:"user_id"`
 }
 
-func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, softDeleteNode, arg.ID, arg.UserID)
-	var id pgtype.UUID
-	err := row.Scan(&id)
-	return id, err
+func (q *Queries) SoftDeleteNodeCascade(ctx context.Context, arg SoftDeleteNodeCascadeParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, softDeleteNodeCascade, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

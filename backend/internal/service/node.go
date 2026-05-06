@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
@@ -69,16 +68,18 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeId string, userID pgty
 		return err
 	}
 
-	dbParams := &node.SoftDeleteNodeParams{
+	dbParams := &node.SoftDeleteNodeCascadeParams{
 		ID:     parsedNodeId,
 		UserID: userID,
 	}
 
-	if _, err := s.db.SoftDeleteNode(ctx, *dbParams); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNodeNotFoundOrNoAccess
-		}
+	deletedIds, err := s.db.SoftDeleteNodeCascade(ctx, *dbParams)
+	if err != nil {
 		return err
+	}
+
+	if len(deletedIds) == 0 {
+		return ErrNodeNotFoundOrNoAccess
 	}
 
 	return nil

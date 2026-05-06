@@ -16,8 +16,20 @@ WHERE id = $1
   AND deleted_at IS NULL
 LIMIT 1;
 
--- name: SoftDeleteNode :one
+-- name: SoftDeleteNodeCascade :many
+WITH RECURSIVE subtree AS (
+    SELECT id 
+    FROM nodes AS n
+    WHERE n.id = $1 AND n.user_id = $2 AND n.deleted_at IS NULL
+    
+    UNION ALL
+    
+    SELECT c.id 
+    FROM nodes AS c
+    INNER JOIN subtree AS p ON c.parent_id = p.id
+    WHERE c.user_id = $2 AND c.deleted_at IS NULL
+)
 UPDATE nodes
-SET deleted_at = NOW()
-WHERE id = $1 AND user_id = $2
+SET deleted_at = NOW() 
+WHERE id IN (SELECT id FROM subtree)
 RETURNING id;
