@@ -15,6 +15,10 @@ func PgTextFromString(s *string) pgtype.Text {
 }
 
 func PgUUIDFromString(s *string) (pgtype.UUID, error) {
+	if s == nil {
+		return pgtype.UUID{Valid: false}, nil
+	}
+
 	parsedUUID, err := uuid.Parse(*s)
 	if err != nil {
 		return pgtype.UUID{Valid: false}, err
