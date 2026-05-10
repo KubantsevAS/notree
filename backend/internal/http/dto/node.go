@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -11,10 +13,10 @@ type CreateNodeRequest struct {
 }
 
 type CreateNodeResponse struct {
-	ID        pgtype.UUID        `json:"id"`
-	ParentID  *pgtype.UUID       `json:"parent_id"`
-	Type      string             `json:"type"`
-	Title     string             `json:"title"`
-	SortOrder int32              `json:"sort_order"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        pgtype.UUID  `json:"id"`
+	ParentID  *pgtype.UUID `json:"parent_id"`
+	Type      string       `json:"type"`
+	Title     string       `json:"title"`
+	SortOrder int32        `json:"sort_order"`
+	CreatedAt *time.Time   `json:"created_at"`
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
-	"github.com/google/uuid"
+	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,28 +19,63 @@ func NewNodeService(db *node.Queries) *NodeService {
 	return &NodeService{db: db}
 }
 
-func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *dto.CreateNodeRequest) (node.Node, error) {
+func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *dto.CreateNodeRequest) (dto.CreateNodeResponse, error) {
 	parentID := pgtype.UUID{Valid: false}
 	if req.ParentID != nil && *req.ParentID != "" {
-		parsedID, err := uuid.Parse(*req.ParentID)
+		parsedID, err := httputil.PgUUIDFromString(req.ParentID)
 		if err != nil {
-			return node.Node{}, ErrInvalidParentID
+			return dto.CreateNodeResponse{}, ErrInvalidParentID
 		}
-		parentID = pgtype.UUID{Bytes: parsedID, Valid: true}
 
-		if _, err := s.db.GetNodeByID(ctx, parentID); err != nil {
+		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return node.Node{}, ErrParentNotFound
+				return dto.CreateNodeResponse{}, ErrParentNotFound
 			}
-			return node.Node{}, err
+			return dto.CreateNodeResponse{}, err
 		}
+
+		parentID = parsedID
 	}
 
-	return s.db.CreateNode(ctx, node.CreateNodeParams{
+	dbParams := node.CreateNodeParams{
 		UserID:    userID,
 		ParentID:  parentID,
 		Type:      node.NodeType(req.Type),
 		Title:     req.Title,
 		SortOrder: 0,
-	})
+	}
+
+	nodeRow, err := s.db.CreateNode(ctx, dbParams)
+	if err != nil {
+		return dto.CreateNodeResponse{}, err
+	}
+
+	response := dto.CreateNodeResponse{
+		ID:        nodeRow.ID,
+		ParentID:  &nodeRow.ParentID,
+		Type:      string(nodeRow.Type),
+		Title:     nodeRow.Title,
+		SortOrder: nodeRow.SortOrder,
+		CreatedAt: &nodeRow.CreatedAt.Time,
+	}
+
+	return response, nil
+}
+
+func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID) error {
+	dbParams := &node.SoftDeleteNodeCascadeParams{
+		ID:     nodeId,
+		UserID: userID,
+	}
+
+	deletedIds, err := s.db.SoftDeleteNodeCascade(ctx, *dbParams)
+	if err != nil {
+		return err
+	}
+
+	if len(deletedIds) == 0 {
+		return ErrNodeNotFoundOrNoAccess
+	}
+
+	return nil
 }
