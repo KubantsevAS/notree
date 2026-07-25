@@ -97,3 +97,62 @@ func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// Update godoc
+// @Summary      Update node
+// @Description  Updates specific node by ID
+// @Tags         Nodes
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Param        request body dto.UpdateNodeRequest true "Information to update node"
+// @Success      200 {object} dto.UpdateNodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found or access denied"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id} [patch]
+func (h *NodeHandler) Update(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.UpdateNodeRequest](r)
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	nodeId := chi.URLParam(r, "id")
+
+	parsedNodeId, err := httputil.PgUUIDFromString(&nodeId)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	response, err := h.service.UpdateNode(r.Context(), parsedNodeId, userID, body)
+	if err != nil {
+		if errors.Is(err, service.ErrNodeNotFoundOrNoAccess) {
+			httputil.WriteErrorJSON(w, "node not found or access denied", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, service.ErrNodeCannotBeADescendantOfItself) {
+			httputil.WriteErrorJSON(w, "node cannot be a descendant of itself", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrParentNotFound) {
+			httputil.WriteErrorJSON(w, "parent not found", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidParentID) {
+			httputil.WriteErrorJSON(w, "invalid parent id", http.StatusBadRequest)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}

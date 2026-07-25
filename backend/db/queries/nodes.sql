@@ -33,3 +33,30 @@ UPDATE nodes
 SET deleted_at = NOW() 
 WHERE id IN (SELECT id FROM subtree)
 RETURNING id;
+
+-- name: UpdateNode :one
+UPDATE nodes
+SET
+    parent_id = COALESCE(sqlc.narg('parent_id'), parent_id),
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    type = COALESCE(sqlc.narg('type'), type),
+    title = COALESCE(sqlc.narg('title'), title),
+    updated_at = NOW()
+WHERE id = @id AND deleted_at IS NULL
+RETURNING user_id, parent_id, sort_order, type, title, updated_at;
+
+-- name: GetNodeAncestors :many
+WITH RECURSIVE ancestors(node_id, parent_id) AS (
+    SELECT n.id, n.parent_id
+    FROM nodes n
+    WHERE n.id = $1 AND n.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT c.id, c.parent_id
+    FROM nodes c
+    JOIN ancestors a ON c.id = a.parent_id
+    WHERE c.deleted_at IS NULL
+)
+SELECT node_id
+FROM ancestors;

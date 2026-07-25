@@ -79,3 +79,77 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID
 
 	return nil
 }
+
+func (s *NodeService) UpdateNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
+	parentID := pgtype.UUID{Valid: false}
+	if req.ParentID != nil && *req.ParentID != "" {
+		parsedID, err := httputil.PgUUIDFromString(req.ParentID)
+		if err != nil {
+			return dto.UpdateNodeResponse{}, ErrInvalidParentID
+		}
+
+		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return dto.UpdateNodeResponse{}, ErrParentNotFound
+			}
+			return dto.UpdateNodeResponse{}, err
+		}
+
+		parentID = parsedID
+
+		isDescendantOfItself, err := s.isNodeDescendantOfItself(ctx, nodeId, parentID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return dto.UpdateNodeResponse{}, ErrParentNotFound
+			}
+			return dto.UpdateNodeResponse{}, ErrInvalidParentID
+		}
+		if isDescendantOfItself {
+			return dto.UpdateNodeResponse{}, ErrNodeCannotBeADescendantOfItself
+		}
+	}
+
+	dbParams := &node.UpdateNodeParams{
+		ParentID: parentID,
+		ID:       nodeId,
+	}
+	if req.SortOrder != nil {
+		dbParams.SortOrder = pgtype.Int4{Int32: *req.SortOrder, Valid: true}
+	}
+	if req.Type != nil {
+		dbParams.Type = node.NullNodeType{NodeType: node.NodeType(*req.Type), Valid: true}
+	}
+	if req.Title != nil {
+		dbParams.Title = httputil.PgTextFromString(req.Title)
+	}
+
+	dbRow, err := s.db.UpdateNode(ctx, *dbParams)
+	if err != nil {
+		return dto.UpdateNodeResponse{}, err
+	}
+
+	response := dto.UpdateNodeResponse{
+		ParentID:  &dbRow.ParentID,
+		Type:      string(dbRow.Type),
+		Title:     dbRow.Title,
+		SortOrder: dbRow.SortOrder,
+		UpdatedAt: &dbRow.UpdatedAt.Time,
+	}
+
+	return response, nil
+}
+
+func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeId pgtype.UUID, parentId pgtype.UUID) (bool, error) {
+	ancestors, err := s.db.GetNodeAncestors(ctx, parentId)
+	if err != nil {
+		return false, err
+	}
+
+	for _, id := range ancestors {
+		if id == nodeId {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}

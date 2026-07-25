@@ -91,6 +91,43 @@ func (q *Queries) GetChildren(ctx context.Context, arg GetChildrenParams) ([]Nod
 	return items, nil
 }
 
+const getNodeAncestors = `-- name: GetNodeAncestors :many
+WITH RECURSIVE ancestors(node_id, parent_id) AS (
+    SELECT n.id, n.parent_id
+    FROM nodes n
+    WHERE n.id = $1 AND n.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT c.id, c.parent_id
+    FROM nodes c
+    JOIN ancestors a ON c.id = a.parent_id
+    WHERE c.deleted_at IS NULL
+)
+SELECT node_id
+FROM ancestors
+`
+
+func (q *Queries) GetNodeAncestors(ctx context.Context, id pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, getNodeAncestors, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var node_id pgtype.UUID
+		if err := rows.Scan(&node_id); err != nil {
+			return nil, err
+		}
+		items = append(items, node_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getNodeByID = `-- name: GetNodeByID :one
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
 WHERE id = $1 
@@ -157,4 +194,53 @@ func (q *Queries) SoftDeleteNodeCascade(ctx context.Context, arg SoftDeleteNodeC
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateNode = `-- name: UpdateNode :one
+UPDATE nodes
+SET
+    parent_id = COALESCE($1, parent_id),
+    sort_order = COALESCE($2, sort_order),
+    type = COALESCE($3, type),
+    title = COALESCE($4, title),
+    updated_at = NOW()
+WHERE id = $5 AND deleted_at IS NULL
+RETURNING user_id, parent_id, sort_order, type, title, updated_at
+`
+
+type UpdateNodeParams struct {
+	ParentID  pgtype.UUID  `json:"parent_id"`
+	SortOrder pgtype.Int4  `json:"sort_order"`
+	Type      NullNodeType `json:"type"`
+	Title     pgtype.Text  `json:"title"`
+	ID        pgtype.UUID  `json:"id"`
+}
+
+type UpdateNodeRow struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	ParentID  pgtype.UUID        `json:"parent_id"`
+	SortOrder int32              `json:"sort_order"`
+	Type      NodeType           `json:"type"`
+	Title     string             `json:"title"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateNode(ctx context.Context, arg UpdateNodeParams) (UpdateNodeRow, error) {
+	row := q.db.QueryRow(ctx, updateNode,
+		arg.ParentID,
+		arg.SortOrder,
+		arg.Type,
+		arg.Title,
+		arg.ID,
+	)
+	var i UpdateNodeRow
+	err := row.Scan(
+		&i.UserID,
+		&i.ParentID,
+		&i.SortOrder,
+		&i.Type,
+		&i.Title,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
