@@ -20,16 +20,23 @@ type CreateNodeResponse struct {
 }
 
 type UpdateNodeRequest struct {
-	ParentID  *string `json:"parent_id" validate:"omitempty"`
-	Type      *string `json:"type" validate:"omitempty,oneof=folder note task"`
-	Title     *string `json:"title" validate:"omitempty,max=255"`
-	SortOrder *int32  `json:"sort_order" validate:"omitempty"`
+	Type  *string `json:"type" validate:"omitempty,oneof=folder note task"`
+	Title *string `json:"title" validate:"omitempty,max=255"`
 }
 
 type UpdateNodeResponse struct {
-	ParentID  string     `json:"parent_id"`
 	Type      string     `json:"type"`
 	Title     string     `json:"title"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+type MoveNodeRequest struct {
+	ParentID  NullableString `json:"parent_id"`
+	SortOrder *int32         `json:"sort_order" validate:"omitempty"`
+}
+
+type MoveNodeResponse struct {
+	ParentID  *string    `json:"parent_id"`
 	SortOrder int32      `json:"sort_order"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }

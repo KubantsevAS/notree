@@ -37,13 +37,23 @@ RETURNING id;
 -- name: UpdateNode :one
 UPDATE nodes
 SET
-    parent_id = COALESCE(sqlc.narg('parent_id'), parent_id),
-    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
     type = COALESCE(sqlc.narg('type'), type),
     title = COALESCE(sqlc.narg('title'), title),
     updated_at = NOW()
-WHERE id = @id AND deleted_at IS NULL
-RETURNING user_id, parent_id, sort_order, type, title, updated_at;
+WHERE id = @id AND user_id = @user_id AND deleted_at IS NULL
+RETURNING type, title, updated_at;
+
+-- name: MoveNode :one
+UPDATE nodes
+SET
+    parent_id = CASE
+                    WHEN sqlc.narg('update_parent')::boolean THEN sqlc.narg('parent_id')
+                    ELSE parent_id
+                END,
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    updated_at = NOW()
+WHERE id = @id AND user_id = @user_id AND deleted_at IS NULL
+RETURNING parent_id, sort_order, updated_at;
 
 -- name: GetNodeAncestors :many
 WITH RECURSIVE ancestors(node_id, parent_id) AS (

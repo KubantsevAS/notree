@@ -62,9 +62,9 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 	return response, nil
 }
 
-func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID) error {
+func (s *NodeService) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) error {
 	dbParams := &node.SoftDeleteNodeCascadeParams{
-		ID:     nodeId,
+		ID:     nodeID,
 		UserID: userID,
 	}
 
@@ -80,49 +80,10 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID
 	return nil
 }
 
-func (s *NodeService) UpdateNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
-	parentID := pgtype.UUID{Valid: false}
-	if req.ParentID != nil {
-		if *req.ParentID == "" {
-			return dto.UpdateNodeResponse{}, ErrInvalidParentID
-		}
-
-		parsedID, err := httputil.PgUUIDFromString(req.ParentID)
-		if err != nil {
-			return dto.UpdateNodeResponse{}, ErrInvalidParentID
-		}
-
-		if parsedID == nodeId {
-			return dto.UpdateNodeResponse{}, ErrNodeCannotBeADescendantOfItself
-		}
-
-		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return dto.UpdateNodeResponse{}, ErrParentNotFound
-			}
-			return dto.UpdateNodeResponse{}, err
-		}
-
-		parentID = parsedID
-
-		isDescendantOfItself, err := s.isNodeDescendantOfItself(ctx, nodeId, parentID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return dto.UpdateNodeResponse{}, ErrParentNotFound
-			}
-			return dto.UpdateNodeResponse{}, ErrInvalidParentID
-		}
-		if isDescendantOfItself {
-			return dto.UpdateNodeResponse{}, ErrNodeCannotBeADescendantOfItself
-		}
-	}
-
+func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
 	dbParams := &node.UpdateNodeParams{
-		ParentID: parentID,
-		ID:       nodeId,
-	}
-	if req.SortOrder != nil {
-		dbParams.SortOrder = pgtype.Int4{Int32: *req.SortOrder, Valid: true}
+		ID:     nodeID,
+		UserID: userID,
 	}
 	if req.Type != nil {
 		dbParams.Type = node.NullNodeType{NodeType: node.NodeType(*req.Type), Valid: true}
@@ -133,13 +94,83 @@ func (s *NodeService) UpdateNode(ctx context.Context, nodeId pgtype.UUID, userID
 
 	dbRow, err := s.db.UpdateNode(ctx, *dbParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return dto.UpdateNodeResponse{}, ErrNodeNotFoundOrNoAccess
+		}
 		return dto.UpdateNodeResponse{}, err
 	}
 
 	response := dto.UpdateNodeResponse{
-		ParentID:  dbRow.ParentID.String(),
 		Type:      string(dbRow.Type),
 		Title:     dbRow.Title,
+		UpdatedAt: &dbRow.UpdatedAt.Time,
+	}
+
+	return response, nil
+}
+
+func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.MoveNodeRequest) (dto.MoveNodeResponse, error) {
+	dbParams := &node.MoveNodeParams{
+		ID:           nodeID,
+		UserID:       userID,
+		UpdateParent: pgtype.Bool{Bool: req.ParentID.IsSet, Valid: true},
+		ParentID:     pgtype.UUID{Valid: false},
+	}
+
+	if req.ParentID.IsSet && req.ParentID.Value != nil {
+		if *req.ParentID.Value == "" {
+			return dto.MoveNodeResponse{}, ErrInvalidParentID
+		}
+
+		parsedID, err := httputil.PgUUIDFromString(req.ParentID.Value)
+		if err != nil {
+			return dto.MoveNodeResponse{}, ErrInvalidParentID
+		}
+		dbParams.ParentID = parsedID
+
+		if parsedID == nodeID {
+			return dto.MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
+		}
+
+		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return dto.MoveNodeResponse{}, ErrParentNotFound
+			}
+			return dto.MoveNodeResponse{}, err
+		}
+
+		isDescendantOfItself, err := s.isNodeDescendantOfItself(ctx, nodeID, parsedID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return dto.MoveNodeResponse{}, ErrParentNotFound
+			}
+			return dto.MoveNodeResponse{}, ErrInvalidParentID
+		}
+		if isDescendantOfItself {
+			return dto.MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
+		}
+	}
+
+	if req.SortOrder != nil {
+		dbParams.SortOrder = pgtype.Int4{Int32: *req.SortOrder, Valid: true}
+	}
+
+	dbRow, err := s.db.MoveNode(ctx, *dbParams)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return dto.MoveNodeResponse{}, ErrNodeNotFoundOrNoAccess
+		}
+		return dto.MoveNodeResponse{}, err
+	}
+
+	var responseParentID *string
+	if dbRow.ParentID.Valid {
+		str := dbRow.ParentID.String()
+		responseParentID = &str
+	}
+
+	response := dto.MoveNodeResponse{
+		ParentID:  responseParentID,
 		SortOrder: dbRow.SortOrder,
 		UpdatedAt: &dbRow.UpdatedAt.Time,
 	}
