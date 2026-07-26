@@ -51,8 +51,8 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 	}
 
 	response := dto.CreateNodeResponse{
-		ID:        nodeRow.ID,
-		ParentID:  &nodeRow.ParentID,
+		ID:        nodeRow.ID.String(),
+		ParentID:  nodeRow.ParentID.String(),
 		Type:      string(nodeRow.Type),
 		Title:     nodeRow.Title,
 		SortOrder: nodeRow.SortOrder,
@@ -82,10 +82,18 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeId pgtype.UUID, userID
 
 func (s *NodeService) UpdateNode(ctx context.Context, nodeId pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
 	parentID := pgtype.UUID{Valid: false}
-	if req.ParentID != nil && *req.ParentID != "" {
+	if req.ParentID != nil {
+		if *req.ParentID == "" {
+			return dto.UpdateNodeResponse{}, ErrInvalidParentID
+		}
+
 		parsedID, err := httputil.PgUUIDFromString(req.ParentID)
 		if err != nil {
 			return dto.UpdateNodeResponse{}, ErrInvalidParentID
+		}
+
+		if parsedID == nodeId {
+			return dto.UpdateNodeResponse{}, ErrNodeCannotBeADescendantOfItself
 		}
 
 		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
@@ -129,7 +137,7 @@ func (s *NodeService) UpdateNode(ctx context.Context, nodeId pgtype.UUID, userID
 	}
 
 	response := dto.UpdateNodeResponse{
-		ParentID:  &dbRow.ParentID,
+		ParentID:  dbRow.ParentID.String(),
 		Type:      string(dbRow.Type),
 		Title:     dbRow.Title,
 		SortOrder: dbRow.SortOrder,

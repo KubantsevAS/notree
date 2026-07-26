@@ -109,6 +109,7 @@ func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure      400 {object} dto.ErrorResponse "invalid node id format"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      404 {object} dto.ErrorResponse "node not found or access denied"
+// @Failure      409 {object} dto.ErrorResponse "node cannot be a descendant of itself"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id} [patch]
 func (h *NodeHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +140,7 @@ func (h *NodeHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, service.ErrNodeCannotBeADescendantOfItself) {
-			httputil.WriteErrorJSON(w, "node cannot be a descendant of itself", http.StatusBadRequest)
+			httputil.WriteErrorJSON(w, "node cannot be a descendant of itself", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, service.ErrParentNotFound) {
