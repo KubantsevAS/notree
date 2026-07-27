@@ -81,6 +81,10 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID
 }
 
 func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
+	if req.Type == nil && req.Title == nil {
+		return dto.UpdateNodeResponse{}, ErrEmptyUpdate
+	}
+
 	dbParams := &node.UpdateNodeParams{
 		ID:     nodeID,
 		UserID: userID,
@@ -110,6 +114,10 @@ func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID
 }
 
 func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.MoveNodeRequest) (dto.MoveNodeResponse, error) {
+	if !req.ParentID.IsSet && req.SortOrder == nil {
+		return dto.MoveNodeResponse{}, ErrEmptyUpdate
+	}
+
 	dbParams := &node.MoveNodeParams{
 		ID:           nodeID,
 		UserID:       userID,
@@ -178,14 +186,14 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 	return response, nil
 }
 
-func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeId pgtype.UUID, parentId pgtype.UUID) (bool, error) {
-	ancestors, err := s.db.GetNodeAncestors(ctx, parentId)
+func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeID pgtype.UUID, parentID pgtype.UUID) (bool, error) {
+	ancestors, err := s.db.GetNodeAncestors(ctx, parentID)
 	if err != nil {
 		return false, err
 	}
 
 	for _, id := range ancestors {
-		if id == nodeId {
+		if id == nodeID {
 			return true, nil
 		}
 	}
