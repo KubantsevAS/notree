@@ -53,6 +53,10 @@ func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetP
 }
 
 func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserProfileRequest) (dto.UpdateUserProfileResponse, error) {
+	if req.Username == nil && req.AvatarUrl == nil {
+		return dto.UpdateUserProfileResponse{}, ErrEmptyUpdate
+	}
+
 	dbParams := user.UpdateUserProfileParams{
 		Username:  httputil.PgTextFromString(req.Username),
 		AvatarUrl: httputil.PgTextFromString(req.AvatarUrl),
@@ -74,6 +78,10 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req
 }
 
 func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserPreferencesRequest) (dto.UpdateUserPreferencesResponse, error) {
+	if req.Locale == nil && req.Timezone == nil && req.Preferences == nil {
+		return dto.UpdateUserPreferencesResponse{}, ErrEmptyUpdate
+	}
+
 	dbParams := user.UpdateUserPreferencesParams{
 		Locale:      httputil.PgTextFromString(req.Locale),
 		Timezone:    httputil.PgTextFromString(req.Timezone),

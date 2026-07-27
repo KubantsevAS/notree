@@ -76,6 +76,10 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.Service.UpdateUserProfile(r.Context(), userID, body)
 	if err != nil {
+		if errors.Is(err, service.ErrEmptyUpdate) {
+			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
+			return
+		}
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -110,6 +114,10 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 
 	response, err := h.Service.UpdateUserPreferences(r.Context(), userID, body)
 	if err != nil {
+		if errors.Is(err, service.ErrEmptyUpdate) {
+			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
+			return
+		}
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
