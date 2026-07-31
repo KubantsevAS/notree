@@ -72,9 +72,9 @@ func (h *NodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id} [delete]
 func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	nodeId := chi.URLParam(r, "id")
+	nodeID := chi.URLParam(r, "id")
 
-	parsedNodeId, err := httputil.PgUUIDFromString(&nodeId)
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
 	if err != nil {
 		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
 		return
@@ -86,7 +86,7 @@ func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteNode(r.Context(), parsedNodeId, userID); err != nil {
+	if err := h.service.DeleteNode(r.Context(), parsedNodeID, userID); err != nil {
 		if errors.Is(err, service.ErrNodeNotFoundOrNoAccess) {
 			httputil.WriteErrorJSON(w, "node not found or access denied", http.StatusNotFound)
 			return
@@ -96,4 +96,121 @@ func (h *NodeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Update godoc
+// @Summary      Update node metadata
+// @Description  Partially updates a specific node (e.g., title or type) by ID. Does not affect hierarchy.
+// @Tags         Nodes
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Param        request body dto.UpdateNodeRequest true "Fields to update"
+// @Success      200 {object} dto.UpdateNodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid request body or node ID format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found or access denied"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id} [patch]
+func (h *NodeHandler) Update(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.UpdateNodeRequest](r)
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	nodeID := chi.URLParam(r, "id")
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	response, err := h.service.UpdateNode(r.Context(), parsedNodeID, userID, body)
+	if err != nil {
+		if errors.Is(err, service.ErrEmptyUpdate) {
+			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrNodeNotFoundOrNoAccess) {
+			httputil.WriteErrorJSON(w, "node not found or access denied", http.StatusNotFound)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
+
+// Move godoc
+// @Summary      Move node in tree
+// @Description  Changes the parent or sort order of a node. Pass `null` as parent_id to move the node to the root.
+// @Tags         Nodes
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Param        request body dto.MoveNodeRequest true "Move parameters"
+// @Success      200 {object} dto.MoveNodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid parent ID format or parent not found"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found or access denied"
+// @Failure      409 {object} dto.ErrorResponse "node cannot be a descendant of itself (circular reference)"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/move [post]
+func (h *NodeHandler) Move(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[dto.MoveNodeRequest](r)
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	nodeID := chi.URLParam(r, "id")
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	response, err := h.service.MoveNode(r.Context(), parsedNodeID, userID, body)
+	if err != nil {
+		if errors.Is(err, service.ErrEmptyUpdate) {
+			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidParentID) {
+			httputil.WriteErrorJSON(w, "invalid parent id", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrNodeCannotBeADescendantOfItself) {
+			httputil.WriteErrorJSON(w, "node cannot be a descendant of itself (circular reference)", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, service.ErrParentNotFound) {
+			httputil.WriteErrorJSON(w, "parent not found", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, service.ErrNodeNotFoundOrNoAccess) {
+			httputil.WriteErrorJSON(w, "node not found or access denied", http.StatusNotFound)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }

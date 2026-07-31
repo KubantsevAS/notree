@@ -2,8 +2,6 @@ package dto
 
 import (
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CreateNodeRequest struct {
@@ -13,10 +11,32 @@ type CreateNodeRequest struct {
 }
 
 type CreateNodeResponse struct {
-	ID        pgtype.UUID  `json:"id"`
-	ParentID  *pgtype.UUID `json:"parent_id"`
-	Type      string       `json:"type"`
-	Title     string       `json:"title"`
-	SortOrder int32        `json:"sort_order"`
-	CreatedAt *time.Time   `json:"created_at"`
+	ID        string     `json:"id"`
+	ParentID  string     `json:"parent_id"`
+	Type      string     `json:"type"`
+	Title     string     `json:"title"`
+	SortOrder int32      `json:"sort_order"`
+	CreatedAt *time.Time `json:"created_at"`
+}
+
+type UpdateNodeRequest struct {
+	Type  *string `json:"type" validate:"omitempty,oneof=folder note task"`
+	Title *string `json:"title" validate:"omitempty,max=255"`
+}
+
+type UpdateNodeResponse struct {
+	Type      string     `json:"type"`
+	Title     string     `json:"title"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+type MoveNodeRequest struct {
+	ParentID  NullableString `json:"parent_id"`
+	SortOrder *int32         `json:"sort_order" validate:"omitempty"`
+}
+
+type MoveNodeResponse struct {
+	ParentID  *string    `json:"parent_id"`
+	SortOrder int32      `json:"sort_order"`
+	UpdatedAt *time.Time `json:"updated_at"`
 }

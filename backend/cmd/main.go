@@ -93,8 +93,13 @@ func main() {
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
-			r.Post("/nodes", nodeHandler.Create)
-			r.Delete("/nodes/{id}", nodeHandler.Delete)
+
+			r.Route("/nodes", func(r chi.Router) {
+				r.Post("/", nodeHandler.Create)
+				r.Post("/{id}/move", nodeHandler.Move)
+				r.Patch("/{id}", nodeHandler.Update)
+				r.Delete("/{id}", nodeHandler.Delete)
+			})
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/me", userHandler.GetProfile)
