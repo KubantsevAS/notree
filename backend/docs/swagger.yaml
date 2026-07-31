@@ -94,6 +94,29 @@ definitions:
       message:
         type: string
     type: object
+  dto.MoveNodeRequest:
+    properties:
+      parent_id:
+        $ref: '#/definitions/dto.NullableString'
+      sort_order:
+        type: integer
+    type: object
+  dto.MoveNodeResponse:
+    properties:
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  dto.NullableString:
+    properties:
+      isSet:
+        type: boolean
+      value:
+        type: string
+    type: object
   dto.RegisterRequest:
     properties:
       email:
@@ -115,6 +138,27 @@ definitions:
     required:
     - new_password
     - token
+    type: object
+  dto.UpdateNodeRequest:
+    properties:
+      title:
+        maxLength: 255
+        type: string
+      type:
+        enum:
+        - folder
+        - note
+        - task
+        type: string
+    type: object
+  dto.UpdateNodeResponse:
+    properties:
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
     type: object
   dto.UpdateUserPreferencesRequest:
     properties:
@@ -395,6 +439,97 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Delete a node
+      tags:
+      - Nodes
+    patch:
+      consumes:
+      - application/json
+      description: Partially updates a specific node (e.g., title or type) by ID.
+        Does not affect hierarchy.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateNodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UpdateNodeResponse'
+        "400":
+          description: invalid request body or node ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node not found or access denied
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update node metadata
+      tags:
+      - Nodes
+  /nodes/{id}/move:
+    post:
+      consumes:
+      - application/json
+      description: Changes the parent or sort order of a node. Pass `null` as parent_id
+        to move the node to the root.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Move parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MoveNodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MoveNodeResponse'
+        "400":
+          description: invalid parent ID format or parent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node not found or access denied
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: node cannot be a descendant of itself (circular reference)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Move node in tree
       tags:
       - Nodes
   /profile/me:
