@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
@@ -42,7 +43,7 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 		ParentID:  parentID,
 		Type:      node.NodeType(req.Type),
 		Title:     req.Title,
-		SortOrder: 0,
+		SortOrder: time.Now().UnixNano(),
 	}
 
 	nodeRow, err := s.db.CreateNode(ctx, dbParams)
@@ -160,7 +161,7 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 	}
 
 	if req.SortOrder != nil {
-		dbParams.SortOrder = pgtype.Int4{Int32: *req.SortOrder, Valid: true}
+		dbParams.SortOrder = pgtype.Int8{Int64: *req.SortOrder, Valid: true}
 	}
 
 	dbRow, err := s.db.MoveNode(ctx, *dbParams)

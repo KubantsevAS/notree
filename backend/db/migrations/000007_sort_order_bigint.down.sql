@@ -1,0 +1,1 @@
+ALTER TABLE nodes ALTER COLUMN sort_order TYPE INTEGER;

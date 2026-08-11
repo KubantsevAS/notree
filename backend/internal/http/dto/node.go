@@ -15,7 +15,7 @@ type CreateNodeResponse struct {
 	ParentID  string     `json:"parent_id"`
 	Type      string     `json:"type"`
 	Title     string     `json:"title"`
-	SortOrder int32      `json:"sort_order"`
+	SortOrder int64      `json:"sort_order"`
 	CreatedAt *time.Time `json:"created_at"`
 }
 
@@ -32,11 +32,11 @@ type UpdateNodeResponse struct {
 
 type MoveNodeRequest struct {
 	ParentID  NullableString `json:"parent_id"`
-	SortOrder *int32         `json:"sort_order" validate:"omitempty"`
+	SortOrder *int64         `json:"sort_order" validate:"omitempty"`
 }
 
 type MoveNodeResponse struct {
 	ParentID  *string    `json:"parent_id"`
-	SortOrder int32      `json:"sort_order"`
+	SortOrder int64      `json:"sort_order"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }

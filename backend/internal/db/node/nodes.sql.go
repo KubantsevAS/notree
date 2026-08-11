@@ -22,7 +22,7 @@ type CreateNodeParams struct {
 	ParentID  pgtype.UUID `json:"parent_id"`
 	Type      NodeType    `json:"type"`
 	Title     string      `json:"title"`
-	SortOrder int32       `json:"sort_order"`
+	SortOrder int64       `json:"sort_order"`
 }
 
 func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, error) {
@@ -168,14 +168,14 @@ RETURNING parent_id, sort_order, updated_at
 type MoveNodeParams struct {
 	UpdateParent pgtype.Bool `json:"update_parent"`
 	ParentID     pgtype.UUID `json:"parent_id"`
-	SortOrder    pgtype.Int4 `json:"sort_order"`
+	SortOrder    pgtype.Int8 `json:"sort_order"`
 	ID           pgtype.UUID `json:"id"`
 	UserID       pgtype.UUID `json:"user_id"`
 }
 
 type MoveNodeRow struct {
 	ParentID  pgtype.UUID        `json:"parent_id"`
-	SortOrder int32              `json:"sort_order"`
+	SortOrder int64              `json:"sort_order"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
