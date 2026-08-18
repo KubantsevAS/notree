@@ -12,7 +12,8 @@ ORDER BY sort_order ASC;
 
 -- name: GetNodeByID :one
 SELECT * FROM nodes
-WHERE id = $1 
+WHERE id = $1
+  AND user_id = $2
   AND deleted_at IS NULL
 LIMIT 1;
 
