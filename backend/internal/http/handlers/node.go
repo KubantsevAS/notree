@@ -214,3 +214,31 @@ func (h *NodeHandler) Move(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
+
+func (h *NodeHandler) GetChildren(w http.ResponseWriter, r *http.Request) {
+	parentID := chi.URLParam(r, "parent_id")
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&parentID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	response, err := h.service.GetChildren(r.Context(), parsedNodeID, userID)
+	if err != nil {
+		if errors.Is(err, service.ErrParentNotFound) {
+			httputil.WriteErrorJSON(w, "parent not found", http.StatusBadRequest)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}

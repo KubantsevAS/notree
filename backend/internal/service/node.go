@@ -28,7 +28,7 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 			return dto.CreateNodeResponse{}, ErrInvalidParentID
 		}
 
-		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
+		if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return dto.CreateNodeResponse{}, ErrParentNotFound
 			}
@@ -141,7 +141,7 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 			return dto.MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
 		}
 
-		if _, err := s.db.GetNodeByID(ctx, parsedID); err != nil {
+		if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return dto.MoveNodeResponse{}, ErrParentNotFound
 			}
@@ -200,4 +200,30 @@ func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeID pgtyp
 	}
 
 	return false, nil
+}
+
+func (s *NodeService) GetChildren(ctx context.Context, parentID pgtype.UUID, userID pgtype.UUID) ([]dto.NodeResponse, error) {
+	if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []dto.NodeResponse{}, ErrParentNotFound
+		}
+		return []dto.NodeResponse{}, err
+	}
+
+	dbParams := &node.GetChildrenParams{
+		ParentID: parentID,
+		UserID:   userID,
+	}
+
+	dbRow, err := s.db.GetChildren(ctx, *dbParams)
+	if err != nil {
+		return []dto.NodeResponse{}, err
+	}
+
+	response := make([]dto.NodeResponse, 0, len(dbRow))
+	for _, n := range dbRow {
+		response = append(response, dto.MapNodeToResponse(n))
+	}
+
+	return response, nil
 }

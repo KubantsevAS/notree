@@ -95,6 +95,7 @@ func main() {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 
 			r.Route("/nodes", func(r chi.Router) {
+				r.Get("/", nodeHandler.GetChildren)
 				r.Post("/", nodeHandler.Create)
 				r.Post("/{id}/move", nodeHandler.Move)
 				r.Patch("/{id}", nodeHandler.Update)
