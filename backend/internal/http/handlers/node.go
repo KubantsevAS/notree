@@ -215,6 +215,17 @@ func (h *NodeHandler) Move(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
+// GetChildren godoc
+// @Summary      Get child nodes
+// @Description  Retrieves a list of direct child nodes for a specific parent node.
+// @Tags         Nodes
+// @Produce      json
+// @Param        parent_id path string true "Parent Node ID (UUID)"
+// @Success      200 {object} dto.GetChildrenResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format or parent not found"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{parent_id} [get]
 func (h *NodeHandler) GetChildren(w http.ResponseWriter, r *http.Request) {
 	parentID := chi.URLParam(r, "parent_id")
 
