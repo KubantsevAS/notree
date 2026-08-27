@@ -61,7 +61,7 @@ type Node struct {
 	ParentID  pgtype.UUID        `json:"parent_id"`
 	Type      NodeType           `json:"type"`
 	Title     string             `json:"title"`
-	SortOrder int32              `json:"sort_order"`
+	SortOrder int64              `json:"sort_order"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`

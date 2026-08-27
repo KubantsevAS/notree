@@ -22,7 +22,7 @@ type CreateNodeParams struct {
 	ParentID  pgtype.UUID `json:"parent_id"`
 	Type      NodeType    `json:"type"`
 	Title     string      `json:"title"`
-	SortOrder int32       `json:"sort_order"`
+	SortOrder int64       `json:"sort_order"`
 }
 
 func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, error) {
@@ -130,13 +130,19 @@ func (q *Queries) GetNodeAncestors(ctx context.Context, id pgtype.UUID) ([]pgtyp
 
 const getNodeByID = `-- name: GetNodeByID :one
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
-WHERE id = $1 
+WHERE id = $1
+  AND user_id = $2
   AND deleted_at IS NULL
 LIMIT 1
 `
 
-func (q *Queries) GetNodeByID(ctx context.Context, id pgtype.UUID) (Node, error) {
-	row := q.db.QueryRow(ctx, getNodeByID, id)
+type GetNodeByIDParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetNodeByID(ctx context.Context, arg GetNodeByIDParams) (Node, error) {
+	row := q.db.QueryRow(ctx, getNodeByID, arg.ID, arg.UserID)
 	var i Node
 	err := row.Scan(
 		&i.ID,
@@ -168,14 +174,14 @@ RETURNING parent_id, sort_order, updated_at
 type MoveNodeParams struct {
 	UpdateParent pgtype.Bool `json:"update_parent"`
 	ParentID     pgtype.UUID `json:"parent_id"`
-	SortOrder    pgtype.Int4 `json:"sort_order"`
+	SortOrder    pgtype.Int8 `json:"sort_order"`
 	ID           pgtype.UUID `json:"id"`
 	UserID       pgtype.UUID `json:"user_id"`
 }
 
 type MoveNodeRow struct {
 	ParentID  pgtype.UUID        `json:"parent_id"`
-	SortOrder int32              `json:"sort_order"`
+	SortOrder int64              `json:"sort_order"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
