@@ -13,10 +13,20 @@ import (
 )
 
 type NodeService struct {
-	db *node.Queries
+	db nodeRepository
 }
 
-func NewNodeService(db *node.Queries) *NodeService {
+type nodeRepository interface {
+	CreateNode(context.Context, node.CreateNodeParams) (node.Node, error)
+	GetChildren(context.Context, node.GetChildrenParams) ([]node.Node, error)
+	GetNodeAncestors(context.Context, pgtype.UUID) ([]pgtype.UUID, error)
+	GetNodeByID(context.Context, node.GetNodeByIDParams) (node.Node, error)
+	MoveNode(context.Context, node.MoveNodeParams) (node.MoveNodeRow, error)
+	SoftDeleteNodeCascade(context.Context, node.SoftDeleteNodeCascadeParams) ([]pgtype.UUID, error)
+	UpdateNode(context.Context, node.UpdateNodeParams) (node.UpdateNodeRow, error)
+}
+
+func NewNodeService(db nodeRepository) *NodeService {
 	return &NodeService{db: db}
 }
 
