@@ -1,11 +1,10 @@
-package service
+package node
 
 import (
 	"context"
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
-	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -52,8 +51,8 @@ func (f *nodeRepositoryFake) UpdateNode(context.Context, node.UpdateNodeParams) 
 
 func TestNodeServiceCreateNodeSortOrderIncreases(t *testing.T) {
 	fake := &nodeRepositoryFake{}
-	service := NewNodeService(fake)
-	request := &dto.CreateNodeRequest{Type: "note", Title: "test"}
+	service := NewService(fake)
+	request := &CreateNodeRequest{Type: "note", Title: "test"}
 
 	if _, err := service.CreateNode(context.Background(), pgtype.UUID{}, request); err != nil {
 		t.Fatalf("first CreateNode() error = %v", err)
@@ -83,7 +82,7 @@ func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 		},
 	}
 
-	children, err := NewNodeService(fake).GetChildren(context.Background(), parentID, userID)
+	children, err := NewService(fake).GetChildren(context.Background(), parentID, userID)
 	if err != nil {
 		t.Fatalf("GetChildren() error = %v", err)
 	}

@@ -34,6 +34,7 @@ import (
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
+	"github.com/KubantsevAS/notree/backend/internal/node"
 	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
@@ -46,7 +47,7 @@ func main() {
 	cfg := config.MustLoad()
 
 	log := logger.SetupLogger(cfg.Env)
-	log.Info("Starting Notree backend", slog.String("env", cfg.Env))
+	log.Info("Starting Notree backend v0.2.0", slog.String("env", cfg.Env))
 
 	dbpool := db.CreateDbPool(&cfg.DB, log)
 	defer dbpool.Close()
@@ -72,13 +73,13 @@ func main() {
 
 	mailerService := mailer.NewConsoleMailer()
 
-	nodeService := service.NewNodeService(nodesDB)
+	nodeModule := node.NewModule(nodesDB)
+
 	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
 	userService := service.NewUserService(usersDB, mailerService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
-	nodeHandler := handlers.NewNodeHandler(nodeService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
@@ -94,13 +95,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 
-			r.Route("/nodes", func(r chi.Router) {
-				r.Get("/{parent_id}", nodeHandler.GetChildren)
-				r.Post("/", nodeHandler.Create)
-				r.Post("/{id}/move", nodeHandler.Move)
-				r.Patch("/{id}", nodeHandler.Update)
-				r.Delete("/{id}", nodeHandler.Delete)
-			})
+			nodeModule.RegisterRoutes(r)
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/me", userHandler.GetProfile)
