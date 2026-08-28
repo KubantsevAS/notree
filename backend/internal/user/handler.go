@@ -1,22 +1,19 @@
-package handlers
+package user
 
 import (
 	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
-	"github.com/KubantsevAS/notree/backend/internal/service"
 )
 
-type UserHandler struct {
-	Service *service.UserService
+type Handler struct {
+	service *Service
 }
 
-func NewUserHandler(s *service.UserService) *UserHandler {
-	return &UserHandler{
-		Service: s,
-	}
+func NewHandler(s *Service) *Handler {
+	return &Handler{service: s}
 }
 
 // GetProfile   godoc
@@ -24,21 +21,21 @@ func NewUserHandler(s *service.UserService) *UserHandler {
 // @Description Returns the profile data of an authorized user
 // @Tags        Profile
 // @Produce     json
-// @Success     200 {object} dto.GetProfileResponse
+// @Success     200 {object} GetProfileResponse
 // @Failure     401 {object} dto.ErrorResponse "unauthorized"
 // @Failure     404 {object} dto.ErrorResponse "user not found"
 // @Failure     500 {object} dto.ErrorResponse "internal server error"
 // @Router      /profile/me [get]
-func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	response, err := h.Service.GetUserById(r.Context(), userID)
+	response, err := h.service.GetUserById(r.Context(), userID)
 	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
+		if errors.Is(err, ErrUserNotFound) {
 			httputil.WriteErrorJSON(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -55,14 +52,14 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags         Profile
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.UpdateUserProfileRequest true "Information to update profile"
-// @Success      200 {object} dto.UpdateUserProfileResponse
+// @Param        request body UpdateUserProfileRequest true "Information to update profile"
+// @Success      200 {object} UpdateUserProfileResponse
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /profile/me [patch]
-func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.UpdateUserProfileRequest](r)
+func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[UpdateUserProfileRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
@@ -74,9 +71,9 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.Service.UpdateUserProfile(r.Context(), userID, body)
+	response, err := h.service.UpdateUserProfile(r.Context(), userID, body)
 	if err != nil {
-		if errors.Is(err, service.ErrEmptyUpdate) {
+		if errors.Is(err, ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}
@@ -93,14 +90,14 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags             Profile
 // @Accept           json
 // @Produce          json
-// @Param            request body dto.UpdateUserPreferencesRequest true "New user preferences"
-// @Success          200 {object} dto.UpdateUserPreferencesResponse
+// @Param            request body UpdateUserPreferencesRequest true "New user preferences"
+// @Success          200 {object} UpdateUserPreferencesResponse
 // @Failure          400 {object} dto.ErrorResponse "bad request"
 // @Failure          401 {object} dto.ErrorResponse "unauthorized"
 // @Failure          500 {object} dto.ErrorResponse "internal server error"
 // @Router           /profile/me/preference [patch]
-func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.UpdateUserPreferencesRequest](r)
+func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[UpdateUserPreferencesRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
@@ -112,9 +109,9 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response, err := h.Service.UpdateUserPreferences(r.Context(), userID, body)
+	response, err := h.service.UpdateUserPreferences(r.Context(), userID, body)
 	if err != nil {
-		if errors.Is(err, service.ErrEmptyUpdate) {
+		if errors.Is(err, ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}
@@ -131,14 +128,14 @@ func (h *UserHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 // @Tags         Profile
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ChangePasswordRequest true "Old and new passwords"
-// @Success      200 {object} dto.MessageResponse "password updated"
+// @Param        request body ChangePasswordRequest true "Old and new passwords"
+// @Success      200 {object} MessageResponse "password updated"
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      401 {object} dto.ErrorResponse "wrong old password"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /profile/me/change-password [patch]
-func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.ChangePasswordRequest](r)
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[ChangePasswordRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
@@ -150,8 +147,8 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Service.UpdateUserPassword(r.Context(), userID, body); err != nil {
-		if errors.Is(err, service.ErrWrongCredentials) {
+	if err := h.service.UpdateUserPassword(r.Context(), userID, body); err != nil {
+		if errors.Is(err, ErrWrongCredentials) {
 			httputil.WriteErrorJSON(w, "wrong old password", http.StatusUnauthorized)
 			return
 		}
@@ -166,12 +163,12 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // @Summary      Send email verification token
 // @Tags         Profile
 // @Produce      json
-// @Success      200 {object} dto.MessageResponse "email verification link has been sent"
+// @Success      200 {object} MessageResponse "email verification link has been sent"
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /profile/me/send-verification [post]
-func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) SendVerificationToken(w http.ResponseWriter, r *http.Request) {
 	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
@@ -180,7 +177,7 @@ func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Reque
 
 	// TODO Implement 429 code
 
-	if err := h.Service.SendVerificationEmail(r.Context(), userID); err != nil {
+	if err := h.service.SendVerificationEmail(r.Context(), userID); err != nil {
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -193,14 +190,14 @@ func (h *UserHandler) SendVerificationToken(w http.ResponseWriter, r *http.Reque
 // @Tags         Profile
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.VerifyEmailByTokenRequest true "token"
-// @Success      200 {object} dto.MessageResponse "email successfully verified"
+// @Param        request body VerifyEmailByTokenRequest true "token"
+// @Success      200 {object} MessageResponse "email successfully verified"
 // @Failure      400 {object} dto.ErrorResponse "invalid or expired token"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /profile/me/verify-email [post]
-func (h *UserHandler) VerifyEmailByToken(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.VerifyEmailByTokenRequest](r)
+func (h *Handler) VerifyEmailByToken(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[VerifyEmailByTokenRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
@@ -212,8 +209,8 @@ func (h *UserHandler) VerifyEmailByToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.Service.VerifyEmailByToken(r.Context(), userID, body.Token); err != nil {
-		if errors.Is(err, service.ErrInvalidVerificationToken) {
+	if err := h.service.VerifyEmailByToken(r.Context(), userID, body.Token); err != nil {
+		if errors.Is(err, ErrInvalidVerificationToken) {
 			httputil.WriteErrorJSON(w, "invalid or expired token", http.StatusBadRequest)
 			return
 		}

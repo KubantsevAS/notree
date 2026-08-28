@@ -1,4 +1,4 @@
-package service
+package user
 
 import (
 	"context"
@@ -7,35 +7,42 @@ import (
 	"log"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserService struct {
-	db     *user.Queries
+type Store interface {
+	GetUserById(context.Context, pgtype.UUID) (user.UsersPublic, error)
+	CreateUser(context.Context, user.CreateUserParams) (pgtype.UUID, error)
+	GetUserPasswordHashById(context.Context, pgtype.UUID) (string, error)
+	SetVerificationToken(context.Context, user.SetVerificationTokenParams) error
+	UpdateUserPassword(context.Context, user.UpdateUserPasswordParams) error
+	UpdateUserPreferences(context.Context, user.UpdateUserPreferencesParams) (user.UpdateUserPreferencesRow, error)
+	UpdateUserProfile(context.Context, user.UpdateUserProfileParams) (user.UpdateUserProfileRow, error)
+	VerifyEmailByToken(context.Context, user.VerifyEmailByTokenParams) (pgtype.UUID, error)
+}
+
+type Service struct {
+	store  Store
 	mailer mailer.Mailer
 }
 
-func NewUserService(db *user.Queries, mailer mailer.Mailer) *UserService {
-	return &UserService{
-		db:     db,
-		mailer: mailer,
-	}
+func NewService(repo Store, mailer mailer.Mailer) *Service {
+	return &Service{store: repo, mailer: mailer}
 }
 
-func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetProfileResponse, error) {
-	user, err := s.db.GetUserById(ctx, id)
+func (s *Service) GetUserById(ctx context.Context, id pgtype.UUID) (GetProfileResponse, error) {
+	user, err := s.store.GetUserById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return dto.GetProfileResponse{}, ErrUserNotFound
+			return GetProfileResponse{}, ErrUserNotFound
 		}
-		return dto.GetProfileResponse{}, err
+		return GetProfileResponse{}, err
 	}
 
-	response := dto.GetProfileResponse{
+	response := GetProfileResponse{
 		ID:              user.ID.String(),
 		Email:           user.Email,
 		Username:        &user.Username.String,
@@ -52,9 +59,9 @@ func (s *UserService) GetUserById(ctx context.Context, id pgtype.UUID) (dto.GetP
 	return response, nil
 }
 
-func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserProfileRequest) (dto.UpdateUserProfileResponse, error) {
+func (s *Service) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *UpdateUserProfileRequest) (UpdateUserProfileResponse, error) {
 	if req.Username == nil && req.AvatarUrl == nil {
-		return dto.UpdateUserProfileResponse{}, ErrEmptyUpdate
+		return UpdateUserProfileResponse{}, ErrEmptyUpdate
 	}
 
 	dbParams := user.UpdateUserProfileParams{
@@ -63,12 +70,12 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req
 		ID:        id,
 	}
 
-	dbRow, err := s.db.UpdateUserProfile(ctx, dbParams)
+	dbRow, err := s.store.UpdateUserProfile(ctx, dbParams)
 	if err != nil {
-		return dto.UpdateUserProfileResponse{}, err
+		return UpdateUserProfileResponse{}, err
 	}
 
-	response := dto.UpdateUserProfileResponse{
+	response := UpdateUserProfileResponse{
 		Username:  &dbRow.Username.String,
 		AvatarUrl: &dbRow.AvatarUrl.String,
 		UpdatedAt: &dbRow.UpdatedAt.Time,
@@ -77,9 +84,9 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req
 	return response, nil
 }
 
-func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, req *dto.UpdateUserPreferencesRequest) (dto.UpdateUserPreferencesResponse, error) {
+func (s *Service) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, req *UpdateUserPreferencesRequest) (UpdateUserPreferencesResponse, error) {
 	if req.Locale == nil && req.Timezone == nil && req.Preferences == nil {
-		return dto.UpdateUserPreferencesResponse{}, ErrEmptyUpdate
+		return UpdateUserPreferencesResponse{}, ErrEmptyUpdate
 	}
 
 	dbParams := user.UpdateUserPreferencesParams{
@@ -89,12 +96,12 @@ func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID,
 		ID:          id,
 	}
 
-	dbRow, err := s.db.UpdateUserPreferences(ctx, dbParams)
+	dbRow, err := s.store.UpdateUserPreferences(ctx, dbParams)
 	if err != nil {
-		return dto.UpdateUserPreferencesResponse{}, err
+		return UpdateUserPreferencesResponse{}, err
 	}
 
-	response := dto.UpdateUserPreferencesResponse{
+	response := UpdateUserPreferencesResponse{
 		Locale:      &dbRow.Locale.String,
 		Timezone:    &dbRow.Timezone.String,
 		Preferences: &dbRow.Preferences,
@@ -104,8 +111,8 @@ func (s *UserService) UpdateUserPreferences(ctx context.Context, id pgtype.UUID,
 	return response, nil
 }
 
-func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, req *dto.ChangePasswordRequest) error {
-	hashRow, err := s.db.GetUserPasswordHashById(ctx, id)
+func (s *Service) UpdateUserPassword(ctx context.Context, id pgtype.UUID, req *ChangePasswordRequest) error {
+	hashRow, err := s.store.GetUserPasswordHashById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrUserNotFound
@@ -127,11 +134,11 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, id pgtype.UUID, re
 		ID:           id,
 	}
 
-	return s.db.UpdateUserPassword(ctx, dbParams)
+	return s.store.UpdateUserPassword(ctx, dbParams)
 }
 
-func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID) error {
-	userRow, err := s.db.GetUserById(ctx, id)
+func (s *Service) SendVerificationEmail(ctx context.Context, id pgtype.UUID) error {
+	userRow, err := s.store.GetUserById(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrUserNotFound
@@ -155,7 +162,7 @@ func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID)
 		ID:                id,
 	}
 
-	if err := s.db.SetVerificationToken(ctx, dbParams); err != nil {
+	if err := s.store.SetVerificationToken(ctx, dbParams); err != nil {
 		return err
 	}
 
@@ -168,13 +175,13 @@ func (s *UserService) SendVerificationEmail(ctx context.Context, id pgtype.UUID)
 	return nil
 }
 
-func (s *UserService) VerifyEmailByToken(ctx context.Context, userID pgtype.UUID, token string) error {
+func (s *Service) VerifyEmailByToken(ctx context.Context, userID pgtype.UUID, token string) error {
 	dbParams := user.VerifyEmailByTokenParams{
 		ID:                userID,
 		VerificationToken: httputil.PgTextFromString(&token),
 	}
 
-	if _, err := s.db.VerifyEmailByToken(ctx, dbParams); err != nil {
+	if _, err := s.store.VerifyEmailByToken(ctx, dbParams); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrInvalidVerificationToken
 		}

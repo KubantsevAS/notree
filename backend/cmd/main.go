@@ -36,6 +36,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/internal/node"
 	"github.com/KubantsevAS/notree/backend/internal/service"
+	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -74,12 +75,11 @@ func main() {
 	mailerService := mailer.NewConsoleMailer()
 
 	nodeModule := node.NewModule(nodesDB)
+	userModule := user.NewModule(usersDB, mailerService)
 
 	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
-	userService := service.NewUserService(usersDB, mailerService)
 
 	authHandler := handlers.NewAuthHandler(authService)
-	userHandler := handlers.NewUserHandler(userService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
@@ -96,15 +96,7 @@ func main() {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 
 			nodeModule.RegisterRoutes(r)
-
-			r.Route("/profile", func(r chi.Router) {
-				r.Get("/me", userHandler.GetProfile)
-				r.Patch("/me", userHandler.UpdateProfile)
-				r.Patch("/me/preference", userHandler.UpdatePreferences)
-				r.Patch("/me/change-password", userHandler.ChangePassword)
-				r.Post("/me/send-verification", userHandler.SendVerificationToken)
-				r.Post("/me/verify-email", userHandler.VerifyEmailByToken)
-			})
+			userModule.RegisterRoutes(r)
 		})
 	})
 

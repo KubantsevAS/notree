@@ -12,7 +12,6 @@ type Module struct {
 func NewModule(
 	queries *node.Queries,
 ) *Module {
-
 	service := NewService(queries)
 	handler := NewHandler(service)
 
