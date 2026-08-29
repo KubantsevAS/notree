@@ -1,4 +1,4 @@
-package service
+package auth
 
 import "errors"
 
@@ -10,6 +10,4 @@ var (
 
 	ErrUserExist    = errors.New("user with that email already exist")
 	ErrUserNotFound = errors.New("user not found")
-
-	ErrEmptyUpdate = errors.New("no fields provided for update")
 )

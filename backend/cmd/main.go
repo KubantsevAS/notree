@@ -25,17 +25,16 @@ import (
 	"net/http"
 
 	_ "github.com/KubantsevAS/notree/backend/docs"
+	"github.com/KubantsevAS/notree/backend/internal/auth"
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	sqlcUser "github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/internal/node"
-	"github.com/KubantsevAS/notree/backend/internal/service"
 	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
@@ -74,24 +73,15 @@ func main() {
 
 	mailerService := mailer.NewConsoleMailer()
 
+	authModule := auth.NewModule(cfg, authDB, usersDB, mailerService)
 	nodeModule := node.NewModule(nodesDB)
 	userModule := user.NewModule(usersDB, mailerService)
-
-	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
-
-	authHandler := handlers.NewAuthHandler(authService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", authHandler.Register)
-			r.Post("/login", authHandler.Login)
-			r.Post("/refresh-tokens", authHandler.RefreshTokens)
-			r.Post("/logout", authHandler.Logout)
-			r.Post("/forgot-password", authHandler.ForgotPassword)
-			r.Post("/reset-password", authHandler.ResetPassword)
-		})
+		authModule.RegisterRoutes(r)
+
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 

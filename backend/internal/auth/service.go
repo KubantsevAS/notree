@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db/auth"
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
@@ -18,11 +17,26 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {
+type Store interface {
+	CreateRefreshToken(context.Context, auth.CreateRefreshTokenParams) error
+	DeleteRefreshToken(ctx context.Context, tokenHash string) error
+	GetRefreshToken(ctx context.Context, tokenHash string) (auth.RefreshToken, error)
+}
+
+type Service struct {
 	config *config.Config
-	db     *auth.Queries
+	store  Store
 	userDb *user.Queries
 	mailer mailer.Mailer
+}
+
+func NewService(c *config.Config, repo Store, userDb *user.Queries, mailer mailer.Mailer) *Service {
+	return &Service{
+		config: c,
+		store:  repo,
+		userDb: userDb,
+		mailer: mailer,
+	}
 }
 
 type TokenPair struct {
@@ -30,16 +44,7 @@ type TokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func NewAuthService(c *config.Config, authDb *auth.Queries, userDb *user.Queries, mailer mailer.Mailer) *AuthService {
-	return &AuthService{
-		config: c,
-		db:     authDb,
-		userDb: userDb,
-		mailer: mailer,
-	}
-}
-
-func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*TokenPair, error) {
+func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*TokenPair, error) {
 	_, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err == nil {
 		return nil, ErrUserExist
@@ -61,7 +66,7 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 	return s.generateTokenPair(ctx, userID)
 }
 
-func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenPair, error) {
+func (s *Service) Login(ctx context.Context, req *LoginRequest) (*TokenPair, error) {
 	user, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, ErrWrongCredentials
@@ -75,12 +80,12 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*TokenP
 	return s.generateTokenPair(ctx, user.ID)
 }
 
-func (s *AuthService) Logout(ctx context.Context, incomingRT string) error {
-	return s.db.DeleteRefreshToken(ctx, incomingRT)
+func (s *Service) Logout(ctx context.Context, incomingRT string) error {
+	return s.store.DeleteRefreshToken(ctx, incomingRT)
 }
 
-func (s *AuthService) RefreshTokens(ctx context.Context, incomingRT string) (*TokenPair, error) {
-	refreshToken, err := s.db.GetRefreshToken(ctx, incomingRT)
+func (s *Service) RefreshTokens(ctx context.Context, incomingRT string) (*TokenPair, error) {
+	refreshToken, err := s.store.GetRefreshToken(ctx, incomingRT)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidRefreshToken
@@ -90,16 +95,16 @@ func (s *AuthService) RefreshTokens(ctx context.Context, incomingRT string) (*To
 	}
 
 	if time.Now().After(refreshToken.ExpiresAt.Time) {
-		s.db.DeleteRefreshToken(ctx, incomingRT)
+		s.store.DeleteRefreshToken(ctx, incomingRT)
 		return nil, ErrInvalidRefreshToken
 	}
 
-	s.db.DeleteRefreshToken(ctx, incomingRT)
+	s.store.DeleteRefreshToken(ctx, incomingRT)
 
 	return s.generateTokenPair(ctx, refreshToken.UserID)
 }
 
-func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID) (*TokenPair, error) {
+func (s *Service) generateTokenPair(ctx context.Context, userID pgtype.UUID) (*TokenPair, error) {
 	accessToken, err := jwt.GenerateAccessToken(userID, s.config.JWT.Secret)
 	if err != nil {
 		return nil, err
@@ -110,7 +115,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 		return nil, err
 	}
 
-	err = s.db.CreateRefreshToken(ctx, auth.CreateRefreshTokenParams{
+	err = s.store.CreateRefreshToken(ctx, auth.CreateRefreshTokenParams{
 		TokenHash: refreshToken,
 		UserID:    userID,
 		ExpiresAt: pgtype.Timestamptz{
@@ -128,7 +133,7 @@ func (s *AuthService) generateTokenPair(ctx context.Context, userID pgtype.UUID)
 	}, nil
 }
 
-func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
+func (s *Service) ForgotPassword(ctx context.Context, req *ForgotPasswordRequest) error {
 	userRow, err := s.userDb.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil
@@ -159,7 +164,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	return nil
 }
 
-func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error {
+func (s *Service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) error {
 	userId, err := s.userDb.GetUserIdByResetPasswordToken(ctx, httputil.PgTextFromString(&req.Token))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
