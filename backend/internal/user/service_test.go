@@ -1,4 +1,4 @@
-package user
+package user_test
 
 import (
 	"context"
@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KubantsevAS/notree/backend/internal/db/user"
+	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
+	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type userRepositoryFake struct {
-	getUserByIdResult           *user.UsersPublic
+	getUserByIdResult           *userDb.UsersPublic
 	getUserByIdErr              error
 	getUserPasswordHashResult   string
 	getUserPasswordHashErr      error
@@ -23,26 +24,26 @@ type userRepositoryFake struct {
 	createUserErr               error
 	setVerificationTokenErr     error
 	updateUserPasswordErr       error
-	updateUserProfileResult     *user.UpdateUserProfileRow
+	updateUserProfileResult     *userDb.UpdateUserProfileRow
 	updateUserProfileErr        error
-	updateUserPreferencesResult *user.UpdateUserPreferencesRow
+	updateUserPreferencesResult *userDb.UpdateUserPreferencesRow
 	updateUserPreferencesErr    error
 	verifyEmailByTokenResult    pgtype.UUID
 	verifyEmailByTokenErr       error
 	verifyEmailAlreadyVerified  bool
 }
 
-func (r *userRepositoryFake) GetUserById(ctx context.Context, id pgtype.UUID) (user.UsersPublic, error) {
+func (r *userRepositoryFake) GetUserById(ctx context.Context, id pgtype.UUID) (userDb.UsersPublic, error) {
 	if r.getUserByIdErr != nil {
-		return user.UsersPublic{}, r.getUserByIdErr
+		return userDb.UsersPublic{}, r.getUserByIdErr
 	}
 	if r.getUserByIdResult == nil {
-		return user.UsersPublic{}, sql.ErrNoRows
+		return userDb.UsersPublic{}, sql.ErrNoRows
 	}
 	return *r.getUserByIdResult, nil
 }
 
-func (r *userRepositoryFake) CreateUser(ctx context.Context, params user.CreateUserParams) (pgtype.UUID, error) {
+func (r *userRepositoryFake) CreateUser(ctx context.Context, params userDb.CreateUserParams) (pgtype.UUID, error) {
 	if r.createUserErr != nil {
 		return pgtype.UUID{}, r.createUserErr
 	}
@@ -56,35 +57,35 @@ func (r *userRepositoryFake) GetUserPasswordHashById(ctx context.Context, id pgt
 	return r.getUserPasswordHashResult, nil
 }
 
-func (r *userRepositoryFake) SetVerificationToken(ctx context.Context, params user.SetVerificationTokenParams) error {
+func (r *userRepositoryFake) SetVerificationToken(ctx context.Context, params userDb.SetVerificationTokenParams) error {
 	return r.setVerificationTokenErr
 }
 
-func (r *userRepositoryFake) UpdateUserPassword(ctx context.Context, params user.UpdateUserPasswordParams) error {
+func (r *userRepositoryFake) UpdateUserPassword(ctx context.Context, params userDb.UpdateUserPasswordParams) error {
 	return r.updateUserPasswordErr
 }
 
-func (r *userRepositoryFake) UpdateUserPreferences(ctx context.Context, params user.UpdateUserPreferencesParams) (user.UpdateUserPreferencesRow, error) {
+func (r *userRepositoryFake) UpdateUserPreferences(ctx context.Context, params userDb.UpdateUserPreferencesParams) (userDb.UpdateUserPreferencesRow, error) {
 	if r.updateUserPreferencesErr != nil {
-		return user.UpdateUserPreferencesRow{}, r.updateUserPreferencesErr
+		return userDb.UpdateUserPreferencesRow{}, r.updateUserPreferencesErr
 	}
 	if r.updateUserPreferencesResult == nil {
-		return user.UpdateUserPreferencesRow{}, sql.ErrNoRows
+		return userDb.UpdateUserPreferencesRow{}, sql.ErrNoRows
 	}
 	return *r.updateUserPreferencesResult, nil
 }
 
-func (r *userRepositoryFake) UpdateUserProfile(ctx context.Context, params user.UpdateUserProfileParams) (user.UpdateUserProfileRow, error) {
+func (r *userRepositoryFake) UpdateUserProfile(ctx context.Context, params userDb.UpdateUserProfileParams) (userDb.UpdateUserProfileRow, error) {
 	if r.updateUserProfileErr != nil {
-		return user.UpdateUserProfileRow{}, r.updateUserProfileErr
+		return userDb.UpdateUserProfileRow{}, r.updateUserProfileErr
 	}
 	if r.updateUserProfileResult == nil {
-		return user.UpdateUserProfileRow{}, sql.ErrNoRows
+		return userDb.UpdateUserProfileRow{}, sql.ErrNoRows
 	}
 	return *r.updateUserProfileResult, nil
 }
 
-func (r *userRepositoryFake) VerifyEmailByToken(ctx context.Context, params user.VerifyEmailByTokenParams) (pgtype.UUID, error) {
+func (r *userRepositoryFake) VerifyEmailByToken(ctx context.Context, params userDb.VerifyEmailByTokenParams) (pgtype.UUID, error) {
 	if r.verifyEmailByTokenErr != nil {
 		return pgtype.UUID{}, r.verifyEmailByTokenErr
 	}
@@ -96,13 +97,13 @@ func TestUserServiceGetUserByIdSuccess(t *testing.T) {
 	email := "test@example.com"
 
 	repo := &userRepositoryFake{
-		getUserByIdResult: &user.UsersPublic{
+		getUserByIdResult: &userDb.UsersPublic{
 			ID:    userID,
 			Email: email,
 		},
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
 	profile, err := svc.GetUserById(ctx, userID)
@@ -119,21 +120,21 @@ func TestUserServiceGetUserByIdNotFound(t *testing.T) {
 		getUserByIdErr: sql.ErrNoRows,
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
 	_, err := svc.GetUserById(ctx, userID)
 
-	require.ErrorIs(t, err, ErrUserNotFound)
+	require.ErrorIs(t, err, user.ErrUserNotFound)
 }
 
 func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
 	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	repo := &userRepositoryFake{}
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &UpdateUserProfileRequest{
+	req := &user.UpdateUserProfileRequest{
 		Username:  nil,
 		AvatarUrl: nil,
 	}
@@ -150,17 +151,17 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 	now := time.Now()
 
 	repo := &userRepositoryFake{
-		updateUserProfileResult: &user.UpdateUserProfileRow{
+		updateUserProfileResult: &userDb.UpdateUserProfileRow{
 			Username:  testutil.PgText(&newUsername),
 			AvatarUrl: testutil.PgText(&newAvatarUrl),
 			UpdatedAt: testutil.PgTimestamptz(&now),
 		},
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &UpdateUserProfileRequest{
+	req := &user.UpdateUserProfileRequest{
 		Username:  &newUsername,
 		AvatarUrl: &newAvatarUrl,
 	}
@@ -175,10 +176,10 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
 	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	repo := &userRepositoryFake{}
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &UpdateUserPreferencesRequest{
+	req := &user.UpdateUserPreferencesRequest{
 		Locale:      nil,
 		Timezone:    nil,
 		Preferences: nil,
@@ -197,7 +198,7 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 	now := time.Now()
 
 	repo := &userRepositoryFake{
-		updateUserPreferencesResult: &user.UpdateUserPreferencesRow{
+		updateUserPreferencesResult: &userDb.UpdateUserPreferencesRow{
 			Locale:      testutil.PgText(&locale),
 			Timezone:    testutil.PgText(&timezone),
 			Preferences: prefs,
@@ -205,10 +206,10 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 		},
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &UpdateUserPreferencesRequest{
+	req := &user.UpdateUserPreferencesRequest{
 		Locale:      &locale,
 		Timezone:    &timezone,
 		Preferences: &prefs,
@@ -229,17 +230,17 @@ func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
 		getUserPasswordHashResult: string(passwordHash),
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &ChangePasswordRequest{
+	req := &user.ChangePasswordRequest{
 		OldPassword: "wrong",
 		NewPassword: "newpass",
 	}
 
 	err := svc.UpdateUserPassword(ctx, userID, req)
 
-	require.ErrorIs(t, err, ErrWrongCredentials)
+	require.ErrorIs(t, err, user.ErrWrongCredentials)
 }
 
 func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
@@ -252,10 +253,10 @@ func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
 		getUserPasswordHashResult: string(passwordHash),
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &ChangePasswordRequest{
+	req := &user.ChangePasswordRequest{
 		OldPassword: currentPassword,
 		NewPassword: newPassword,
 	}
@@ -272,17 +273,17 @@ func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
 		getUserPasswordHashErr: sql.ErrNoRows,
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
-	req := &ChangePasswordRequest{
+	req := &user.ChangePasswordRequest{
 		OldPassword: "current",
 		NewPassword: "newpass",
 	}
 
 	err := svc.UpdateUserPassword(ctx, userID, req)
 
-	require.ErrorIs(t, err, ErrUserNotFound)
+	require.ErrorIs(t, err, user.ErrUserNotFound)
 }
 
 func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
@@ -293,7 +294,7 @@ func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
 		verifyEmailByTokenResult: userID,
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
 	err := svc.VerifyEmailByToken(ctx, userID, token)
@@ -309,12 +310,12 @@ func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
 		verifyEmailByTokenErr: sql.ErrNoRows,
 	}
 
-	svc := NewService(repo, nil)
+	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
 	err := svc.VerifyEmailByToken(ctx, userID, token)
 
-	require.ErrorIs(t, err, ErrInvalidVerificationToken)
+	require.ErrorIs(t, err, user.ErrInvalidVerificationToken)
 }
 
 func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
@@ -349,7 +350,7 @@ func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &userRepositoryFake{
-				getUserByIdResult: &user.UsersPublic{
+				getUserByIdResult: &userDb.UsersPublic{
 					ID:              userID,
 					Email:           tt.email,
 					Username:        testutil.PgText(tt.username),
@@ -357,7 +358,7 @@ func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
 				},
 			}
 
-			svc := NewService(repo, nil)
+			svc := user.NewService(repo, nil)
 			ctx := context.Background()
 
 			profile, err := svc.GetUserById(ctx, userID)
