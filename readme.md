@@ -2,38 +2,40 @@
 
 ## Quick start
 
-**Clone the repository:**
+1. **Clone the repository:**
 
-```bash
-git clone https://github.com/KubantsevAS/notree.git
-cd notree
-```
+   ```bash
+   git clone https://github.com/KubantsevAS/notree.git
+   cd notree
+   ```
 
-**Set up environment variables:**
+2. **Set up environment variables:**
 
-```bash
-cp .env.example .env
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-**Launch DB:**
+3. **Launch DB:**
 
-```bash
-docker compose up -d
-```
+   ```bash
+   docker compose up -d
+   ```
 
-**Launch DB migrations (with Taskfile):**
+4. **Launch DB migrations**
 
-```bash
-cd backend
-task migrate
-```
+   * Option A: with Taskfile:
 
-**If Taskfile not installed:**
+    ```bash
+    cd backend
+    task migrate
+    ```
 
-```bash
-cd backend
-migrate -path ./migrations -database "postgres://YOUR_POSTGRES_USER:YOUR_POSTGRES_PASSWORD@localhost:5432/YOUR_POSTGRES_DB?sslmode=disable" up
-```
+   * Option B: if Taskfile not installed:
+
+    ```bash
+    cd backend
+    migrate -path ./migrations -database "postgres://YOUR_POSTGRES_USER:YOUR_POSTGRES_PASSWORD@localhost:5432/YOUR_POSTGRES_DB?sslmode=disable" up
+    ```
 
 ## Drop DB && Rebuild App
 
