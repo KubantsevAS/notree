@@ -3,7 +3,7 @@ package validator_test
 import (
 	"testing"
 
-	"github.com/KubantsevAS/notree/backend/internal/validator"
+	"github.com/KubantsevAS/notree/backend/internal/http/validator"
 )
 
 type jsonTestPayload struct {
