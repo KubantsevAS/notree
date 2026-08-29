@@ -1,8 +1,30 @@
-package dto
+package node
 
 import (
+	"encoding/json"
 	"time"
 )
+
+type NullableString struct {
+	Value *string
+	IsSet bool
+}
+
+func (n *NullableString) UnmarshalJSON(data []byte) error {
+	n.IsSet = true
+
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	n.Value = &s
+	return nil
+}
 
 type CreateNodeRequest struct {
 	ParentID *string `json:"parent_id"`

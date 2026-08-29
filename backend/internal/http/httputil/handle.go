@@ -3,7 +3,7 @@ package httputil
 import (
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/validator"
+	"github.com/KubantsevAS/notree/backend/internal/http/validator"
 )
 
 func HandleBody[T any](r *http.Request) (*T, error) {

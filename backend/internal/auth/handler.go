@@ -1,22 +1,19 @@
-package handlers
+package auth
 
 import (
 	"errors"
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
-	"github.com/KubantsevAS/notree/backend/internal/service"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
-type AuthHandler struct {
-	Service *service.AuthService
+type Handler struct {
+	service *Service
 }
 
-func NewAuthHandler(s *service.AuthService) *AuthHandler {
-	return &AuthHandler{
-		Service: s,
-	}
+func NewHandler(s *Service) *Handler {
+	return &Handler{service: s}
 }
 
 // Register godoc
@@ -25,21 +22,21 @@ func NewAuthHandler(s *service.AuthService) *AuthHandler {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RegisterRequest true "Data for registration"
+// @Param        request body RegisterRequest true "Data for registration"
 // @Success      201  "Success"
 // @Failure      400  {object}  dto.ErrorResponse "incorrect request format"
 // @Failure      409  {object}  dto.ErrorResponse "user with that email already exists"
 // @Router       /auth/register [post]
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.RegisterRequest](r)
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[RegisterRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	tokens, err := h.Service.Register(r.Context(), body)
+	tokens, err := h.service.Register(r.Context(), body)
 	if err != nil {
-		if errors.Is(err, service.ErrUserExist) {
+		if errors.Is(err, ErrUserExist) {
 			httputil.WriteErrorJSON(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -58,23 +55,23 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.LoginRequest true "User credentials"
+// @Param        request body LoginRequest true "User credentials"
 // @Success      200  "Success"
 // @Failure      400  {object}  dto.ErrorResponse "Invalid credentials"
 // @Failure      401  {object}  dto.ErrorResponse "Invalid credentials"
 // @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /auth/login [post]
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.LoginRequest](r)
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[LoginRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	tokens, err := h.Service.Login(r.Context(), body)
+	tokens, err := h.service.Login(r.Context(), body)
 	if err != nil {
-		if errors.Is(err, service.ErrWrongCredentials) {
-			httputil.WriteErrorJSON(w, service.ErrWrongCredentials.Error(), http.StatusUnauthorized)
+		if errors.Is(err, ErrWrongCredentials) {
+			httputil.WriteErrorJSON(w, ErrWrongCredentials.Error(), http.StatusUnauthorized)
 			return
 		}
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
@@ -95,16 +92,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure      401  {object}  dto.ErrorResponse "missing refresh token"
 // @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /auth/refresh-tokens [post]
-func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
 		httputil.WriteErrorJSON(w, "missing refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	tokens, err := h.Service.RefreshTokens(r.Context(), cookie.Value)
+	tokens, err := h.service.RefreshTokens(r.Context(), cookie.Value)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidRefreshToken) {
+		if errors.Is(err, ErrInvalidRefreshToken) {
 			httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
@@ -123,10 +120,10 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Success      204 "No Content"
 // @Router       /auth/logout [post]
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil {
-		_ = h.Service.Logout(r.Context(), cookie.Value)
+		_ = h.service.Logout(r.Context(), cookie.Value)
 	}
 
 	httputil.ClearCookie(w, "access_token")
@@ -140,13 +137,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ForgotPasswordRequest true "User email"
+// @Param        request body ForgotPasswordRequest true "User email"
 // @Success      200 {object} dto.MessageResponse "password reset link has been sent"
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /auth/forgot-password [post]
-func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.ForgotPasswordRequest](r)
+func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[ForgotPasswordRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
@@ -154,7 +151,7 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	// TODO Implement 429 code
 
-	if err := h.Service.ForgotPassword(r.Context(), body); err != nil {
+	if err := h.service.ForgotPassword(r.Context(), body); err != nil {
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -168,20 +165,20 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ResetPasswordRequest true "Reset token and new password"
+// @Param        request body ResetPasswordRequest true "Reset token and new password"
 // @Success      200 {object} dto.MessageResponse "password has been reset successfully"
 // @Failure      400 {object} dto.ErrorResponse "invalid or expired token"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /auth/reset-password [post]
-func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	body, err := httputil.HandleBody[dto.ResetPasswordRequest](r)
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := httputil.HandleBody[ResetPasswordRequest](r)
 	if err != nil {
 		httputil.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := h.Service.ResetPassword(r.Context(), body); err != nil {
-		if errors.Is(err, service.ErrInvalidResetToken) {
+	if err := h.service.ResetPassword(r.Context(), body); err != nil {
+		if errors.Is(err, ErrInvalidResetToken) {
 			httputil.WriteErrorJSON(w, "invalid or expired token", http.StatusBadRequest)
 			return
 		}

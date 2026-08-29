@@ -1,5 +1,5 @@
 // @title           Notree API
-// @version         0.1
+// @version         0.2
 // @description     API server for Notree app.
 // @termsOfService  http://swagger.io/terms/
 
@@ -25,16 +25,17 @@ import (
 	"net/http"
 
 	_ "github.com/KubantsevAS/notree/backend/docs"
+	"github.com/KubantsevAS/notree/backend/internal/auth"
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	sqlcUser "github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/handlers"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
-	"github.com/KubantsevAS/notree/backend/internal/service"
+	"github.com/KubantsevAS/notree/backend/internal/node"
+	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -46,7 +47,7 @@ func main() {
 	cfg := config.MustLoad()
 
 	log := logger.SetupLogger(cfg.Env)
-	log.Info("Starting Notree backend", slog.String("env", cfg.Env))
+	log.Info("Starting Notree backend v0.2.0", slog.String("env", cfg.Env))
 
 	dbpool := db.CreateDbPool(&cfg.DB, log)
 	defer dbpool.Close()
@@ -72,44 +73,20 @@ func main() {
 
 	mailerService := mailer.NewConsoleMailer()
 
-	nodeService := service.NewNodeService(nodesDB)
-	authService := service.NewAuthService(cfg, authDB, usersDB, mailerService)
-	userService := service.NewUserService(usersDB, mailerService)
-
-	authHandler := handlers.NewAuthHandler(authService)
-	userHandler := handlers.NewUserHandler(userService)
-	nodeHandler := handlers.NewNodeHandler(nodeService)
+	authModule := auth.NewModule(cfg, authDB, usersDB, mailerService)
+	nodeModule := node.NewModule(nodesDB)
+	userModule := user.NewModule(usersDB, mailerService)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", authHandler.Register)
-			r.Post("/login", authHandler.Login)
-			r.Post("/refresh-tokens", authHandler.RefreshTokens)
-			r.Post("/logout", authHandler.Logout)
-			r.Post("/forgot-password", authHandler.ForgotPassword)
-			r.Post("/reset-password", authHandler.ResetPassword)
-		})
+		authModule.RegisterRoutes(r)
+
 		r.Group(func(r chi.Router) {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 
-			r.Route("/nodes", func(r chi.Router) {
-				r.Get("/{parent_id}", nodeHandler.GetChildren)
-				r.Post("/", nodeHandler.Create)
-				r.Post("/{id}/move", nodeHandler.Move)
-				r.Patch("/{id}", nodeHandler.Update)
-				r.Delete("/{id}", nodeHandler.Delete)
-			})
-
-			r.Route("/profile", func(r chi.Router) {
-				r.Get("/me", userHandler.GetProfile)
-				r.Patch("/me", userHandler.UpdateProfile)
-				r.Patch("/me/preference", userHandler.UpdatePreferences)
-				r.Patch("/me/change-password", userHandler.ChangePassword)
-				r.Post("/me/send-verification", userHandler.SendVerificationToken)
-				r.Post("/me/verify-email", userHandler.VerifyEmailByToken)
-			})
+			nodeModule.RegisterRoutes(r)
+			userModule.RegisterRoutes(r)
 		})
 	})
 

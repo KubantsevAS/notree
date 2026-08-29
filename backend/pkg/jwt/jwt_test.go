@@ -3,16 +3,19 @@ package jwt_test
 import (
 	"testing"
 
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func TestGenerateAndParseAccessToken(t *testing.T) {
 	userIdStr := "ebde9d75-dd29-4702-afde-1f93772f905d"
-	testUserID, err := httputil.PgUUIDFromString(&userIdStr)
+	parsedUUID, err := uuid.Parse(userIdStr)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	testUserID := pgtype.UUID{Bytes: parsedUUID, Valid: true}
 
 	const testSecret = "secret-test-key"
 	token, err := jwt.GenerateAccessToken(testUserID, testSecret)
@@ -36,10 +39,12 @@ func TestGenerateAndParseAccessToken(t *testing.T) {
 
 func TestParseAccessToken_WrongSecret(t *testing.T) {
 	userIdStr := "ebde9d75-dd29-4702-afde-1f93772f905d"
-	testUserID, err := httputil.PgUUIDFromString(&userIdStr)
+	parsedUUID, err := uuid.Parse(userIdStr)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	testUserID := pgtype.UUID{Bytes: parsedUUID, Valid: true}
 
 	const correctSecret = "correct-test-key"
 	token, err := jwt.GenerateAccessToken(testUserID, correctSecret)

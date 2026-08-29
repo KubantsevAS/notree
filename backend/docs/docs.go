@@ -44,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ForgotPasswordRequest"
+                            "$ref": "#/definitions/auth.ForgotPasswordRequest"
                         }
                     }
                 ],
@@ -90,7 +90,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginRequest"
+                            "$ref": "#/definitions/auth.LoginRequest"
                         }
                     }
                 ],
@@ -182,7 +182,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterRequest"
+                            "$ref": "#/definitions/auth.RegisterRequest"
                         }
                     }
                 ],
@@ -225,7 +225,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ResetPasswordRequest"
+                            "$ref": "#/definitions/auth.ResetPasswordRequest"
                         }
                     }
                 ],
@@ -270,7 +270,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateNodeRequest"
+                            "$ref": "#/definitions/node.CreateNodeRequest"
                         }
                     }
                 ],
@@ -278,7 +278,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateNodeResponse"
+                            "$ref": "#/definitions/node.CreateNodeResponse"
                         }
                     },
                     "400": {
@@ -377,7 +377,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateNodeRequest"
+                            "$ref": "#/definitions/node.UpdateNodeRequest"
                         }
                     }
                 ],
@@ -385,7 +385,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateNodeResponse"
+                            "$ref": "#/definitions/node.UpdateNodeResponse"
                         }
                     },
                     "400": {
@@ -442,7 +442,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.MoveNodeRequest"
+                            "$ref": "#/definitions/node.MoveNodeRequest"
                         }
                     }
                 ],
@@ -450,7 +450,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.MoveNodeResponse"
+                            "$ref": "#/definitions/node.MoveNodeResponse"
                         }
                     },
                     "400": {
@@ -511,7 +511,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.NodeResponse"
+                                "$ref": "#/definitions/node.NodeResponse"
                             }
                         }
                     },
@@ -550,7 +550,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.GetProfileResponse"
+                            "$ref": "#/definitions/user.GetProfileResponse"
                         }
                     },
                     "401": {
@@ -592,7 +592,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateUserProfileRequest"
+                            "$ref": "#/definitions/user.UpdateUserProfileRequest"
                         }
                     }
                 ],
@@ -600,7 +600,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateUserProfileResponse"
+                            "$ref": "#/definitions/user.UpdateUserProfileResponse"
                         }
                     },
                     "400": {
@@ -644,7 +644,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ChangePasswordRequest"
+                            "$ref": "#/definitions/user.ChangePasswordRequest"
                         }
                     }
                 ],
@@ -696,7 +696,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateUserPreferencesRequest"
+                            "$ref": "#/definitions/user.UpdateUserPreferencesRequest"
                         }
                     }
                 ],
@@ -704,7 +704,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateUserPreferencesResponse"
+                            "$ref": "#/definitions/user.UpdateUserPreferencesResponse"
                         }
                     },
                     "400": {
@@ -784,7 +784,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyEmailByTokenRequest"
+                            "$ref": "#/definitions/user.VerifyEmailByTokenRequest"
                         }
                     }
                 ],
@@ -818,22 +818,81 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.ChangePasswordRequest": {
+        "auth.ForgotPasswordRequest": {
             "type": "object",
             "required": [
-                "new_password",
-                "old_password"
+                "email"
             ],
             "properties": {
-                "new_password": {
-                    "type": "string"
-                },
-                "old_password": {
+                "email": {
                     "type": "string"
                 }
             }
         },
-        "dto.CreateNodeRequest": {
+        "auth.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                }
+            }
+        },
+        "auth.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "token"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "node.CreateNodeRequest": {
             "type": "object",
             "required": [
                 "title",
@@ -857,7 +916,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreateNodeResponse": {
+        "node.CreateNodeResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -880,26 +939,121 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ErrorResponse": {
+        "node.MoveNodeRequest": {
             "type": "object",
             "properties": {
-                "error": {
+                "parent_id": {
+                    "$ref": "#/definitions/node.NullableString"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
+        "node.MoveNodeResponse": {
+            "type": "object",
+            "properties": {
+                "parent_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
         },
-        "dto.ForgotPasswordRequest": {
+        "node.NodeResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "node.NullableString": {
+            "type": "object",
+            "properties": {
+                "isSet": {
+                    "type": "boolean"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "node.UpdateNodeRequest": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "folder",
+                        "note",
+                        "task"
+                    ]
+                }
+            }
+        },
+        "node.UpdateNodeResponse": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.ChangePasswordRequest": {
             "type": "object",
             "required": [
-                "email"
+                "new_password",
+                "old_password"
             ],
             "properties": {
-                "email": {
+                "new_password": {
+                    "type": "string"
+                },
+                "old_password": {
                     "type": "string"
                 }
             }
         },
-        "dto.GetProfileResponse": {
+        "user.GetProfileResponse": {
             "type": "object",
             "properties": {
                 "avatar_url": {
@@ -937,161 +1091,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.MessageResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.MoveNodeRequest": {
-            "type": "object",
-            "properties": {
-                "parent_id": {
-                    "$ref": "#/definitions/dto.NullableString"
-                },
-                "sort_order": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.MoveNodeResponse": {
-            "type": "object",
-            "properties": {
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.NodeResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.NullableString": {
-            "type": "object",
-            "properties": {
-                "isSet": {
-                    "type": "boolean"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8
-                }
-            }
-        },
-        "dto.ResetPasswordRequest": {
-            "type": "object",
-            "required": [
-                "new_password",
-                "token"
-            ],
-            "properties": {
-                "new_password": {
-                    "type": "string",
-                    "minLength": 8
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateNodeRequest": {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "type": {
-                    "type": "string",
-                    "enum": [
-                        "folder",
-                        "note",
-                        "task"
-                    ]
-                }
-            }
-        },
-        "dto.UpdateNodeResponse": {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateUserPreferencesRequest": {
+        "user.UpdateUserPreferencesRequest": {
             "type": "object",
             "properties": {
                 "locale": {
@@ -1107,7 +1107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateUserPreferencesResponse": {
+        "user.UpdateUserPreferencesResponse": {
             "type": "object",
             "properties": {
                 "locale": {
@@ -1124,7 +1124,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateUserProfileRequest": {
+        "user.UpdateUserProfileRequest": {
             "type": "object",
             "properties": {
                 "avatar_url": {
@@ -1137,7 +1137,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateUserProfileResponse": {
+        "user.UpdateUserProfileResponse": {
             "type": "object",
             "properties": {
                 "avatar_url": {
@@ -1151,7 +1151,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.VerifyEmailByTokenRequest": {
+        "user.VerifyEmailByTokenRequest": {
             "type": "object",
             "required": [
                 "token"
@@ -1177,7 +1177,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1",
+	Version:          "0.2",
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

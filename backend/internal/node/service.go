@@ -1,4 +1,4 @@
-package service
+package node
 
 import (
 	"context"
@@ -6,17 +6,13 @@ import (
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
-	"github.com/KubantsevAS/notree/backend/internal/http/dto"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type NodeService struct {
-	db nodeRepository
-}
-
-type nodeRepository interface {
+type Store interface {
 	CreateNode(context.Context, node.CreateNodeParams) (node.Node, error)
 	GetChildren(context.Context, node.GetChildrenParams) ([]node.Node, error)
 	GetNodeAncestors(context.Context, pgtype.UUID) ([]pgtype.UUID, error)
@@ -26,23 +22,27 @@ type nodeRepository interface {
 	UpdateNode(context.Context, node.UpdateNodeParams) (node.UpdateNodeRow, error)
 }
 
-func NewNodeService(db nodeRepository) *NodeService {
-	return &NodeService{db: db}
+type Service struct {
+	store Store
 }
 
-func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *dto.CreateNodeRequest) (dto.CreateNodeResponse, error) {
+func NewService(repo Store) *Service {
+	return &Service{store: repo}
+}
+
+func (s *Service) CreateNode(ctx context.Context, userID pgtype.UUID, req *CreateNodeRequest) (CreateNodeResponse, error) {
 	parentID := pgtype.UUID{Valid: false}
 	if req.ParentID != nil && *req.ParentID != "" {
 		parsedID, err := httputil.PgUUIDFromString(req.ParentID)
 		if err != nil {
-			return dto.CreateNodeResponse{}, ErrInvalidParentID
+			return CreateNodeResponse{}, ErrInvalidParentID
 		}
 
-		if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
+		if _, err := s.store.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return dto.CreateNodeResponse{}, ErrParentNotFound
+				return CreateNodeResponse{}, ErrParentNotFound
 			}
-			return dto.CreateNodeResponse{}, err
+			return CreateNodeResponse{}, err
 		}
 
 		parentID = parsedID
@@ -56,12 +56,12 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 		SortOrder: time.Now().UnixNano(),
 	}
 
-	nodeRow, err := s.db.CreateNode(ctx, dbParams)
+	nodeRow, err := s.store.CreateNode(ctx, dbParams)
 	if err != nil {
-		return dto.CreateNodeResponse{}, err
+		return CreateNodeResponse{}, err
 	}
 
-	response := dto.CreateNodeResponse{
+	response := CreateNodeResponse{
 		ID:        nodeRow.ID.String(),
 		ParentID:  nodeRow.ParentID.String(),
 		Type:      string(nodeRow.Type),
@@ -73,13 +73,13 @@ func (s *NodeService) CreateNode(ctx context.Context, userID pgtype.UUID, req *d
 	return response, nil
 }
 
-func (s *NodeService) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) error {
+func (s *Service) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) error {
 	dbParams := &node.SoftDeleteNodeCascadeParams{
 		ID:     nodeID,
 		UserID: userID,
 	}
 
-	deletedIds, err := s.db.SoftDeleteNodeCascade(ctx, *dbParams)
+	deletedIds, err := s.store.SoftDeleteNodeCascade(ctx, *dbParams)
 	if err != nil {
 		return err
 	}
@@ -91,9 +91,9 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID
 	return nil
 }
 
-func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.UpdateNodeRequest) (dto.UpdateNodeResponse, error) {
+func (s *Service) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *UpdateNodeRequest) (UpdateNodeResponse, error) {
 	if req.Type == nil && req.Title == nil {
-		return dto.UpdateNodeResponse{}, ErrEmptyUpdate
+		return UpdateNodeResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := &node.UpdateNodeParams{
@@ -107,15 +107,15 @@ func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID
 		dbParams.Title = httputil.PgTextFromString(req.Title)
 	}
 
-	dbRow, err := s.db.UpdateNode(ctx, *dbParams)
+	dbRow, err := s.store.UpdateNode(ctx, *dbParams)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return dto.UpdateNodeResponse{}, ErrNodeNotFoundOrNoAccess
+			return UpdateNodeResponse{}, ErrNodeNotFoundOrNoAccess
 		}
-		return dto.UpdateNodeResponse{}, err
+		return UpdateNodeResponse{}, err
 	}
 
-	response := dto.UpdateNodeResponse{
+	response := UpdateNodeResponse{
 		Type:      string(dbRow.Type),
 		Title:     dbRow.Title,
 		UpdatedAt: &dbRow.UpdatedAt.Time,
@@ -124,9 +124,9 @@ func (s *NodeService) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID
 	return response, nil
 }
 
-func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *dto.MoveNodeRequest) (dto.MoveNodeResponse, error) {
+func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *MoveNodeRequest) (MoveNodeResponse, error) {
 	if !req.ParentID.IsSet && req.SortOrder == nil {
-		return dto.MoveNodeResponse{}, ErrEmptyUpdate
+		return MoveNodeResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := &node.MoveNodeParams{
@@ -138,35 +138,35 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 
 	if req.ParentID.IsSet && req.ParentID.Value != nil {
 		if *req.ParentID.Value == "" {
-			return dto.MoveNodeResponse{}, ErrInvalidParentID
+			return MoveNodeResponse{}, ErrInvalidParentID
 		}
 
 		parsedID, err := httputil.PgUUIDFromString(req.ParentID.Value)
 		if err != nil {
-			return dto.MoveNodeResponse{}, ErrInvalidParentID
+			return MoveNodeResponse{}, ErrInvalidParentID
 		}
 		dbParams.ParentID = parsedID
 
 		if parsedID == nodeID {
-			return dto.MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
+			return MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
 		}
 
-		if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
+		if _, err := s.store.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return dto.MoveNodeResponse{}, ErrParentNotFound
+				return MoveNodeResponse{}, ErrParentNotFound
 			}
-			return dto.MoveNodeResponse{}, err
+			return MoveNodeResponse{}, err
 		}
 
 		isDescendantOfItself, err := s.isNodeDescendantOfItself(ctx, nodeID, parsedID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return dto.MoveNodeResponse{}, ErrParentNotFound
+				return MoveNodeResponse{}, ErrParentNotFound
 			}
-			return dto.MoveNodeResponse{}, ErrInvalidParentID
+			return MoveNodeResponse{}, ErrInvalidParentID
 		}
 		if isDescendantOfItself {
-			return dto.MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
+			return MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
 		}
 	}
 
@@ -174,12 +174,12 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 		dbParams.SortOrder = pgtype.Int8{Int64: *req.SortOrder, Valid: true}
 	}
 
-	dbRow, err := s.db.MoveNode(ctx, *dbParams)
+	dbRow, err := s.store.MoveNode(ctx, *dbParams)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return dto.MoveNodeResponse{}, ErrNodeNotFoundOrNoAccess
+			return MoveNodeResponse{}, ErrNodeNotFoundOrNoAccess
 		}
-		return dto.MoveNodeResponse{}, err
+		return MoveNodeResponse{}, err
 	}
 
 	var responseParentID *string
@@ -188,7 +188,7 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 		responseParentID = &str
 	}
 
-	response := dto.MoveNodeResponse{
+	response := MoveNodeResponse{
 		ParentID:  responseParentID,
 		SortOrder: dbRow.SortOrder,
 		UpdatedAt: &dbRow.UpdatedAt.Time,
@@ -197,8 +197,8 @@ func (s *NodeService) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID p
 	return response, nil
 }
 
-func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeID pgtype.UUID, parentID pgtype.UUID) (bool, error) {
-	ancestors, err := s.db.GetNodeAncestors(ctx, parentID)
+func (s *Service) isNodeDescendantOfItself(ctx context.Context, nodeID pgtype.UUID, parentID pgtype.UUID) (bool, error) {
+	ancestors, err := s.store.GetNodeAncestors(ctx, parentID)
 	if err != nil {
 		return false, err
 	}
@@ -212,12 +212,12 @@ func (s *NodeService) isNodeDescendantOfItself(ctx context.Context, nodeID pgtyp
 	return false, nil
 }
 
-func (s *NodeService) GetChildren(ctx context.Context, parentID pgtype.UUID, userID pgtype.UUID) ([]dto.NodeResponse, error) {
-	if _, err := s.db.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
+func (s *Service) GetChildren(ctx context.Context, parentID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
+	if _, err := s.store.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []dto.NodeResponse{}, ErrParentNotFound
+			return []NodeResponse{}, ErrParentNotFound
 		}
-		return []dto.NodeResponse{}, err
+		return []NodeResponse{}, err
 	}
 
 	dbParams := &node.GetChildrenParams{
@@ -225,15 +225,31 @@ func (s *NodeService) GetChildren(ctx context.Context, parentID pgtype.UUID, use
 		UserID:   userID,
 	}
 
-	dbRow, err := s.db.GetChildren(ctx, *dbParams)
+	dbRow, err := s.store.GetChildren(ctx, *dbParams)
 	if err != nil {
-		return []dto.NodeResponse{}, err
+		return []NodeResponse{}, err
 	}
 
-	response := make([]dto.NodeResponse, 0, len(dbRow))
+	response := make([]NodeResponse, 0, len(dbRow))
 	for _, n := range dbRow {
-		response = append(response, dto.MapNodeToResponse(n))
+		response = append(response, mapNodeToResponse(n))
 	}
 
 	return response, nil
+}
+
+func mapNodeToResponse(n node.Node) NodeResponse {
+	res := NodeResponse{
+		ID:        n.ID.String(),
+		UserID:    n.UserID.String(),
+		ParentID:  n.ParentID.String(),
+		Type:      string(n.Type),
+		Title:     n.Title,
+		SortOrder: n.SortOrder,
+		UpdatedAt: &n.UpdatedAt.Time,
+		CreatedAt: &n.CreatedAt.Time,
+		DeletedAt: &n.DeletedAt.Time,
+	}
+
+	return res
 }
