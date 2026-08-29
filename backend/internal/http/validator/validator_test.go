@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/validator"
+	"github.com/stretchr/testify/require"
 )
 
 type jsonTestPayload struct {
@@ -57,10 +58,7 @@ func TestJSONObject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			payload := jsonTestPayload{Data: tt.input}
 			err := validator.Check(payload)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Check() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			require.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }
@@ -101,9 +99,7 @@ func TestCheckStandardTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.Check(tt.payload)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Check() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			require.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }

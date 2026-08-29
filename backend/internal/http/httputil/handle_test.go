@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/stretchr/testify/require"
 )
 
 type testPayload struct {
@@ -20,12 +21,8 @@ func TestHandleBody(t *testing.T) {
 		req := &http.Request{Body: io.NopCloser(strings.NewReader(jsonBody))}
 
 		result, err := httputil.HandleBody[testPayload](req)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if result.Email != "test@test.com" {
-			t.Errorf("Expected email test@test.com, got %s", result.Email)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "test@test.com", result.Email)
 	})
 
 	t.Run("Invalid JSON syntax", func(t *testing.T) {
@@ -33,9 +30,7 @@ func TestHandleBody(t *testing.T) {
 		req := &http.Request{Body: io.NopCloser(strings.NewReader(jsonBody))}
 
 		_, err := httputil.HandleBody[testPayload](req)
-		if err == nil {
-			t.Error("Expected error for invalid JSON, got nil")
-		}
+		require.Error(t, err)
 	})
 
 	t.Run("Validation failed", func(t *testing.T) {
@@ -43,8 +38,6 @@ func TestHandleBody(t *testing.T) {
 		req := &http.Request{Body: io.NopCloser(strings.NewReader(jsonBody))}
 
 		_, err := httputil.HandleBody[testPayload](req)
-		if err == nil {
-			t.Error("Expected validation error, got nil")
-		}
+		require.Error(t, err)
 	})
 }

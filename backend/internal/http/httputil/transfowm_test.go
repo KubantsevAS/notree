@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPgUUIDFromString(t *testing.T) {
@@ -22,10 +23,7 @@ func TestPgUUIDFromString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := httputil.PgUUIDFromString(tt.input)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("PgUUIDFromString() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			require.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }
