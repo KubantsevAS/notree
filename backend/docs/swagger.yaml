@@ -1,16 +1,55 @@
 basePath: /api/v1
 definitions:
-  dto.ChangePasswordRequest:
+  auth.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.ResetPasswordRequest:
     properties:
       new_password:
+        minLength: 8
         type: string
-      old_password:
+      token:
         type: string
     required:
     - new_password
-    - old_password
+    - token
     type: object
-  dto.CreateNodeRequest:
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  node.CreateNodeRequest:
     properties:
       parent_id:
         type: string
@@ -27,7 +66,7 @@ definitions:
     - title
     - type
     type: object
-  dto.CreateNodeResponse:
+  node.CreateNodeResponse:
     properties:
       created_at:
         type: string
@@ -42,19 +81,82 @@ definitions:
       type:
         type: string
     type: object
-  dto.ErrorResponse:
+  node.MoveNodeRequest:
     properties:
-      error:
+      parent_id:
+        $ref: '#/definitions/node.NullableString'
+      sort_order:
+        type: integer
+    type: object
+  node.MoveNodeResponse:
+    properties:
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
         type: string
     type: object
-  dto.ForgotPasswordRequest:
+  node.NodeResponse:
     properties:
-      email:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: string
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  node.NullableString:
+    properties:
+      isSet:
+        type: boolean
+      value:
+        type: string
+    type: object
+  node.UpdateNodeRequest:
+    properties:
+      title:
+        maxLength: 255
+        type: string
+      type:
+        enum:
+        - folder
+        - note
+        - task
+        type: string
+    type: object
+  node.UpdateNodeResponse:
+    properties:
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  user.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
         type: string
     required:
-    - email
+    - new_password
+    - old_password
     type: object
-  dto.GetProfileResponse:
+  user.GetProfileResponse:
     properties:
       avatar_url:
         type: string
@@ -79,109 +181,7 @@ definitions:
       username:
         type: string
     type: object
-  dto.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    - password
-    type: object
-  dto.MessageResponse:
-    properties:
-      message:
-        type: string
-    type: object
-  dto.MoveNodeRequest:
-    properties:
-      parent_id:
-        $ref: '#/definitions/dto.NullableString'
-      sort_order:
-        type: integer
-    type: object
-  dto.MoveNodeResponse:
-    properties:
-      parent_id:
-        type: string
-      sort_order:
-        type: integer
-      updated_at:
-        type: string
-    type: object
-  dto.NodeResponse:
-    properties:
-      created_at:
-        type: string
-      deleted_at:
-        type: string
-      id:
-        type: string
-      parent_id:
-        type: string
-      sort_order:
-        type: integer
-      title:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
-    type: object
-  dto.NullableString:
-    properties:
-      isSet:
-        type: boolean
-      value:
-        type: string
-    type: object
-  dto.RegisterRequest:
-    properties:
-      email:
-        type: string
-      password:
-        minLength: 8
-        type: string
-    required:
-    - email
-    - password
-    type: object
-  dto.ResetPasswordRequest:
-    properties:
-      new_password:
-        minLength: 8
-        type: string
-      token:
-        type: string
-    required:
-    - new_password
-    - token
-    type: object
-  dto.UpdateNodeRequest:
-    properties:
-      title:
-        maxLength: 255
-        type: string
-      type:
-        enum:
-        - folder
-        - note
-        - task
-        type: string
-    type: object
-  dto.UpdateNodeResponse:
-    properties:
-      title:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  dto.UpdateUserPreferencesRequest:
+  user.UpdateUserPreferencesRequest:
     properties:
       locale:
         maxLength: 10
@@ -192,7 +192,7 @@ definitions:
         maxLength: 50
         type: string
     type: object
-  dto.UpdateUserPreferencesResponse:
+  user.UpdateUserPreferencesResponse:
     properties:
       locale:
         type: string
@@ -203,7 +203,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  dto.UpdateUserProfileRequest:
+  user.UpdateUserProfileRequest:
     properties:
       avatar_url:
         maxLength: 500
@@ -212,7 +212,7 @@ definitions:
         maxLength: 100
         type: string
     type: object
-  dto.UpdateUserProfileResponse:
+  user.UpdateUserProfileResponse:
     properties:
       avatar_url:
         type: string
@@ -221,7 +221,7 @@ definitions:
       username:
         type: string
     type: object
-  dto.VerifyEmailByTokenRequest:
+  user.VerifyEmailByTokenRequest:
     properties:
       token:
         type: string
@@ -240,7 +240,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
   title: Notree API
-  version: "0.1"
+  version: "0.2"
 paths:
   /auth/forgot-password:
     post:
@@ -254,7 +254,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.ForgotPasswordRequest'
+          $ref: '#/definitions/auth.ForgotPasswordRequest'
       produces:
       - application/json
       responses:
@@ -285,7 +285,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.LoginRequest'
+          $ref: '#/definitions/auth.LoginRequest'
       produces:
       - application/json
       responses:
@@ -347,7 +347,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterRequest'
+          $ref: '#/definitions/auth.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -376,7 +376,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.ResetPasswordRequest'
+          $ref: '#/definitions/auth.ResetPasswordRequest'
       produces:
       - application/json
       responses:
@@ -405,14 +405,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.CreateNodeRequest'
+          $ref: '#/definitions/node.CreateNodeRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.CreateNodeResponse'
+            $ref: '#/definitions/node.CreateNodeResponse'
         "400":
           description: bad request
           schema:
@@ -478,14 +478,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateNodeRequest'
+          $ref: '#/definitions/node.UpdateNodeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.UpdateNodeResponse'
+            $ref: '#/definitions/node.UpdateNodeResponse'
         "400":
           description: invalid request body or node ID format
           schema:
@@ -522,14 +522,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.MoveNodeRequest'
+          $ref: '#/definitions/node.MoveNodeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.MoveNodeResponse'
+            $ref: '#/definitions/node.MoveNodeResponse'
         "400":
           description: invalid parent ID format or parent not found
           schema:
@@ -569,7 +569,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.NodeResponse'
+              $ref: '#/definitions/node.NodeResponse'
             type: array
         "400":
           description: invalid node id format or parent not found
@@ -595,7 +595,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.GetProfileResponse'
+            $ref: '#/definitions/user.GetProfileResponse'
         "401":
           description: unauthorized
           schema:
@@ -621,14 +621,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateUserProfileRequest'
+          $ref: '#/definitions/user.UpdateUserProfileRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.UpdateUserProfileResponse'
+            $ref: '#/definitions/user.UpdateUserProfileResponse'
         "400":
           description: bad request
           schema:
@@ -656,7 +656,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.ChangePasswordRequest'
+          $ref: '#/definitions/user.ChangePasswordRequest'
       produces:
       - application/json
       responses:
@@ -690,14 +690,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateUserPreferencesRequest'
+          $ref: '#/definitions/user.UpdateUserPreferencesRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.UpdateUserPreferencesResponse'
+            $ref: '#/definitions/user.UpdateUserPreferencesResponse'
         "400":
           description: bad request
           schema:
@@ -747,7 +747,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.VerifyEmailByTokenRequest'
+          $ref: '#/definitions/user.VerifyEmailByTokenRequest'
       produces:
       - application/json
       responses:

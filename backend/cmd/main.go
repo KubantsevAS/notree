@@ -1,5 +1,5 @@
 // @title           Notree API
-// @version         0.1
+// @version         0.2
 // @description     API server for Notree app.
 // @termsOfService  http://swagger.io/terms/
 

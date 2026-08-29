@@ -129,7 +129,7 @@ func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param        request body ChangePasswordRequest true "Old and new passwords"
-// @Success      200 {object} MessageResponse "password updated"
+// @Success      200 {object} dto.MessageResponse "password updated"
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      401 {object} dto.ErrorResponse "wrong old password"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
@@ -163,7 +163,7 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // @Summary      Send email verification token
 // @Tags         Profile
 // @Produce      json
-// @Success      200 {object} MessageResponse "email verification link has been sent"
+// @Success      200 {object} dto.MessageResponse "email verification link has been sent"
 // @Failure      400 {object} dto.ErrorResponse "bad request"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
@@ -191,7 +191,7 @@ func (h *Handler) SendVerificationToken(w http.ResponseWriter, r *http.Request) 
 // @Accept       json
 // @Produce      json
 // @Param        request body VerifyEmailByTokenRequest true "token"
-// @Success      200 {object} MessageResponse "email successfully verified"
+// @Success      200 {object} dto.MessageResponse "email successfully verified"
 // @Failure      400 {object} dto.ErrorResponse "invalid or expired token"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"

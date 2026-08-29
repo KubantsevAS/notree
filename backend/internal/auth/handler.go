@@ -24,8 +24,8 @@ func NewHandler(s *Service) *Handler {
 // @Produce      json
 // @Param        request body RegisterRequest true "Data for registration"
 // @Success      201  "Success"
-// @Failure      400  {object}  ErrorResponse "incorrect request format"
-// @Failure      409  {object}  ErrorResponse "user with that email already exists"
+// @Failure      400  {object}  dto.ErrorResponse "incorrect request format"
+// @Failure      409  {object}  dto.ErrorResponse "user with that email already exists"
 // @Router       /auth/register [post]
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[RegisterRequest](r)
@@ -57,9 +57,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        request body LoginRequest true "User credentials"
 // @Success      200  "Success"
-// @Failure      400  {object}  ErrorResponse "Invalid credentials"
-// @Failure      401  {object}  ErrorResponse "Invalid credentials"
-// @Failure      500  {object}  ErrorResponse "internal server error"
+// @Failure      400  {object}  dto.ErrorResponse "Invalid credentials"
+// @Failure      401  {object}  dto.ErrorResponse "Invalid credentials"
+// @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[LoginRequest](r)
@@ -89,8 +89,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Produce      json
 // @Success      200  "Tokens refreshed successfully"
-// @Failure      401  {object}  ErrorResponse "missing refresh token"
-// @Failure      500  {object}  ErrorResponse "internal server error"
+// @Failure      401  {object}  dto.ErrorResponse "missing refresh token"
+// @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /auth/refresh-tokens [post]
 func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
@@ -138,9 +138,9 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param        request body ForgotPasswordRequest true "User email"
-// @Success      200 {object} MessageResponse "password reset link has been sent"
-// @Failure      400 {object} ErrorResponse "bad request"
-// @Failure      500 {object} ErrorResponse "internal server error"
+// @Success      200 {object} dto.MessageResponse "password reset link has been sent"
+// @Failure      400 {object} dto.ErrorResponse "bad request"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /auth/forgot-password [post]
 func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[ForgotPasswordRequest](r)
@@ -166,9 +166,9 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Param        request body ResetPasswordRequest true "Reset token and new password"
-// @Success      200 {object} MessageResponse "password has been reset successfully"
-// @Failure      400 {object} ErrorResponse "invalid or expired token"
-// @Failure      500 {object} ErrorResponse "internal server error"
+// @Success      200 {object} dto.MessageResponse "password has been reset successfully"
+// @Failure      400 {object} dto.ErrorResponse "invalid or expired token"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /auth/reset-password [post]
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	body, err := httputil.HandleBody[ResetPasswordRequest](r)
