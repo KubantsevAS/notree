@@ -9,8 +9,8 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/auth"
 	"github.com/KubantsevAS/notree/backend/internal/config"
-	authdb "github.com/KubantsevAS/notree/backend/internal/db/auth"
-	userdb "github.com/KubantsevAS/notree/backend/internal/db/user"
+	authDb "github.com/KubantsevAS/notree/backend/internal/db/auth"
+	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
@@ -22,15 +22,15 @@ var (
 )
 
 type authStoreFake struct {
-	getRefreshTokenResult authdb.RefreshToken
+	getRefreshTokenResult authDb.RefreshToken
 	getRefreshTokenErr    error
 	createRefreshTokenErr error
-	createRefreshParams   []authdb.CreateRefreshTokenParams
+	createRefreshParams   []authDb.CreateRefreshTokenParams
 	deleteRefreshTokenErr error
 	deleteRefreshTokenArg []string
 }
 
-func (f *authStoreFake) CreateRefreshToken(ctx context.Context, params authdb.CreateRefreshTokenParams) error {
+func (f *authStoreFake) CreateRefreshToken(ctx context.Context, params authDb.CreateRefreshTokenParams) error {
 	f.createRefreshParams = append(f.createRefreshParams, params)
 	return f.createRefreshTokenErr
 }
@@ -40,34 +40,34 @@ func (f *authStoreFake) DeleteRefreshToken(ctx context.Context, tokenHash string
 	return f.deleteRefreshTokenErr
 }
 
-func (f *authStoreFake) GetRefreshToken(ctx context.Context, tokenHash string) (authdb.RefreshToken, error) {
+func (f *authStoreFake) GetRefreshToken(ctx context.Context, tokenHash string) (authDb.RefreshToken, error) {
 	return f.getRefreshTokenResult, f.getRefreshTokenErr
 }
 
 type userStoreFake struct {
-	getUserByEmailResult           userdb.User
+	getUserByEmailResult           userDb.User
 	getUserByEmailErr              error
 	createUserResult               pgtype.UUID
 	createUserErr                  error
-	createUserParams               []userdb.CreateUserParams
-	setResetPasswordTokenParams    []userdb.SetResetPasswordTokenParams
+	createUserParams               []userDb.CreateUserParams
+	setResetPasswordTokenParams    []userDb.SetResetPasswordTokenParams
 	setResetPasswordTokenErr       error
 	getUserIdByResetPasswordResult pgtype.UUID
 	getUserIdByResetPasswordErr    error
-	updateUserPasswordParams       []userdb.UpdateUserPasswordParams
+	updateUserPasswordParams       []userDb.UpdateUserPasswordParams
 	updateUserPasswordErr          error
 }
 
-func (f *userStoreFake) GetUserByEmail(_ context.Context, _ string) (userdb.User, error) {
+func (f *userStoreFake) GetUserByEmail(_ context.Context, _ string) (userDb.User, error) {
 	return f.getUserByEmailResult, f.getUserByEmailErr
 }
 
-func (f *userStoreFake) CreateUser(_ context.Context, params userdb.CreateUserParams) (pgtype.UUID, error) {
+func (f *userStoreFake) CreateUser(_ context.Context, params userDb.CreateUserParams) (pgtype.UUID, error) {
 	f.createUserParams = append(f.createUserParams, params)
 	return f.createUserResult, f.createUserErr
 }
 
-func (f *userStoreFake) SetResetPasswordToken(_ context.Context, params userdb.SetResetPasswordTokenParams) error {
+func (f *userStoreFake) SetResetPasswordToken(_ context.Context, params userDb.SetResetPasswordTokenParams) error {
 	f.setResetPasswordTokenParams = append(f.setResetPasswordTokenParams, params)
 	return f.setResetPasswordTokenErr
 }
@@ -76,7 +76,7 @@ func (f *userStoreFake) GetUserIdByResetPasswordToken(_ context.Context, _ pgtyp
 	return f.getUserIdByResetPasswordResult, f.getUserIdByResetPasswordErr
 }
 
-func (f *userStoreFake) UpdateUserPassword(_ context.Context, params userdb.UpdateUserPasswordParams) error {
+func (f *userStoreFake) UpdateUserPassword(_ context.Context, params userDb.UpdateUserPasswordParams) error {
 	f.updateUserPasswordParams = append(f.updateUserPasswordParams, params)
 	return f.updateUserPasswordErr
 }
@@ -109,7 +109,7 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 
 func TestAuthServiceRegisterUserAlreadyExists(t *testing.T) {
 	userStore := &userStoreFake{
-		getUserByEmailResult: userdb.User{Email: "exists@example.com"},
+		getUserByEmailResult: userDb.User{Email: "exists@example.com"},
 	}
 	store := &authStoreFake{}
 	service := auth.NewService(
@@ -158,7 +158,7 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 
 	store := &authStoreFake{}
 	userStore := &userStoreFake{
-		getUserByEmailResult: userdb.User{
+		getUserByEmailResult: userDb.User{
 			ID:           testutil.UUIDFromString(userID),
 			Email:        "user@example.com",
 			PasswordHash: string(hash),
@@ -188,7 +188,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 
 	store := &authStoreFake{}
 	userStore := &userStoreFake{
-		getUserByEmailResult: userdb.User{
+		getUserByEmailResult: userDb.User{
 			ID:           testutil.UUIDFromString(userID),
 			Email:        "user@example.com",
 			PasswordHash: string(hash),
@@ -235,7 +235,7 @@ func TestAuthServiceLoginDBErrorOnCreateRefreshToken(t *testing.T) {
 		createRefreshTokenErr: dbErr,
 	}
 	userStore := &userStoreFake{
-		getUserByEmailResult: userdb.User{
+		getUserByEmailResult: userDb.User{
 			ID:           testutil.UUIDFromString(userID),
 			Email:        "user@example.com",
 			PasswordHash: string(hash),
@@ -271,7 +271,7 @@ func TestAuthServiceRefreshTokensInvalidToken(t *testing.T) {
 
 func TestAuthServiceRefreshTokensExpiredToken(t *testing.T) {
 	store := &authStoreFake{
-		getRefreshTokenResult: authdb.RefreshToken{
+		getRefreshTokenResult: authDb.RefreshToken{
 			TokenHash: "expired-token",
 			UserID:    testutil.UUIDFromStringT(t, userID),
 			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true},
@@ -295,7 +295,7 @@ func TestAuthServiceForgotPasswordSuccess(t *testing.T) {
 	userId := testutil.UUIDFromStringT(t, userID)
 	mailer := &fakeMailer{sent: make(chan string, 1)}
 	userStore := &userStoreFake{
-		getUserByEmailResult: userdb.User{ID: userId, Email: email},
+		getUserByEmailResult: userDb.User{ID: userId, Email: email},
 	}
 	service := auth.NewService(
 		&config.Config{JWT: config.JWTConfig{Secret: "secret"}},
