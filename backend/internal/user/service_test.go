@@ -15,6 +15,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var (
+	userID = testutil.UUIDFromString("11111111-1111-4111-8111-111111111111")
+)
+
 type userRepositoryFake struct {
 	getUserByIdResult           *userDb.UsersPublic
 	getUserByIdErr              error
@@ -93,7 +97,6 @@ func (r *userRepositoryFake) VerifyEmailByToken(ctx context.Context, params user
 }
 
 func TestUserServiceGetUserByIdSuccess(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	email := "test@example.com"
 
 	repo := &userRepositoryFake{
@@ -114,8 +117,6 @@ func TestUserServiceGetUserByIdSuccess(t *testing.T) {
 }
 
 func TestUserServiceGetUserByIdNotFound(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
-
 	repo := &userRepositoryFake{
 		getUserByIdErr: sql.ErrNoRows,
 	}
@@ -129,7 +130,6 @@ func TestUserServiceGetUserByIdNotFound(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	repo := &userRepositoryFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
@@ -145,7 +145,6 @@ func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	newUsername := "newusername"
 	newAvatarUrl := "https://example.com/avatar.jpg"
 	now := time.Now()
@@ -174,7 +173,6 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	repo := &userRepositoryFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
@@ -191,7 +189,6 @@ func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	locale := "en-US"
 	timezone := "America/New_York"
 	prefs := json.RawMessage(`{"theme":"dark"}`)
@@ -223,7 +220,6 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("current"), bcrypt.DefaultCost)
 
 	repo := &userRepositoryFake{
@@ -244,7 +240,6 @@ func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	currentPassword := "current"
 	newPassword := "newpass"
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
@@ -267,8 +262,6 @@ func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
-
 	repo := &userRepositoryFake{
 		getUserPasswordHashErr: sql.ErrNoRows,
 	}
@@ -287,7 +280,6 @@ func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
 }
 
 func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	token := "valid-token-123"
 
 	repo := &userRepositoryFake{
@@ -303,7 +295,6 @@ func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
 }
 
 func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 	token := "invalid-token"
 
 	repo := &userRepositoryFake{
@@ -319,7 +310,6 @@ func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
 }
 
 func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
-	userID := testutil.UUIDFromString("ebde9d75-dd29-4702-afde-1f93772f905d")
 
 	tests := []struct {
 		name     string
