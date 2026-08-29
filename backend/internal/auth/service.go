@@ -23,14 +23,22 @@ type Store interface {
 	GetRefreshToken(ctx context.Context, tokenHash string) (auth.RefreshToken, error)
 }
 
+type UserStore interface {
+	GetUserByEmail(ctx context.Context, email string) (user.User, error)
+	CreateUser(context.Context, user.CreateUserParams) (pgtype.UUID, error)
+	UpdateUserPassword(context.Context, user.UpdateUserPasswordParams) error
+	SetResetPasswordToken(ctx context.Context, params user.SetResetPasswordTokenParams) error
+	GetUserIdByResetPasswordToken(ctx context.Context, token pgtype.Text) (pgtype.UUID, error)
+}
+
 type Service struct {
 	config *config.Config
 	store  Store
-	userDb *user.Queries
+	userDb UserStore
 	mailer mailer.Mailer
 }
 
-func NewService(c *config.Config, repo Store, userDb *user.Queries, mailer mailer.Mailer) *Service {
+func NewService(c *config.Config, repo Store, userDb UserStore, mailer mailer.Mailer) *Service {
 	return &Service{
 		config: c,
 		store:  repo,

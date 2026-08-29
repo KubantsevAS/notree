@@ -6,61 +6,44 @@ import (
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateAndParseAccessToken(t *testing.T) {
 	userIdStr := "ebde9d75-dd29-4702-afde-1f93772f905d"
 	parsedUUID, err := uuid.Parse(userIdStr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	testUserID := pgtype.UUID{Bytes: parsedUUID, Valid: true}
 
 	const testSecret = "secret-test-key"
 	token, err := jwt.GenerateAccessToken(testUserID, testSecret)
-
-	if err != nil {
-		t.Fatalf("Token generation error: %v", err)
-	}
-	if token == "" {
-		t.Fatal("Generated token should not be empty")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
 
 	parsedUserID, err := jwt.ParseAccessToken(token, testSecret)
-	if err != nil {
-		t.Fatalf("Token parsing error: %v", err)
-	}
-
-	if parsedUserID != userIdStr {
-		t.Errorf("Parsed user ID mismatch: expected %s, got %s", userIdStr, parsedUserID)
-	}
+	require.NoError(t, err)
+	require.Equal(t, userIdStr, parsedUserID)
 }
 
 func TestParseAccessToken_WrongSecret(t *testing.T) {
 	userIdStr := "ebde9d75-dd29-4702-afde-1f93772f905d"
 	parsedUUID, err := uuid.Parse(userIdStr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	testUserID := pgtype.UUID{Bytes: parsedUUID, Valid: true}
 
 	const correctSecret = "correct-test-key"
 	token, err := jwt.GenerateAccessToken(testUserID, correctSecret)
-	if err != nil {
-		t.Fatalf("Token generation error: %v", err)
-	}
+	require.NoError(t, err)
 
 	const wrongSecret = "wrong-test-key"
-	if _, err = jwt.ParseAccessToken(token, wrongSecret); err == nil {
-		t.Fatalf("Expected error on parse with wrong secret")
-	}
+	_, err = jwt.ParseAccessToken(token, wrongSecret)
+	require.Error(t, err)
 }
 
 func TestParseAccessToken_InvalidTokenString(t *testing.T) {
 	const testSecret = "secret-test-key"
-	if _, err := jwt.ParseAccessToken("this.is.not.a.jwt", testSecret); err == nil {
-		t.Error("Expected error for invalid token string")
-	}
+	_, err := jwt.ParseAccessToken("this.is.not.a.jwt", testSecret)
+	require.Error(t, err)
 }
