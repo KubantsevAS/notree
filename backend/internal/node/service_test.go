@@ -23,7 +23,7 @@ const (
 	testUUID4   = "44444444-4444-4444-8444-444444444444"
 )
 
-type nodeRepositoryFake struct {
+type nodeStoreFake struct {
 	createParams      []nodeDb.CreateNodeParams
 	createResult      nodeDb.Node
 	createErr         error
@@ -45,7 +45,7 @@ type nodeRepositoryFake struct {
 	moveErr           error
 }
 
-func (f *nodeRepositoryFake) CreateNode(_ context.Context, params nodeDb.CreateNodeParams) (nodeDb.Node, error) {
+func (f *nodeStoreFake) CreateNode(_ context.Context, params nodeDb.CreateNodeParams) (nodeDb.Node, error) {
 	f.createParams = append(f.createParams, params)
 	if f.createErr != nil {
 		return nodeDb.Node{}, f.createErr
@@ -63,14 +63,14 @@ func (f *nodeRepositoryFake) CreateNode(_ context.Context, params nodeDb.CreateN
 	}, nil
 }
 
-func (f *nodeRepositoryFake) GetChildren(context.Context, nodeDb.GetChildrenParams) ([]nodeDb.Node, error) {
+func (f *nodeStoreFake) GetChildren(context.Context, nodeDb.GetChildrenParams) ([]nodeDb.Node, error) {
 	if f.childrenErr != nil {
 		return nil, f.childrenErr
 	}
 	return f.children, nil
 }
 
-func (f *nodeRepositoryFake) GetNodeAncestors(_ context.Context, parentID pgtype.UUID) ([]pgtype.UUID, error) {
+func (f *nodeStoreFake) GetNodeAncestors(_ context.Context, parentID pgtype.UUID) ([]pgtype.UUID, error) {
 	if f.ancestorsErr != nil {
 		return nil, f.ancestorsErr
 	}
@@ -82,7 +82,7 @@ func (f *nodeRepositoryFake) GetNodeAncestors(_ context.Context, parentID pgtype
 	return nil, nil
 }
 
-func (f *nodeRepositoryFake) GetNodeByID(_ context.Context, params nodeDb.GetNodeByIDParams) (nodeDb.Node, error) {
+func (f *nodeStoreFake) GetNodeByID(_ context.Context, params nodeDb.GetNodeByIDParams) (nodeDb.Node, error) {
 	f.getNodeByIDCalls = append(f.getNodeByIDCalls, params)
 	if f.getNodeByIDErr != nil {
 		return nodeDb.Node{}, f.getNodeByIDErr
@@ -95,7 +95,7 @@ func (f *nodeRepositoryFake) GetNodeByID(_ context.Context, params nodeDb.GetNod
 	return nodeDb.Node{}, pgx.ErrNoRows
 }
 
-func (f *nodeRepositoryFake) MoveNode(_ context.Context, params nodeDb.MoveNodeParams) (nodeDb.MoveNodeRow, error) {
+func (f *nodeStoreFake) MoveNode(_ context.Context, params nodeDb.MoveNodeParams) (nodeDb.MoveNodeRow, error) {
 	f.moveParams = append(f.moveParams, params)
 	if f.moveErr != nil {
 		return nodeDb.MoveNodeRow{}, f.moveErr
@@ -103,7 +103,7 @@ func (f *nodeRepositoryFake) MoveNode(_ context.Context, params nodeDb.MoveNodeP
 	return f.moveResult, nil
 }
 
-func (f *nodeRepositoryFake) SoftDeleteNodeCascade(_ context.Context, params nodeDb.SoftDeleteNodeCascadeParams) ([]pgtype.UUID, error) {
+func (f *nodeStoreFake) SoftDeleteNodeCascade(_ context.Context, params nodeDb.SoftDeleteNodeCascadeParams) ([]pgtype.UUID, error) {
 	f.softDeleteParams = append(f.softDeleteParams, params)
 	if f.softDeleteErr != nil {
 		return nil, f.softDeleteErr
@@ -111,7 +111,7 @@ func (f *nodeRepositoryFake) SoftDeleteNodeCascade(_ context.Context, params nod
 	return f.softDeleteResult, nil
 }
 
-func (f *nodeRepositoryFake) UpdateNode(_ context.Context, params nodeDb.UpdateNodeParams) (nodeDb.UpdateNodeRow, error) {
+func (f *nodeStoreFake) UpdateNode(_ context.Context, params nodeDb.UpdateNodeParams) (nodeDb.UpdateNodeRow, error) {
 	f.updateParams = append(f.updateParams, params)
 	if f.updateErr != nil {
 		return nodeDb.UpdateNodeRow{}, f.updateErr
@@ -120,7 +120,7 @@ func (f *nodeRepositoryFake) UpdateNode(_ context.Context, params nodeDb.UpdateN
 }
 
 func TestNodeServiceCreateNodeSortOrderIncreases(t *testing.T) {
-	fake := &nodeRepositoryFake{}
+	fake := &nodeStoreFake{}
 	service := node.NewService(fake)
 	request := &node.CreateNodeRequest{Type: "note", Title: "test"}
 
@@ -139,25 +139,25 @@ func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
 	tests := []struct {
 		name    string
 		req     *node.CreateNodeRequest
-		fake    *nodeRepositoryFake
+		fake    *nodeStoreFake
 		wantErr error
 	}{
 		{
 			name:    "invalid parent uuid",
 			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUIDBad), Type: "note", Title: "child"},
-			fake:    &nodeRepositoryFake{},
+			fake:    &nodeStoreFake{},
 			wantErr: node.ErrInvalidParentID,
 		},
 		{
 			name:    "parent not found",
 			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUID1), Type: "note", Title: "child"},
-			fake:    &nodeRepositoryFake{},
+			fake:    &nodeStoreFake{},
 			wantErr: node.ErrParentNotFound,
 		},
 		{
 			name:    "db error on parent lookup",
 			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUID1), Type: "note", Title: "child"},
-			fake:    &nodeRepositoryFake{getNodeByIDErr: errTimeout},
+			fake:    &nodeStoreFake{getNodeByIDErr: errTimeout},
 			wantErr: errTimeout,
 		},
 	}
@@ -175,7 +175,7 @@ func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 	userID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	childOneID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 	childTwoID := pgtype.UUID{Bytes: [16]byte{4}, Valid: true}
-	fake := &nodeRepositoryFake{
+	fake := &nodeStoreFake{
 		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
 		children: []nodeDb.Node{
 			{ID: childOneID, ParentID: parentID, UserID: userID, Title: "first", SortOrder: 10},
@@ -194,7 +194,7 @@ func TestNodeServiceGetChildrenReturns(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
 
-	_, err := node.NewService(&nodeRepositoryFake{}).GetChildren(context.Background(), parentID, userID)
+	_, err := node.NewService(&nodeStoreFake{}).GetChildren(context.Background(), parentID, userID)
 	require.ErrorIs(t, err, node.ErrParentNotFound)
 }
 
@@ -203,18 +203,18 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 		name    string
 		nodeID  pgtype.UUID
 		userID  pgtype.UUID
-		fake    *nodeRepositoryFake
+		fake    *nodeStoreFake
 		wantErr error
-		check   func(*testing.T, *nodeRepositoryFake)
+		check   func(*testing.T, *nodeStoreFake)
 	}{
 		{
 			name:   "success",
 			nodeID: testutil.UUIDFromStringT(t, testUUID3),
 			userID: testutil.UUIDFromStringT(t, testUUID4),
-			fake: &nodeRepositoryFake{
+			fake: &nodeStoreFake{
 				softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testUUID3)},
 			},
-			check: func(t *testing.T, fake *nodeRepositoryFake) {
+			check: func(t *testing.T, fake *nodeStoreFake) {
 				t.Helper()
 				require.Len(t, fake.softDeleteParams, 1)
 			},
@@ -223,7 +223,7 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 			name:    "not found or no access",
 			nodeID:  testutil.UUIDFromStringT(t, testUUID2),
 			userID:  testutil.UUIDFromStringT(t, testUUID1),
-			fake:    &nodeRepositoryFake{},
+			fake:    &nodeStoreFake{},
 			wantErr: node.ErrNodeNotFoundOrNoAccess,
 		},
 	}
@@ -232,7 +232,7 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := tt.fake
 			if fake == nil {
-				fake = &nodeRepositoryFake{}
+				fake = &nodeStoreFake{}
 			}
 
 			err := node.NewService(fake).DeleteNode(context.Background(), tt.nodeID, tt.userID)
@@ -254,7 +254,7 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 		nodeID  pgtype.UUID
 		userID  pgtype.UUID
 		req     *node.UpdateNodeRequest
-		fake    *nodeRepositoryFake
+		fake    *nodeStoreFake
 		wantErr error
 		check   func(*testing.T, node.UpdateNodeResponse)
 	}{
@@ -267,7 +267,7 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 			name:   "success",
 			nodeID: testutil.UUIDFromStringT(t, testUUID3),
 			userID: testutil.UUIDFromStringT(t, testUUID4),
-			fake: &nodeRepositoryFake{
+			fake: &nodeStoreFake{
 				updateResult: nodeDb.UpdateNodeRow{
 					Type:      nodeDb.NodeTypeTask,
 					Title:     "done",
@@ -283,7 +283,7 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 		},
 		{
 			name:    "node not found or no access",
-			fake:    &nodeRepositoryFake{updateErr: pgx.ErrNoRows},
+			fake:    &nodeStoreFake{updateErr: pgx.ErrNoRows},
 			req:     &node.UpdateNodeRequest{Title: testutil.StringPtr("new title")},
 			wantErr: node.ErrNodeNotFoundOrNoAccess,
 		},
@@ -293,7 +293,7 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := tt.fake
 			if fake == nil {
-				fake = &nodeRepositoryFake{}
+				fake = &nodeStoreFake{}
 			}
 
 			resp, err := node.NewService(fake).UpdateNode(context.Background(), tt.nodeID, tt.userID, tt.req)
@@ -315,7 +315,7 @@ func TestNodeServiceMoveNode(t *testing.T) {
 		nodeID  pgtype.UUID
 		userID  pgtype.UUID
 		req     *node.MoveNodeRequest
-		fake    *nodeRepositoryFake
+		fake    *nodeStoreFake
 		wantErr error
 		check   func(*testing.T, node.MoveNodeResponse)
 	}{
@@ -338,7 +338,7 @@ func TestNodeServiceMoveNode(t *testing.T) {
 		{
 			name:   "node cannot be a descendant of itself when ancestor contains node",
 			nodeID: testutil.UUIDFromStringT(t, testUUID1),
-			fake: &nodeRepositoryFake{
+			fake: &nodeStoreFake{
 				getNodeByIDResult: map[string]nodeDb.Node{
 					testUUID2: {ID: testutil.UUIDFromStringT(t, testUUID2)},
 				},
@@ -353,7 +353,7 @@ func TestNodeServiceMoveNode(t *testing.T) {
 			name:   "success",
 			nodeID: testutil.UUIDFromStringT(t, testUUID3),
 			userID: testutil.UUIDFromStringT(t, testUUID4),
-			fake: &nodeRepositoryFake{
+			fake: &nodeStoreFake{
 				getNodeByIDResult: map[string]nodeDb.Node{
 					testUUID2: {ID: testutil.UUIDFromStringT(t, testUUID2), UserID: testutil.UUIDFromStringT(t, testUUID4)},
 				},
@@ -380,7 +380,7 @@ func TestNodeServiceMoveNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := tt.fake
 			if fake == nil {
-				fake = &nodeRepositoryFake{}
+				fake = &nodeStoreFake{}
 			}
 
 			resp, err := node.NewService(fake).MoveNode(context.Background(), tt.nodeID, tt.userID, tt.req)
@@ -399,7 +399,7 @@ func TestNodeServiceMoveNode(t *testing.T) {
 func TestNodeServiceCreateNodeAddsParentAndSortOrder(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
-	fake := &nodeRepositoryFake{
+	fake := &nodeStoreFake{
 		getNodeByIDResult: map[string]nodeDb.Node{testUUID2: {ID: parentID, UserID: userID}},
 		createResult: nodeDb.Node{
 			ID:        testutil.UUIDFromStringT(t, testUUID3),

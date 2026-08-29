@@ -19,7 +19,7 @@ var (
 	userID = testutil.UUIDFromString("11111111-1111-4111-8111-111111111111")
 )
 
-type userRepositoryFake struct {
+type userStoreFake struct {
 	getUserByIdResult           *userDb.UsersPublic
 	getUserByIdErr              error
 	getUserPasswordHashResult   string
@@ -37,7 +37,7 @@ type userRepositoryFake struct {
 	verifyEmailAlreadyVerified  bool
 }
 
-func (r *userRepositoryFake) GetUserById(ctx context.Context, id pgtype.UUID) (userDb.UsersPublic, error) {
+func (r *userStoreFake) GetUserById(ctx context.Context, id pgtype.UUID) (userDb.UsersPublic, error) {
 	if r.getUserByIdErr != nil {
 		return userDb.UsersPublic{}, r.getUserByIdErr
 	}
@@ -47,29 +47,29 @@ func (r *userRepositoryFake) GetUserById(ctx context.Context, id pgtype.UUID) (u
 	return *r.getUserByIdResult, nil
 }
 
-func (r *userRepositoryFake) CreateUser(ctx context.Context, params userDb.CreateUserParams) (pgtype.UUID, error) {
+func (r *userStoreFake) CreateUser(ctx context.Context, params userDb.CreateUserParams) (pgtype.UUID, error) {
 	if r.createUserErr != nil {
 		return pgtype.UUID{}, r.createUserErr
 	}
 	return r.createUserResult, nil
 }
 
-func (r *userRepositoryFake) GetUserPasswordHashById(ctx context.Context, id pgtype.UUID) (string, error) {
+func (r *userStoreFake) GetUserPasswordHashById(ctx context.Context, id pgtype.UUID) (string, error) {
 	if r.getUserPasswordHashErr != nil {
 		return "", r.getUserPasswordHashErr
 	}
 	return r.getUserPasswordHashResult, nil
 }
 
-func (r *userRepositoryFake) SetVerificationToken(ctx context.Context, params userDb.SetVerificationTokenParams) error {
+func (r *userStoreFake) SetVerificationToken(ctx context.Context, params userDb.SetVerificationTokenParams) error {
 	return r.setVerificationTokenErr
 }
 
-func (r *userRepositoryFake) UpdateUserPassword(ctx context.Context, params userDb.UpdateUserPasswordParams) error {
+func (r *userStoreFake) UpdateUserPassword(ctx context.Context, params userDb.UpdateUserPasswordParams) error {
 	return r.updateUserPasswordErr
 }
 
-func (r *userRepositoryFake) UpdateUserPreferences(ctx context.Context, params userDb.UpdateUserPreferencesParams) (userDb.UpdateUserPreferencesRow, error) {
+func (r *userStoreFake) UpdateUserPreferences(ctx context.Context, params userDb.UpdateUserPreferencesParams) (userDb.UpdateUserPreferencesRow, error) {
 	if r.updateUserPreferencesErr != nil {
 		return userDb.UpdateUserPreferencesRow{}, r.updateUserPreferencesErr
 	}
@@ -79,7 +79,7 @@ func (r *userRepositoryFake) UpdateUserPreferences(ctx context.Context, params u
 	return *r.updateUserPreferencesResult, nil
 }
 
-func (r *userRepositoryFake) UpdateUserProfile(ctx context.Context, params userDb.UpdateUserProfileParams) (userDb.UpdateUserProfileRow, error) {
+func (r *userStoreFake) UpdateUserProfile(ctx context.Context, params userDb.UpdateUserProfileParams) (userDb.UpdateUserProfileRow, error) {
 	if r.updateUserProfileErr != nil {
 		return userDb.UpdateUserProfileRow{}, r.updateUserProfileErr
 	}
@@ -89,7 +89,7 @@ func (r *userRepositoryFake) UpdateUserProfile(ctx context.Context, params userD
 	return *r.updateUserProfileResult, nil
 }
 
-func (r *userRepositoryFake) VerifyEmailByToken(ctx context.Context, params userDb.VerifyEmailByTokenParams) (pgtype.UUID, error) {
+func (r *userStoreFake) VerifyEmailByToken(ctx context.Context, params userDb.VerifyEmailByTokenParams) (pgtype.UUID, error) {
 	if r.verifyEmailByTokenErr != nil {
 		return pgtype.UUID{}, r.verifyEmailByTokenErr
 	}
@@ -99,7 +99,7 @@ func (r *userRepositoryFake) VerifyEmailByToken(ctx context.Context, params user
 func TestUserServiceGetUserByIdSuccess(t *testing.T) {
 	email := "test@example.com"
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		getUserByIdResult: &userDb.UsersPublic{
 			ID:    userID,
 			Email: email,
@@ -117,7 +117,7 @@ func TestUserServiceGetUserByIdSuccess(t *testing.T) {
 }
 
 func TestUserServiceGetUserByIdNotFound(t *testing.T) {
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		getUserByIdErr: sql.ErrNoRows,
 	}
 
@@ -130,7 +130,7 @@ func TestUserServiceGetUserByIdNotFound(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
-	repo := &userRepositoryFake{}
+	repo := &userStoreFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
@@ -149,7 +149,7 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 	newAvatarUrl := "https://example.com/avatar.jpg"
 	now := time.Now()
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		updateUserProfileResult: &userDb.UpdateUserProfileRow{
 			Username:  testutil.PgText(&newUsername),
 			AvatarUrl: testutil.PgText(&newAvatarUrl),
@@ -173,7 +173,7 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
-	repo := &userRepositoryFake{}
+	repo := &userStoreFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
 
@@ -194,7 +194,7 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 	prefs := json.RawMessage(`{"theme":"dark"}`)
 	now := time.Now()
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		updateUserPreferencesResult: &userDb.UpdateUserPreferencesRow{
 			Locale:      testutil.PgText(&locale),
 			Timezone:    testutil.PgText(&timezone),
@@ -222,7 +222,7 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("current"), bcrypt.DefaultCost)
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		getUserPasswordHashResult: string(passwordHash),
 	}
 
@@ -244,7 +244,7 @@ func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
 	newPassword := "newpass"
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		getUserPasswordHashResult: string(passwordHash),
 	}
 
@@ -262,7 +262,7 @@ func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
 }
 
 func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		getUserPasswordHashErr: sql.ErrNoRows,
 	}
 
@@ -282,7 +282,7 @@ func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
 func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
 	token := "valid-token-123"
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		verifyEmailByTokenResult: userID,
 	}
 
@@ -297,7 +297,7 @@ func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
 func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
 	token := "invalid-token"
 
-	repo := &userRepositoryFake{
+	repo := &userStoreFake{
 		verifyEmailByTokenErr: sql.ErrNoRows,
 	}
 
@@ -339,7 +339,7 @@ func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &userRepositoryFake{
+			repo := &userStoreFake{
 				getUserByIdResult: &userDb.UsersPublic{
 					ID:              userID,
 					Email:           tt.email,
