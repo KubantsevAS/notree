@@ -3,7 +3,7 @@ package httputil_test
 import (
 	"testing"
 
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
 func TestPgUUIDFromString(t *testing.T) {

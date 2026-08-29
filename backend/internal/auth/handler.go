@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/dto"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
 type Handler struct {

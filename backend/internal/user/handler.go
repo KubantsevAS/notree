@@ -4,8 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/dto"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
 type Handler struct {
@@ -73,7 +74,7 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.UpdateUserProfile(r.Context(), userID, body)
 	if err != nil {
-		if errors.Is(err, ErrEmptyUpdate) {
+		if errors.Is(err, domain.ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}
@@ -111,7 +112,7 @@ func (h *Handler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.UpdateUserPreferences(r.Context(), userID, body)
 	if err != nil {
-		if errors.Is(err, ErrEmptyUpdate) {
+		if errors.Is(err, domain.ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}

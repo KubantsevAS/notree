@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -133,7 +134,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.UpdateNode(r.Context(), parsedNodeID, userID, body)
 	if err != nil {
-		if errors.Is(err, ErrEmptyUpdate) {
+		if errors.Is(err, domain.ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}
@@ -186,7 +187,7 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.MoveNode(r.Context(), parsedNodeID, userID, body)
 	if err != nil {
-		if errors.Is(err, ErrEmptyUpdate) {
+		if errors.Is(err, domain.ErrEmptyUpdate) {
 			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
 			return
 		}

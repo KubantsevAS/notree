@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
 func TestGetUserIDFromCtx(t *testing.T) {

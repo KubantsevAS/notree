@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/dto"
+	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 )
 
 func WriteResponseJSON(w http.ResponseWriter, data any, StatusCode int) {

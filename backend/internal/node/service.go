@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -92,7 +93,7 @@ func (s *Service) DeleteNode(ctx context.Context, nodeID pgtype.UUID, userID pgt
 
 func (s *Service) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *UpdateNodeRequest) (UpdateNodeResponse, error) {
 	if req.Type == nil && req.Title == nil {
-		return UpdateNodeResponse{}, ErrEmptyUpdate
+		return UpdateNodeResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := &node.UpdateNodeParams{
@@ -125,7 +126,7 @@ func (s *Service) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgt
 
 func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *MoveNodeRequest) (MoveNodeResponse, error) {
 	if !req.ParentID.IsSet && req.SortOrder == nil {
-		return MoveNodeResponse{}, ErrEmptyUpdate
+		return MoveNodeResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := &node.MoveNodeParams{

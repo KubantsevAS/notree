@@ -6,8 +6,6 @@ var (
 	ErrUserExist    = errors.New("user with that email already exist")
 	ErrUserNotFound = errors.New("user not found")
 
-	ErrEmptyUpdate = errors.New("no fields provided for update")
-
 	ErrWrongCredentials         = errors.New("invalid credentials")
 	ErrInvalidVerificationToken = errors.New("invalid or expired verification token")
 )

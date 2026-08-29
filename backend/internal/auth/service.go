@@ -10,7 +10,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db/auth"
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
 	"github.com/jackc/pgx/v5/pgtype"

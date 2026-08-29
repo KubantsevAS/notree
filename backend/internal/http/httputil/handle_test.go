@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 )
 
 type testPayload struct {

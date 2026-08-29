@@ -7,7 +7,8 @@ import (
 	"log"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -61,7 +62,7 @@ func (s *Service) GetUserById(ctx context.Context, id pgtype.UUID) (GetProfileRe
 
 func (s *Service) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *UpdateUserProfileRequest) (UpdateUserProfileResponse, error) {
 	if req.Username == nil && req.AvatarUrl == nil {
-		return UpdateUserProfileResponse{}, ErrEmptyUpdate
+		return UpdateUserProfileResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := user.UpdateUserProfileParams{
@@ -86,7 +87,7 @@ func (s *Service) UpdateUserProfile(ctx context.Context, id pgtype.UUID, req *Up
 
 func (s *Service) UpdateUserPreferences(ctx context.Context, id pgtype.UUID, req *UpdateUserPreferencesRequest) (UpdateUserPreferencesResponse, error) {
 	if req.Locale == nil && req.Timezone == nil && req.Preferences == nil {
-		return UpdateUserPreferencesResponse{}, ErrEmptyUpdate
+		return UpdateUserPreferencesResponse{}, domain.ErrEmptyUpdate
 	}
 
 	dbParams := user.UpdateUserPreferencesParams{
