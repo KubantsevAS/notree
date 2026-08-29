@@ -10,6 +10,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/stretchr/testify/require"
 )
 
 type nodeRepositoryFake struct {
@@ -130,44 +131,50 @@ func TestNodeServiceCreateNodeSortOrderIncreases(t *testing.T) {
 	service := NewService(fake)
 	request := &CreateNodeRequest{Type: "note", Title: "test"}
 
-	if _, err := service.CreateNode(context.Background(), pgtype.UUID{}, request); err != nil {
-		t.Fatalf("first CreateNode() error = %v", err)
-	}
-	if _, err := service.CreateNode(context.Background(), pgtype.UUID{}, request); err != nil {
-		t.Fatalf("second CreateNode() error = %v", err)
-	}
+	_, err := service.CreateNode(context.Background(), pgtype.UUID{}, request)
+	require.NoError(t, err)
 
-	if len(fake.createParams) != 2 {
-		t.Fatalf("CreateNode() calls = %d, want 2", len(fake.createParams))
-	}
-	if fake.createParams[1].SortOrder <= fake.createParams[0].SortOrder {
-		t.Fatalf("sort_order did not increase: first=%d, second=%d", fake.createParams[0].SortOrder, fake.createParams[1].SortOrder)
-	}
+	_, err = service.CreateNode(context.Background(), pgtype.UUID{}, request)
+	require.NoError(t, err)
+
+	require.Len(t, fake.createParams, 2)
+	require.Greater(t, fake.createParams[1].SortOrder, fake.createParams[0].SortOrder)
 }
 
 func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
-	t.Run("invalid parent uuid", func(t *testing.T) {
-		_, err := NewService(&nodeRepositoryFake{}).CreateNode(context.Background(), pgtype.UUID{}, &CreateNodeRequest{
-			ParentID: strPtr("bad-uuid"),
-			Type:     "note",
-			Title:    "child",
-		})
-		if !errors.Is(err, ErrInvalidParentID) {
-			t.Fatalf("CreateNode() error = %v, want %v", err, ErrInvalidParentID)
-		}
-	})
+	var errTimeout = errors.New("timeout")
+	tests := []struct {
+		name    string
+		req     *CreateNodeRequest
+		fake    *nodeRepositoryFake
+		wantErr error
+	}{
+		{
+			name:    "invalid parent uuid",
+			req:     &CreateNodeRequest{ParentID: strPtr("bad-uuid"), Type: "note", Title: "child"},
+			fake:    &nodeRepositoryFake{},
+			wantErr: ErrInvalidParentID,
+		},
+		{
+			name:    "parent not found",
+			req:     &CreateNodeRequest{ParentID: strPtr("11111111-1111-4111-8111-111111111111"), Type: "note", Title: "child"},
+			fake:    &nodeRepositoryFake{},
+			wantErr: ErrParentNotFound,
+		},
+		{
+			name:    "db error on parent lookup",
+			req:     &CreateNodeRequest{ParentID: strPtr("11111111-1111-4111-8111-111111111111"), Type: "note", Title: "child"},
+			fake:    &nodeRepositoryFake{getNodeByIDErr: errTimeout},
+			wantErr: errTimeout,
+		},
+	}
 
-	t.Run("parent not found", func(t *testing.T) {
-		parentID := newUUIDFromString(t, "11111111-1111-4111-8111-111111111111")
-		_, err := NewService(&nodeRepositoryFake{}).CreateNode(context.Background(), pgtype.UUID{}, &CreateNodeRequest{
-			ParentID: strPtr(parentID.String()),
-			Type:     "note",
-			Title:    "child",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewService(tt.fake).CreateNode(context.Background(), pgtype.UUID{}, tt.req)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
-		if !errors.Is(err, ErrParentNotFound) {
-			t.Fatalf("CreateNode() error = %v, want %v", err, ErrParentNotFound)
-		}
-	})
+	}
 }
 
 func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
@@ -184,15 +191,10 @@ func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 	}
 
 	children, err := NewService(fake).GetChildren(context.Background(), parentID, userID)
-	if err != nil {
-		t.Fatalf("GetChildren() error = %v", err)
-	}
-	if len(children) != 2 {
-		t.Fatalf("GetChildren() items = %d, want 2", len(children))
-	}
-	if children[0].ID != childOneID.String() || children[1].ID != childTwoID.String() {
-		t.Fatalf("GetChildren() order = [%s, %s], want sort_order order [%s, %s]", children[0].ID, children[1].ID, childOneID, childTwoID)
-	}
+	require.NoError(t, err)
+	require.Len(t, children, 2)
+	require.Equal(t, childOneID.String(), children[0].ID)
+	require.Equal(t, childTwoID.String(), children[1].ID)
 }
 
 func TestNodeServiceGetChildrenReturnsErrParentNotFound(t *testing.T) {
@@ -200,121 +202,205 @@ func TestNodeServiceGetChildrenReturnsErrParentNotFound(t *testing.T) {
 	userID := newUUIDFromString(t, "22222222-2222-4222-8222-222222222222")
 
 	_, err := NewService(&nodeRepositoryFake{}).GetChildren(context.Background(), parentID, userID)
-	if !errors.Is(err, ErrParentNotFound) {
-		t.Fatalf("GetChildren() error = %v, want %v", err, ErrParentNotFound)
-	}
+	require.ErrorIs(t, err, ErrParentNotFound)
 }
 
 func TestNodeServiceDeleteNode(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		nodeID := newUUIDFromString(t, "33333333-3333-4333-8333-333333333333")
-		userID := newUUIDFromString(t, "44444444-4444-4444-8444-444444444444")
-		fake := &nodeRepositoryFake{softDeleteResult: []pgtype.UUID{nodeID}}
+	tests := []struct {
+		name    string
+		nodeID  pgtype.UUID
+		userID  pgtype.UUID
+		fake    *nodeRepositoryFake
+		wantErr error
+		check   func(*testing.T, *nodeRepositoryFake)
+	}{
+		{
+			name:   "success",
+			nodeID: newUUIDFromString(t, "33333333-3333-4333-8333-333333333333"),
+			userID: newUUIDFromString(t, "44444444-4444-4444-8444-444444444444"),
+			fake: &nodeRepositoryFake{
+				softDeleteResult: []pgtype.UUID{newUUIDFromString(t, "33333333-3333-4333-8333-333333333333")},
+			},
+			check: func(t *testing.T, fake *nodeRepositoryFake) {
+				t.Helper()
+				require.Len(t, fake.softDeleteParams, 1)
+			},
+		},
+		{
+			name:    "not found or no access",
+			nodeID:  newUUIDFromString(t, "55555555-5555-4555-8555-555555555555"),
+			userID:  newUUIDFromString(t, "66666666-6666-4666-8666-666666666666"),
+			fake:    &nodeRepositoryFake{},
+			wantErr: ErrNodeNotFoundOrNoAccess,
+		},
+	}
 
-		err := NewService(fake).DeleteNode(context.Background(), nodeID, userID)
-		if err != nil {
-			t.Fatalf("DeleteNode() error = %v", err)
-		}
-		if len(fake.softDeleteParams) != 1 {
-			t.Fatalf("SoftDeleteNodeCascade() calls = %d, want 1", len(fake.softDeleteParams))
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := tt.fake
+			if fake == nil {
+				fake = &nodeRepositoryFake{}
+			}
 
-	t.Run("not found or no access", func(t *testing.T) {
-		nodeID := newUUIDFromString(t, "55555555-5555-4555-8555-555555555555")
-		userID := newUUIDFromString(t, "66666666-6666-4666-8666-666666666666")
-		fake := &nodeRepositoryFake{}
-
-		err := NewService(fake).DeleteNode(context.Background(), nodeID, userID)
-		if !errors.Is(err, ErrNodeNotFoundOrNoAccess) {
-			t.Fatalf("DeleteNode() error = %v, want %v", err, ErrNodeNotFoundOrNoAccess)
-		}
-	})
+			err := NewService(fake).DeleteNode(context.Background(), tt.nodeID, tt.userID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.check != nil {
+				tt.check(t, fake)
+			}
+		})
+	}
 }
 
 func TestNodeServiceUpdateNode(t *testing.T) {
-	t.Run("empty request", func(t *testing.T) {
-		_, err := NewService(&nodeRepositoryFake{}).UpdateNode(context.Background(), pgtype.UUID{}, pgtype.UUID{}, &UpdateNodeRequest{})
-		if !errors.Is(err, domain.ErrEmptyUpdate) {
-			t.Fatalf("UpdateNode() error = %v, want %v", err, domain.ErrEmptyUpdate)
-		}
-	})
+	tests := []struct {
+		name    string
+		nodeID  pgtype.UUID
+		userID  pgtype.UUID
+		req     *UpdateNodeRequest
+		fake    *nodeRepositoryFake
+		wantErr error
+		check   func(*testing.T, UpdateNodeResponse)
+	}{
+		{
+			name:    "empty request",
+			req:     &UpdateNodeRequest{},
+			wantErr: domain.ErrEmptyUpdate,
+		},
+		{
+			name:   "success",
+			nodeID: newUUIDFromString(t, "77777777-7777-4777-8777-777777777777"),
+			userID: newUUIDFromString(t, "88888888-8888-4888-8888-888888888888"),
+			fake: &nodeRepositoryFake{
+				updateResult: node.UpdateNodeRow{
+					Type:      node.NodeTypeTask,
+					Title:     "done",
+					UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+				},
+			},
+			req: &UpdateNodeRequest{Type: strPtr("task"), Title: strPtr("done")},
+			check: func(t *testing.T, resp UpdateNodeResponse) {
+				t.Helper()
+				require.Equal(t, "task", resp.Type)
+				require.Equal(t, "done", resp.Title)
+			},
+		},
+		{
+			name:    "node not found or no access",
+			fake:    &nodeRepositoryFake{updateErr: pgx.ErrNoRows},
+			req:     &UpdateNodeRequest{Title: strPtr("new title")},
+			wantErr: ErrNodeNotFoundOrNoAccess,
+		},
+	}
 
-	t.Run("success", func(t *testing.T) {
-		nodeID := newUUIDFromString(t, "77777777-7777-4777-8777-777777777777")
-		userID := newUUIDFromString(t, "88888888-8888-4888-8888-888888888888")
-		updatedAt := time.Now()
-		fake := &nodeRepositoryFake{updateResult: node.UpdateNodeRow{Type: node.NodeTypeTask, Title: "done", UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true}}}
-		resp, err := NewService(fake).UpdateNode(context.Background(), nodeID, userID, &UpdateNodeRequest{Type: strPtr("task"), Title: strPtr("done")})
-		if err != nil {
-			t.Fatalf("UpdateNode() error = %v", err)
-		}
-		if resp.Type != "task" || resp.Title != "done" {
-			t.Fatalf("UpdateNode() response = %+v, want type=task title=done", resp)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := tt.fake
+			if fake == nil {
+				fake = &nodeRepositoryFake{}
+			}
 
-	t.Run("node not found or no access", func(t *testing.T) {
-		fake := &nodeRepositoryFake{updateErr: pgx.ErrNoRows}
-		_, err := NewService(fake).UpdateNode(context.Background(), pgtype.UUID{}, pgtype.UUID{}, &UpdateNodeRequest{Title: strPtr("new title")})
-		if !errors.Is(err, ErrNodeNotFoundOrNoAccess) {
-			t.Fatalf("UpdateNode() error = %v, want %v", err, ErrNodeNotFoundOrNoAccess)
-		}
-	})
+			resp, err := NewService(fake).UpdateNode(context.Background(), tt.nodeID, tt.userID, tt.req)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.check != nil {
+				tt.check(t, resp)
+			}
+		})
+	}
 }
 
 func TestNodeServiceMoveNode(t *testing.T) {
-	t.Run("empty request", func(t *testing.T) {
-		_, err := NewService(&nodeRepositoryFake{}).MoveNode(context.Background(), pgtype.UUID{}, pgtype.UUID{}, &MoveNodeRequest{})
-		if !errors.Is(err, domain.ErrEmptyUpdate) {
-			t.Fatalf("MoveNode() error = %v, want %v", err, domain.ErrEmptyUpdate)
-		}
-	})
-
-	t.Run("invalid parent uuid", func(t *testing.T) {
-		_, err := NewService(&nodeRepositoryFake{}).MoveNode(context.Background(), pgtype.UUID{}, pgtype.UUID{}, &MoveNodeRequest{ParentID: NullableString{Value: strPtr("bad-uuid"), IsSet: true}})
-		if !errors.Is(err, ErrInvalidParentID) {
-			t.Fatalf("MoveNode() error = %v, want %v", err, ErrInvalidParentID)
-		}
-	})
-
-	t.Run("node cannot be a descendant of itself", func(t *testing.T) {
-		nodeID := newUUIDFromString(t, "99999999-9999-4999-8999-999999999999")
-		parentID := newUUIDFromString(t, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
-		fake := &nodeRepositoryFake{
-			getNodeByIDResult: map[string]node.Node{parentID.String(): {ID: parentID}},
-			ancestors:         map[string][]pgtype.UUID{parentID.String(): {nodeID}},
-		}
-		_, err := NewService(fake).MoveNode(context.Background(), nodeID, pgtype.UUID{}, &MoveNodeRequest{ParentID: NullableString{Value: strPtr(parentID.String()), IsSet: true}})
-		if !errors.Is(err, ErrNodeCannotBeADescendantOfItself) {
-			t.Fatalf("MoveNode() error = %v, want %v", err, ErrNodeCannotBeADescendantOfItself)
-		}
-	})
-
-	t.Run("success", func(t *testing.T) {
-		nodeID := newUUIDFromString(t, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
-		userID := newUUIDFromString(t, "cccccccc-cccc-4ccc-8ccc-cccccccccccc")
-		parentID := newUUIDFromString(t, "dddddddd-dddd-4ddd-8ddd-dddddddddddd")
-		updatedAt := time.Now()
-		fake := &nodeRepositoryFake{
-			getNodeByIDResult: map[string]node.Node{parentID.String(): {ID: parentID, UserID: userID}},
-			moveResult: node.MoveNodeRow{
-				ParentID:  parentID,
-				SortOrder: 42,
-				UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+	tests := []struct {
+		name    string
+		nodeID  pgtype.UUID
+		userID  pgtype.UUID
+		req     *MoveNodeRequest
+		fake    *nodeRepositoryFake
+		wantErr error
+		check   func(*testing.T, MoveNodeResponse)
+	}{
+		{
+			name:    "empty request",
+			req:     &MoveNodeRequest{},
+			wantErr: domain.ErrEmptyUpdate,
+		},
+		{
+			name:    "invalid parent uuid",
+			req:     &MoveNodeRequest{ParentID: NullableString{Value: strPtr("bad-uuid"), IsSet: true}},
+			wantErr: ErrInvalidParentID,
+		},
+		{
+			name:    "node cannot be a descendant of itself when parent is same id",
+			nodeID:  newUUIDFromString(t, "99999999-9999-4999-8999-999999999999"),
+			req:     &MoveNodeRequest{ParentID: NullableString{Value: strPtr("99999999-9999-4999-8999-999999999999"), IsSet: true}},
+			wantErr: ErrNodeCannotBeADescendantOfItself,
+		},
+		{
+			name:   "node cannot be a descendant of itself when ancestor contains node",
+			nodeID: newUUIDFromString(t, "99999999-9999-4999-8999-999999999999"),
+			fake: &nodeRepositoryFake{
+				getNodeByIDResult: map[string]node.Node{
+					"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa": {ID: newUUIDFromString(t, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")},
+				},
+				ancestors: map[string][]pgtype.UUID{
+					"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa": {newUUIDFromString(t, "99999999-9999-4999-8999-999999999999")},
+				},
 			},
-		}
-		resp, err := NewService(fake).MoveNode(context.Background(), nodeID, userID, &MoveNodeRequest{ParentID: NullableString{Value: strPtr(parentID.String()), IsSet: true}, SortOrder: int64Ptr(42)})
-		if err != nil {
-			t.Fatalf("MoveNode() error = %v", err)
-		}
-		if resp.ParentID == nil || *resp.ParentID != parentID.String() {
-			t.Fatalf("MoveNode() parent = %#v, want %s", resp.ParentID, parentID.String())
-		}
-		if resp.SortOrder != 42 {
-			t.Fatalf("MoveNode() sort_order = %d, want 42", resp.SortOrder)
-		}
-	})
+			req:     &MoveNodeRequest{ParentID: NullableString{Value: strPtr("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), IsSet: true}},
+			wantErr: ErrNodeCannotBeADescendantOfItself,
+		},
+		{
+			name:   "success",
+			nodeID: newUUIDFromString(t, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+			userID: newUUIDFromString(t, "cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+			fake: &nodeRepositoryFake{
+				getNodeByIDResult: map[string]node.Node{
+					"dddddddd-dddd-4ddd-8ddd-dddddddddddd": {ID: newUUIDFromString(t, "dddddddd-dddd-4ddd-8ddd-dddddddddddd"), UserID: newUUIDFromString(t, "cccccccc-cccc-4ccc-8ccc-cccccccccccc")},
+				},
+				moveResult: node.MoveNodeRow{
+					ParentID:  newUUIDFromString(t, "dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+					SortOrder: 42,
+					UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+				},
+			},
+			req: &MoveNodeRequest{
+				ParentID:  NullableString{Value: strPtr("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), IsSet: true},
+				SortOrder: int64Ptr(42),
+			},
+			check: func(t *testing.T, resp MoveNodeResponse) {
+				t.Helper()
+				require.NotNil(t, resp.ParentID)
+				require.Equal(t, "dddddddd-dddd-4ddd-8ddd-dddddddddddd", *resp.ParentID)
+				require.EqualValues(t, 42, resp.SortOrder)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := tt.fake
+			if fake == nil {
+				fake = &nodeRepositoryFake{}
+			}
+
+			resp, err := NewService(fake).MoveNode(context.Background(), tt.nodeID, tt.userID, tt.req)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.check != nil {
+				tt.check(t, resp)
+			}
+		})
+	}
 }
 
 func TestNodeServiceCreateNodeAddsParentAndSortOrder(t *testing.T) {
@@ -337,13 +423,9 @@ func TestNodeServiceCreateNodeAddsParentAndSortOrder(t *testing.T) {
 		Type:     "note",
 		Title:    "child",
 	})
-	if err != nil {
-		t.Fatalf("CreateNode() error = %v", err)
-	}
-	if resp.ParentID != parentID.String() || resp.Type != "note" || resp.Title != "child" {
-		t.Fatalf("CreateNode() response = %+v, want parent=%s type=note title=child", resp, parentID.String())
-	}
-	if len(fake.createParams) != 1 {
-		t.Fatalf("CreateNode() calls = %d, want 1", len(fake.createParams))
-	}
+	require.NoError(t, err)
+	require.Equal(t, parentID.String(), resp.ParentID)
+	require.Equal(t, "note", resp.Type)
+	require.Equal(t, "child", resp.Title)
+	require.Len(t, fake.createParams, 1)
 }
