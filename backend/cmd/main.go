@@ -29,6 +29,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcAuth "github.com/KubantsevAS/notree/backend/internal/db/auth"
+	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	sqlcUser "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
@@ -71,13 +72,14 @@ func main() {
 	authDB := sqlcAuth.New(dbpool)
 	nodesDB := sqlcNode.New(dbpool)
 	usersDB := sqlcUser.New(dbpool)
+	hierarchyDB := sqlcHierarchy.New(dbpool)
 
 	mailerService := mailer.NewConsoleMailer()
 
 	authModule := auth.NewModule(cfg, authDB, usersDB, mailerService)
 	userModule := user.NewModule(usersDB, mailerService)
 	nodeModule := node.NewModule(nodesDB)
-	hierarchyModule := hierarchy.NewModule(nodesDB)
+	hierarchyModule := hierarchy.NewModule(hierarchyDB, nodesDB)
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
 

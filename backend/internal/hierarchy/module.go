@@ -1,6 +1,7 @@
 package hierarchy
 
 import (
+	"github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/go-chi/chi/v5"
 )
@@ -10,9 +11,10 @@ type Module struct {
 }
 
 func NewModule(
-	queries *node.Queries,
+	queries *hierarchy.Queries,
+	nodeDb *node.Queries,
 ) *Module {
-	service := NewService(queries)
+	service := NewService(queries, nodeDb)
 	handler := NewHandler(service)
 
 	return &Module{
