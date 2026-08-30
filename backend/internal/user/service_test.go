@@ -20,21 +20,26 @@ var (
 )
 
 type userStoreFake struct {
-	getUserByIdResult           *userDb.UsersPublic
-	getUserByIdErr              error
-	getUserPasswordHashResult   string
-	getUserPasswordHashErr      error
-	createUserResult            pgtype.UUID
-	createUserErr               error
-	setVerificationTokenErr     error
-	updateUserPasswordErr       error
-	updateUserProfileResult     *userDb.UpdateUserProfileRow
-	updateUserProfileErr        error
-	updateUserPreferencesResult *userDb.UpdateUserPreferencesRow
-	updateUserPreferencesErr    error
-	verifyEmailByTokenResult    pgtype.UUID
-	verifyEmailByTokenErr       error
-	verifyEmailAlreadyVerified  bool
+	getUserByIdResult             *userDb.UsersPublic
+	getUserByIdErr                error
+	getUserPasswordHashResult     string
+	getUserPasswordHashErr        error
+	createUserResult              pgtype.UUID
+	createUserErr                 error
+	setVerificationTokenErr       error
+	setVerificationTokenParams    []userDb.SetVerificationTokenParams
+	updateUserPasswordErr         error
+	updateUserPasswordParams      []userDb.UpdateUserPasswordParams
+	updateUserProfileResult       *userDb.UpdateUserProfileRow
+	updateUserProfileErr          error
+	updateUserProfileParams       []userDb.UpdateUserProfileParams
+	updateUserPreferencesResult   *userDb.UpdateUserPreferencesRow
+	updateUserPreferencesErr      error
+	updateUserPreferencesParams   []userDb.UpdateUserPreferencesParams
+	verifyEmailByTokenResult      pgtype.UUID
+	verifyEmailByTokenErr         error
+	verifyEmailByTokenParams      []userDb.VerifyEmailByTokenParams
+	verifyEmailAlreadyVerified    bool
 }
 
 func (r *userStoreFake) GetUserById(ctx context.Context, id pgtype.UUID) (userDb.UsersPublic, error) {
@@ -62,14 +67,17 @@ func (r *userStoreFake) GetUserPasswordHashById(ctx context.Context, id pgtype.U
 }
 
 func (r *userStoreFake) SetVerificationToken(ctx context.Context, params userDb.SetVerificationTokenParams) error {
+	r.setVerificationTokenParams = append(r.setVerificationTokenParams, params)
 	return r.setVerificationTokenErr
 }
 
 func (r *userStoreFake) UpdateUserPassword(ctx context.Context, params userDb.UpdateUserPasswordParams) error {
+	r.updateUserPasswordParams = append(r.updateUserPasswordParams, params)
 	return r.updateUserPasswordErr
 }
 
 func (r *userStoreFake) UpdateUserPreferences(ctx context.Context, params userDb.UpdateUserPreferencesParams) (userDb.UpdateUserPreferencesRow, error) {
+	r.updateUserPreferencesParams = append(r.updateUserPreferencesParams, params)
 	if r.updateUserPreferencesErr != nil {
 		return userDb.UpdateUserPreferencesRow{}, r.updateUserPreferencesErr
 	}
@@ -80,6 +88,7 @@ func (r *userStoreFake) UpdateUserPreferences(ctx context.Context, params userDb
 }
 
 func (r *userStoreFake) UpdateUserProfile(ctx context.Context, params userDb.UpdateUserProfileParams) (userDb.UpdateUserProfileRow, error) {
+	r.updateUserProfileParams = append(r.updateUserProfileParams, params)
 	if r.updateUserProfileErr != nil {
 		return userDb.UpdateUserProfileRow{}, r.updateUserProfileErr
 	}
@@ -90,6 +99,7 @@ func (r *userStoreFake) UpdateUserProfile(ctx context.Context, params userDb.Upd
 }
 
 func (r *userStoreFake) VerifyEmailByToken(ctx context.Context, params userDb.VerifyEmailByTokenParams) (pgtype.UUID, error) {
+	r.verifyEmailByTokenParams = append(r.verifyEmailByTokenParams, params)
 	if r.verifyEmailByTokenErr != nil {
 		return pgtype.UUID{}, r.verifyEmailByTokenErr
 	}

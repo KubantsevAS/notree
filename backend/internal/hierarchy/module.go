@@ -22,7 +22,4 @@ func NewModule(
 	}
 }
 
-func (m *Module) RegisterRoutes(r chi.Router) {
-	r.Route("/nodes", func(r chi.Router) {
-	})
-}
+func (m *Module) RegisterRoutes(r chi.Router) {}
