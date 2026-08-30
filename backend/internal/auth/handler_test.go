@@ -173,7 +173,7 @@ func TestAuthHandlerRefreshTokensMissingCookie(t *testing.T) {
 
 func TestAuthHandlerRefreshTokensInvalidToken(t *testing.T) {
 	store := &authStoreFake{
-		getRefreshTokenErr: sql.ErrNoRows, // Токен не найден в БД
+		getRefreshTokenErr: sql.ErrNoRows,
 	}
 	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
 
