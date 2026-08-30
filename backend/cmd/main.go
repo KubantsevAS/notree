@@ -90,8 +90,10 @@ func main() {
 			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
 
 			userModule.RegisterRoutes(r)
-			nodeModule.RegisterRoutes(r)
-			hierarchyModule.RegisterRoutes(r)
+			r.Route("/nodes", func(r chi.Router) {
+				nodeModule.RegisterRoutes(r)
+				hierarchyModule.RegisterRoutes(r)
+			})
 		})
 	})
 
