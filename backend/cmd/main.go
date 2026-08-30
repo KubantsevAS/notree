@@ -33,16 +33,11 @@ import (
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	sqlcUser "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
-	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
-	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
 	"github.com/KubantsevAS/notree/backend/internal/mailer"
 	"github.com/KubantsevAS/notree/backend/internal/node"
+	"github.com/KubantsevAS/notree/backend/internal/router"
 	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -53,21 +48,6 @@ func main() {
 
 	dbpool := db.CreateDbPool(&cfg.DB, log)
 	defer dbpool.Close()
-
-	router := chi.NewRouter()
-
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(mwLogger.New(log))
-	router.Use(middleware.URLFormat)
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.CORSAllowedOrigins(),
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
 
 	authDB := sqlcAuth.New(dbpool)
 	nodesDB := sqlcNode.New(dbpool)
@@ -81,21 +61,7 @@ func main() {
 	nodeModule := node.NewModule(nodesDB)
 	hierarchyModule := hierarchy.NewModule(hierarchyDB, nodesDB)
 
-	router.Get("/swagger/*", httpSwagger.WrapHandler)
-
-	router.Route("/api/v1", func(r chi.Router) {
-		authModule.RegisterRoutes(r)
-
-		r.Group(func(r chi.Router) {
-			r.Use(mwAuth.AuthMiddleware(cfg.JWT.Secret))
-
-			userModule.RegisterRoutes(r)
-			r.Route("/nodes", func(r chi.Router) {
-				nodeModule.RegisterRoutes(r)
-				hierarchyModule.RegisterRoutes(r)
-			})
-		})
-	})
+	router := router.NewRouter(cfg, log, authModule, userModule, nodeModule, hierarchyModule)
 
 	server := &http.Server{
 		Addr:         cfg.Address,
