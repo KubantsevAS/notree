@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -22,7 +23,7 @@ func GetUserPgUUIDFromCtx(ctx context.Context) (pgtype.UUID, error) {
 }
 
 func GetUserIDFromCtx(ctx context.Context) (string, error) {
-	val := ctx.Value("user_id")
+	val := ctx.Value(middleware.UserIDKey)
 	if val == nil {
 		return "", errors.New("User ID not found in context")
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,7 +41,7 @@ func newUserHandlerWithFakes(store *userStoreFake, mailer *fakeVerificationMaile
 
 func withUserContext(t *testing.T, req *http.Request, userID pgtype.UUID) *http.Request {
 	t.Helper()
-	return req.WithContext(context.WithValue(req.Context(), "user_id", userID.String()))
+	return req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID.String()))
 }
 
 func TestUserHandlerGetProfileSuccess(t *testing.T) {
