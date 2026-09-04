@@ -22,4 +22,7 @@ func NewModule(
 	}
 }
 
-func (m *Module) RegisterRoutes(r chi.Router) {}
+func (m *Module) RegisterRoutes(r chi.Router) {
+	r.Get("/{id}/children", m.handler.GetChildren)
+	r.Get("/{id}/parent", m.handler.GetParent)
+}
