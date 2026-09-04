@@ -19,7 +19,7 @@ func NewHandler(s *Service) *Handler {
 // GetChildren godoc
 // @Summary      Get child nodes
 // @Description  Retrieves a list of direct child nodes for a specific parent node.
-// @Tags         Nodes
+// @Tags         Hierarchy
 // @Produce      json
 // @Param        id path string true "Node ID (UUID)"
 // @Success      200 {object} GetChildrenResponse

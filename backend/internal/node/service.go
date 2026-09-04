@@ -14,7 +14,6 @@ import (
 
 type Store interface {
 	CreateNode(context.Context, node.CreateNodeParams) (node.Node, error)
-	GetChildren(context.Context, node.GetChildrenParams) ([]node.Node, error)
 	GetNodeAncestors(context.Context, pgtype.UUID) ([]pgtype.UUID, error)
 	GetNodeByID(context.Context, node.GetNodeByIDParams) (node.Node, error)
 	MoveNode(context.Context, node.MoveNodeParams) (node.MoveNodeRow, error)
@@ -210,46 +209,4 @@ func (s *Service) isNodeDescendantOfItself(ctx context.Context, nodeID pgtype.UU
 	}
 
 	return false, nil
-}
-
-func (s *Service) GetChildren(ctx context.Context, parentID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
-	if _, err := s.store.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return []NodeResponse{}, ErrParentNotFound
-		}
-		return []NodeResponse{}, err
-	}
-
-	dbParams := &node.GetChildrenParams{
-		ParentID: parentID,
-		UserID:   userID,
-	}
-
-	dbRow, err := s.store.GetChildren(ctx, *dbParams)
-	if err != nil {
-		return []NodeResponse{}, err
-	}
-
-	response := make([]NodeResponse, 0, len(dbRow))
-	for _, n := range dbRow {
-		response = append(response, mapNodeToResponse(n))
-	}
-
-	return response, nil
-}
-
-func mapNodeToResponse(n node.Node) NodeResponse {
-	res := NodeResponse{
-		ID:        n.ID.String(),
-		UserID:    n.UserID.String(),
-		ParentID:  n.ParentID.String(),
-		Type:      string(n.Type),
-		Title:     n.Title,
-		SortOrder: n.SortOrder,
-		UpdatedAt: &n.UpdatedAt.Time,
-		CreatedAt: &n.CreatedAt.Time,
-		DeletedAt: &n.DeletedAt.Time,
-	}
-
-	return res
 }
