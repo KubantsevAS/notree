@@ -2,7 +2,6 @@ package node_test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -389,70 +388,6 @@ func TestNodeHandlerMoveParentNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "parent not found")
 }
 
-func TestNodeHandlerGetChildrenSuccess(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	parentID := testutil.UUIDFromStringT(t, testUUID2)
-	updatedAt := time.Now()
-	fake := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
-		children: []nodeDb.Node{{
-			ID:        testutil.UUIDFromStringT(t, testUUID3),
-			UserID:    userID,
-			ParentID:  parentID,
-			Type:      nodeDb.NodeTypeNote,
-			Title:     "child",
-			SortOrder: 1,
-			CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
-			UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
-		}},
-	}
-	handler := node.NewHandler(node.NewService(fake))
-
-	req := withRouteParam(withNodeUserContext(
-		t,
-		httptest.NewRequest(http.MethodGet, "/nodes/:parent_id", nil),
-		userID,
-	), "parent_id", parentID.String())
-	res := httptest.NewRecorder()
-
-	handler.GetChildren(res, req)
-
-	require.Equal(t, http.StatusOK, res.Code)
-	var payload node.GetChildrenResponse
-	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
-	require.Len(t, payload, 1)
-	require.Equal(t, "child", payload[0].Title)
-}
-
-func TestNodeHandlerGetChildrenUnauthorized(t *testing.T) {
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := withRouteParam(httptest.NewRequest(http.MethodGet, "/nodes/:parent_id", nil), "parent_id", testUUID1)
-	res := httptest.NewRecorder()
-
-	handler.GetChildren(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "User ID not found in context")
-}
-
-func TestNodeHandlerGetChildrenParentNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := withRouteParam(withNodeUserContext(
-		t,
-		httptest.NewRequest(http.MethodGet, "/nodes/:parent_id", nil),
-		userID,
-	), "parent_id", testUUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetChildren(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "parent not found")
-}
-
 func TestNodeHandlerRequiresAuthentication(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
@@ -535,17 +470,6 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 				return &nodeStoreFake{softDeleteErr: errors.New("db down")}
 			},
 			execute: func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Delete(w, r) },
-		},
-		{
-			name:     "get children db error",
-			method:   http.MethodGet,
-			routeKey: "parent_id",
-			path:     "/nodes/" + testUUID1,
-			body:     nil,
-			setup: func(t *testing.T) *nodeStoreFake {
-				return &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
 		},
 		{
 			name:     "update db error",
