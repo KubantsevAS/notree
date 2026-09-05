@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	hierarchyDb "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	nodeDb "github.com/KubantsevAS/notree/backend/internal/db/node"
+	hierarchyDB "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
+	nodeDB "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5"
@@ -18,54 +18,53 @@ const (
 	testUUID1   = "11111111-1111-4111-8111-111111111111"
 	testUUID2   = "22222222-2222-4222-8222-222222222222"
 	testUUID3   = "33333333-3333-4333-8333-333333333333"
-	testUUID4   = "44444444-4444-4444-8444-444444444444"
 )
 
 type hierarchyStoreFake struct {
-	children    []hierarchyDb.Node
+	children    []hierarchyDB.Node
 	childrenErr error
+	parent      hierarchyDB.Node
+	parentErr   error
 }
 
-func (f *hierarchyStoreFake) GetChildren(context.Context, hierarchyDb.GetChildrenParams) ([]hierarchyDb.Node, error) {
+func (f *hierarchyStoreFake) GetChildren(context.Context, hierarchyDB.GetChildrenParams) ([]hierarchyDB.Node, error) {
 	if f.childrenErr != nil {
-		return nil, f.childrenErr
+		return []hierarchyDB.Node{}, f.childrenErr
 	}
 	return f.children, nil
 }
 
-func (f *hierarchyStoreFake) GetParent(context.Context, hierarchyDb.GetParentParams) (hierarchyDb.Node, error) {
-	return hierarchyDb.Node{}, f.childrenErr
+func (f *hierarchyStoreFake) GetParent(context.Context, hierarchyDB.GetParentParams) (hierarchyDB.Node, error) {
+	return hierarchyDB.Node{}, f.parentErr
 }
 
 type nodeStoreFake struct {
-	getNodeByIDResult map[string]nodeDb.Node
+	getNodeByIDResult map[string]nodeDB.Node
 	getNodeByIDErr    error
-	getNodeByIDCalls  []nodeDb.GetNodeByIDParams
 }
 
-func (f *nodeStoreFake) GetNodeByID(_ context.Context, params nodeDb.GetNodeByIDParams) (nodeDb.Node, error) {
-	f.getNodeByIDCalls = append(f.getNodeByIDCalls, params)
+func (f *nodeStoreFake) GetNodeByID(_ context.Context, params nodeDB.GetNodeByIDParams) (nodeDB.Node, error) {
 	if f.getNodeByIDErr != nil {
-		return nodeDb.Node{}, f.getNodeByIDErr
+		return nodeDB.Node{}, f.getNodeByIDErr
 	}
 	if f.getNodeByIDResult != nil {
 		if result, ok := f.getNodeByIDResult[params.ID.String()]; ok {
 			return result, nil
 		}
 	}
-	return nodeDb.Node{}, pgx.ErrNoRows
+	return nodeDB.Node{}, pgx.ErrNoRows
 }
 
-func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
+func TestHierarchyServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 	parentID := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	userID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	childOneID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 	childTwoID := pgtype.UUID{Bytes: [16]byte{4}, Valid: true}
 	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
+		getNodeByIDResult: map[string]nodeDB.Node{parentID.String(): {ID: parentID, UserID: userID}},
 	}
 	fake := &hierarchyStoreFake{
-		children: []hierarchyDb.Node{
+		children: []hierarchyDB.Node{
 			{ID: childOneID, ParentID: parentID, UserID: userID, Title: "first", SortOrder: 10},
 			{ID: childTwoID, ParentID: parentID, UserID: userID, Title: "second", SortOrder: 20},
 		},
@@ -78,7 +77,7 @@ func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 	require.Equal(t, childTwoID.String(), children[1].ID)
 }
 
-func TestNodeServiceGetChildrenReturns(t *testing.T) {
+func TestHierarchyServiceGetChildrenReturnsErrParentNotFoundWhenParentMissing(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
 

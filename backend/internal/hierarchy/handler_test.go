@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	hierarchyDb "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	nodeDb "github.com/KubantsevAS/notree/backend/internal/db/node"
+	hierarchyDB "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
+	nodeDB "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
@@ -30,19 +30,19 @@ func withRouteParam(req *http.Request, key, value string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
 }
 
-func TestNodeHandlerGetChildrenSuccess(t *testing.T) {
+func TestHierarchyHandlerGetChildrenSuccess(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
 	updatedAt := time.Now()
 	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
+		getNodeByIDResult: map[string]nodeDB.Node{parentID.String(): {ID: parentID, UserID: userID}},
 	}
 	fake := &hierarchyStoreFake{
-		children: []hierarchyDb.Node{{
+		children: []hierarchyDB.Node{{
 			ID:        testutil.UUIDFromStringT(t, testUUID3),
 			UserID:    userID,
 			ParentID:  parentID,
-			Type:      hierarchyDb.NodeTypeNote,
+			Type:      hierarchyDB.NodeTypeNote,
 			Title:     "child",
 			SortOrder: 1,
 			CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
@@ -65,9 +65,11 @@ func TestNodeHandlerGetChildrenSuccess(t *testing.T) {
 	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
 	require.Len(t, payload, 1)
 	require.Equal(t, "child", payload[0].Title)
+	require.WithinDuration(t, updatedAt, *payload[0].CreatedAt, time.Second)
+	require.Nil(t, payload[0].DeletedAt)
 }
 
-func TestNodeHandlerGetChildrenUnauthorized(t *testing.T) {
+func TestHierarchyHandlerGetChildrenUnauthorized(t *testing.T) {
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
 	req := withRouteParam(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), "id", testUUID1)
@@ -79,7 +81,7 @@ func TestNodeHandlerGetChildrenUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "User ID not found in context")
 }
 
-func TestNodeHandlerGetChildrenParentNotFound(t *testing.T) {
+func TestHierarchyHandlerGetChildrenParentNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
@@ -92,11 +94,23 @@ func TestNodeHandlerGetChildrenParentNotFound(t *testing.T) {
 
 	handler.GetChildren(res, req)
 
-	require.Equal(t, http.StatusBadRequest, res.Code)
+	require.Equal(t, http.StatusNotFound, res.Code)
 	testutil.AssertErrorJSON(t, res, "parent not found")
 }
 
-func TestNodeHandlerInternalErrors(t *testing.T) {
+func TestHandlerGetChildrenInvalidUUID(t *testing.T) {
+	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+
+	req := withRouteParam(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), "id", testUUIDBad)
+	res := httptest.NewRecorder()
+
+	handler.GetChildren(res, req)
+
+	require.Equal(t, http.StatusBadRequest, res.Code)
+	testutil.AssertErrorJSON(t, res, "invalid node id format")
+}
+
+func TestHierarchyHandlerInternalErrors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	tests := []struct {
 		name     string
@@ -115,6 +129,20 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 			body:     nil,
 			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
 				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
+			},
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
+		},
+		{
+			name:     "get children store error",
+			method:   http.MethodGet,
+			routeKey: "id",
+			path:     "/nodes/" + testUUID1 + "/children",
+			body:     nil,
+			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
+				return &hierarchyStoreFake{childrenErr: sql.ErrConnDone},
+					&nodeStoreFake{getNodeByIDResult: map[string]nodeDB.Node{
+						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1)},
+					}}
 			},
 			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
 		},

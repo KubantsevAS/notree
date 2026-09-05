@@ -22,9 +22,10 @@ func NewHandler(s *Service) *Handler {
 // @Tags         Hierarchy
 // @Produce      json
 // @Param        id path string true "Node ID (UUID)"
-// @Success      200 {object} GetChildrenResponse
-// @Failure      400 {object} dto.ErrorResponse "invalid node id format or parent not found"
+// @Success      200 {array} NodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "parent not found"
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id} [get]
 func (h *Handler) GetChildren(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +46,7 @@ func (h *Handler) GetChildren(w http.ResponseWriter, r *http.Request) {
 	response, err := h.service.GetChildren(r.Context(), parsedNodeID, userID)
 	if err != nil {
 		if errors.Is(err, ErrParentNotFound) {
-			httputil.WriteErrorJSON(w, "parent not found", http.StatusBadRequest)
+			httputil.WriteErrorJSON(w, "parent not found", http.StatusNotFound)
 			return
 		}
 		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)

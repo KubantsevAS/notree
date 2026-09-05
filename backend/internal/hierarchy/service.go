@@ -56,19 +56,19 @@ func NewService(store Store, nodeDb NodeStore) *Service {
 func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
 	if _, err := s.nodeDb.GetNodeByID(ctx, node.GetNodeByIDParams{ID: nodeID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []NodeResponse{}, ErrParentNotFound
+			return nil, ErrParentNotFound
 		}
-		return []NodeResponse{}, err
+		return nil, err
 	}
 
-	dbParams := &hierarchy.GetChildrenParams{
+	dbParams := hierarchy.GetChildrenParams{
 		ParentID: nodeID,
 		UserID:   userID,
 	}
 
-	dbRow, err := s.store.GetChildren(ctx, *dbParams)
+	dbRow, err := s.store.GetChildren(ctx, dbParams)
 	if err != nil {
-		return []NodeResponse{}, err
+		return nil, err
 	}
 
 	response := make([]NodeResponse, 0, len(dbRow))
@@ -89,7 +89,9 @@ func mapNodeToResponse(n hierarchy.Node) NodeResponse {
 		SortOrder: n.SortOrder,
 		UpdatedAt: &n.UpdatedAt.Time,
 		CreatedAt: &n.CreatedAt.Time,
-		DeletedAt: &n.DeletedAt.Time,
+	}
+	if n.DeletedAt.Valid {
+		res.DeletedAt = &n.DeletedAt.Time
 	}
 
 	return res
