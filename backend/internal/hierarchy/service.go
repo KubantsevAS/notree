@@ -45,34 +45,34 @@ type Store interface {
 // * }
 
 type Service struct {
-	store  Store
-	nodeDb NodeStore
+	store     Store
+	nodeStore NodeStore
 }
 
-func NewService(store Store, nodeDb NodeStore) *Service {
-	return &Service{store: store, nodeDb: nodeDb}
+func NewService(store Store, nodeStore NodeStore) *Service {
+	return &Service{store: store, nodeStore: nodeStore}
 }
 
 func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
-	if _, err := s.nodeDb.GetNodeByID(ctx, node.GetNodeByIDParams{ID: nodeID, UserID: userID}); err != nil {
+	if _, err := s.nodeStore.GetNodeByID(ctx, node.GetNodeByIDParams{ID: nodeID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrParentNotFound
 		}
 		return nil, err
 	}
 
-	dbParams := hierarchy.GetChildrenParams{
+	params := hierarchy.GetChildrenParams{
 		ParentID: nodeID,
 		UserID:   userID,
 	}
 
-	dbRow, err := s.store.GetChildren(ctx, dbParams)
+	nodes, err := s.store.GetChildren(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(dbRow))
-	for _, n := range dbRow {
+	response := make([]NodeResponse, 0, len(nodes))
+	for _, n := range nodes {
 		response = append(response, mapNodeToResponse(n))
 	}
 

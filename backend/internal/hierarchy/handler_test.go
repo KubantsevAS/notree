@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	hierarchyDB "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	nodeDB "github.com/KubantsevAS/notree/backend/internal/db/node"
+	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
+	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
@@ -35,14 +35,14 @@ func TestHierarchyHandlerGetChildrenSuccess(t *testing.T) {
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
 	updatedAt := time.Now()
 	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDB.Node{parentID.String(): {ID: parentID, UserID: userID}},
+		getNodeByIDResult: map[string]sqlcNode.Node{parentID.String(): {ID: parentID, UserID: userID}},
 	}
 	fake := &hierarchyStoreFake{
-		children: []hierarchyDB.Node{{
+		children: []sqlcHierarchy.Node{{
 			ID:        testutil.UUIDFromStringT(t, testUUID3),
 			UserID:    userID,
 			ParentID:  parentID,
-			Type:      hierarchyDB.NodeTypeNote,
+			Type:      sqlcHierarchy.NodeTypeNote,
 			Title:     "child",
 			SortOrder: 1,
 			CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
@@ -140,7 +140,7 @@ func TestHierarchyHandlerInternalErrors(t *testing.T) {
 			body:     nil,
 			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
 				return &hierarchyStoreFake{childrenErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]nodeDB.Node{
+					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
 						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1)},
 					}}
 			},

@@ -11,10 +11,10 @@ type Module struct {
 }
 
 func NewModule(
-	queries *hierarchy.Queries,
-	nodeDb *node.Queries,
+	store *hierarchy.Queries,
+	nodeStore *node.Queries,
 ) *Module {
-	service := NewService(queries, nodeDb)
+	service := NewService(store, nodeStore)
 	handler := NewHandler(service)
 
 	return &Module{
