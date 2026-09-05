@@ -5,7 +5,7 @@ import "time"
 type NodeResponse struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"user_id"`
-	ParentID  string     `json:"parent_id"`
+	ParentID  *string    `json:"parent_id"`
 	Type      string     `json:"type"`
 	Title     string     `json:"title"`
 	SortOrder int64      `json:"sort_order"`

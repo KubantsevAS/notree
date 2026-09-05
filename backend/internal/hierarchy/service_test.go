@@ -35,7 +35,10 @@ func (f *hierarchyStoreFake) GetChildren(context.Context, sqlcHierarchy.GetChild
 }
 
 func (f *hierarchyStoreFake) GetParent(context.Context, sqlcHierarchy.GetParentParams) (sqlcHierarchy.Node, error) {
-	return sqlcHierarchy.Node{}, f.parentErr
+	if f.parentErr != nil {
+		return sqlcHierarchy.Node{}, f.parentErr
+	}
+	return f.parent, nil
 }
 
 type nodeStoreFake struct {
