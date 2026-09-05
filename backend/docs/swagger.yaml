@@ -49,6 +49,27 @@ definitions:
       message:
         type: string
     type: object
+  hierarchy.NodeResponse:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: string
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
   node.CreateNodeRequest:
     properties:
       parent_id:
@@ -95,27 +116,6 @@ definitions:
       sort_order:
         type: integer
       updated_at:
-        type: string
-    type: object
-  node.NodeResponse:
-    properties:
-      created_at:
-        type: string
-      deleted_at:
-        type: string
-      id:
-        type: string
-      parent_id:
-        type: string
-      sort_order:
-        type: integer
-      title:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-      user_id:
         type: string
     type: object
   node.NullableString:
@@ -462,6 +462,42 @@ paths:
       summary: Delete a node
       tags:
       - Nodes
+    get:
+      description: Retrieves a list of direct child nodes for a specific parent node.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/hierarchy.NodeResponse'
+            type: array
+        "400":
+          description: invalid node id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: parent not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get child nodes
+      tags:
+      - Hierarchy
     patch:
       consumes:
       - application/json
@@ -551,39 +587,6 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Move node in tree
-      tags:
-      - Nodes
-  /nodes/{parent_id}:
-    get:
-      description: Retrieves a list of direct child nodes for a specific parent node.
-      parameters:
-      - description: Parent Node ID (UUID)
-        in: path
-        name: parent_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/node.NodeResponse'
-            type: array
-        "400":
-          description: invalid node id format or parent not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: unauthorized
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get child nodes
       tags:
       - Nodes
   /profile/me:

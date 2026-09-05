@@ -297,6 +297,60 @@
             }
         },
         "/nodes/{id}": {
+            "get": {
+                "description": "Retrieves a list of direct child nodes for a specific parent node.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get child nodes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hierarchy.NodeResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "parent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "Soft deletes a specific node by ID and all its nested children recursively. The nodes are marked as deleted and can be restored later.",
                 "produces": [
@@ -467,56 +521,6 @@
                     },
                     "409": {
                         "description": "node cannot be a descendant of itself (circular reference)",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/nodes/{parent_id}": {
-            "get": {
-                "description": "Retrieves a list of direct child nodes for a specific parent node.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Nodes"
-                ],
-                "summary": "Get child nodes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Parent Node ID (UUID)",
-                        "name": "parent_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/node.NodeResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "invalid node id format or parent not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "unauthorized",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -886,6 +890,38 @@
                 }
             }
         },
+        "hierarchy.NodeResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "node.CreateNodeRequest": {
             "type": "object",
             "required": [
@@ -954,38 +990,6 @@
                     "type": "integer"
                 },
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "node.NodeResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }
