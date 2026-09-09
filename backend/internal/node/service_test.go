@@ -30,8 +30,6 @@ type nodeStoreFake struct {
 	getNodeByIDResult map[string]nodeDb.Node
 	getNodeByIDErr    error
 	getNodeByIDCalls  []nodeDb.GetNodeByIDParams
-	children          []nodeDb.Node
-	childrenErr       error
 	ancestors         map[string][]pgtype.UUID
 	ancestorsErr      error
 	softDeleteParams  []nodeDb.SoftDeleteNodeCascadeParams
@@ -61,13 +59,6 @@ func (f *nodeStoreFake) CreateNode(_ context.Context, params nodeDb.CreateNodePa
 		Title:     params.Title,
 		SortOrder: params.SortOrder,
 	}, nil
-}
-
-func (f *nodeStoreFake) GetChildren(context.Context, nodeDb.GetChildrenParams) ([]nodeDb.Node, error) {
-	if f.childrenErr != nil {
-		return nil, f.childrenErr
-	}
-	return f.children, nil
 }
 
 func (f *nodeStoreFake) GetNodeAncestors(_ context.Context, parentID pgtype.UUID) ([]pgtype.UUID, error) {
@@ -168,34 +159,6 @@ func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
-}
-
-func TestNodeServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
-	parentID := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
-	userID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
-	childOneID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
-	childTwoID := pgtype.UUID{Bytes: [16]byte{4}, Valid: true}
-	fake := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
-		children: []nodeDb.Node{
-			{ID: childOneID, ParentID: parentID, UserID: userID, Title: "first", SortOrder: 10},
-			{ID: childTwoID, ParentID: parentID, UserID: userID, Title: "second", SortOrder: 20},
-		},
-	}
-
-	children, err := node.NewService(fake).GetChildren(context.Background(), parentID, userID)
-	require.NoError(t, err)
-	require.Len(t, children, 2)
-	require.Equal(t, childOneID.String(), children[0].ID)
-	require.Equal(t, childTwoID.String(), children[1].ID)
-}
-
-func TestNodeServiceGetChildrenReturns(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	parentID := testutil.UUIDFromStringT(t, testUUID2)
-
-	_, err := node.NewService(&nodeStoreFake{}).GetChildren(context.Background(), parentID, userID)
-	require.ErrorIs(t, err, node.ErrParentNotFound)
 }
 
 func TestNodeServiceDeleteNode(t *testing.T) {

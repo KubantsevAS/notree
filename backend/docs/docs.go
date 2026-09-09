@@ -415,6 +415,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/nodes/{id}/children": {
+            "get": {
+                "description": "Retrieves a list of direct child nodes for a specific parent node.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get child nodes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hierarchy.NodeResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/nodes/{id}/move": {
             "post": {
                 "description": "Changes the parent or sort order of a node. Pass ` + "`" + `null` + "`" + ` as parent_id to move the node to the root.",
@@ -486,21 +542,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/nodes/{parent_id}": {
+        "/nodes/{id}/parent": {
             "get": {
-                "description": "Retrieves a list of direct child nodes for a specific parent node.",
+                "description": "Retrieves parent for a specific node.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Nodes"
+                    "Hierarchy"
                 ],
-                "summary": "Get child nodes",
+                "summary": "Get parent node",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Parent Node ID (UUID)",
-                        "name": "parent_id",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -509,20 +565,26 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/node.NodeResponse"
-                            }
+                            "$ref": "#/definitions/hierarchy.NodeResponse"
                         }
                     },
+                    "204": {
+                        "description": "node is root and has no parent"
+                    },
                     "400": {
-                        "description": "invalid node id format or parent not found",
+                        "description": "invalid node id format",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node or parent not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -892,6 +954,38 @@ const docTemplate = `{
                 }
             }
         },
+        "hierarchy.NodeResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "node.CreateNodeRequest": {
             "type": "object",
             "required": [
@@ -960,38 +1054,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "node.NodeResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }

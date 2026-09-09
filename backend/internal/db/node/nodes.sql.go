@@ -48,49 +48,6 @@ func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, e
 	return i, err
 }
 
-const getChildren = `-- name: GetChildren :many
-SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
-WHERE parent_id = $1 
-  AND user_id = $2 
-  AND deleted_at IS NULL
-ORDER BY sort_order ASC
-`
-
-type GetChildrenParams struct {
-	ParentID pgtype.UUID `json:"parent_id"`
-	UserID   pgtype.UUID `json:"user_id"`
-}
-
-func (q *Queries) GetChildren(ctx context.Context, arg GetChildrenParams) ([]Node, error) {
-	rows, err := q.db.Query(ctx, getChildren, arg.ParentID, arg.UserID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Node
-	for rows.Next() {
-		var i Node
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ParentID,
-			&i.Type,
-			&i.Title,
-			&i.SortOrder,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.DeletedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getNodeAncestors = `-- name: GetNodeAncestors :many
 WITH RECURSIVE ancestors(node_id, parent_id) AS (
     SELECT n.id, n.parent_id

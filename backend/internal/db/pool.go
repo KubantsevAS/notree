@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateDbPool(config *config.DBConfig, log *slog.Logger) *pgxpool.Pool {
+func NewPool(config *config.DBConfig, log *slog.Logger) *pgxpool.Pool {
 	dbpool, err := pgxpool.New(context.Background(), config.DSN())
 	if err != nil {
 		log.Error("Database connection failed")

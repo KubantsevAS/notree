@@ -40,28 +40,30 @@ import (
 	"github.com/KubantsevAS/notree/backend/pkg/logger"
 )
 
+const version = "0.2.0"
+
 func main() {
 	cfg := config.MustLoad()
 
 	log := logger.SetupLogger(cfg.Env)
-	log.Info("Starting Notree backend v0.2.0", slog.String("env", cfg.Env))
+	log.Info("Starting Notree backend", slog.String("version", version), slog.String("env", cfg.Env))
 
-	dbpool := db.CreateDbPool(&cfg.DB, log)
-	defer dbpool.Close()
+	pool := db.NewPool(&cfg.DB, log)
+	defer pool.Close()
 
-	authDB := sqlcAuth.New(dbpool)
-	nodesDB := sqlcNode.New(dbpool)
-	usersDB := sqlcUser.New(dbpool)
-	hierarchyDB := sqlcHierarchy.New(dbpool)
+	authStore := sqlcAuth.New(pool)
+	nodesStore := sqlcNode.New(pool)
+	usersStore := sqlcUser.New(pool)
+	hierarchyStore := sqlcHierarchy.New(pool)
 
 	mailerService := mailer.NewConsoleMailer()
 
-	authModule := auth.NewModule(cfg, authDB, usersDB, mailerService)
-	userModule := user.NewModule(usersDB, mailerService)
-	nodeModule := node.NewModule(nodesDB)
-	hierarchyModule := hierarchy.NewModule(hierarchyDB, nodesDB)
+	authModule := auth.NewModule(cfg, authStore, usersStore, mailerService)
+	userModule := user.NewModule(usersStore, mailerService)
+	nodeModule := node.NewModule(nodesStore)
+	hierarchyModule := hierarchy.NewModule(hierarchyStore, nodesStore)
 
-	router := router.NewRouter(cfg, log, authModule, userModule, nodeModule, hierarchyModule)
+	router := router.New(cfg, log, authModule, userModule, nodeModule, hierarchyModule)
 
 	server := &http.Server{
 		Addr:         cfg.Address,

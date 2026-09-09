@@ -21,7 +21,6 @@ func NewModule(
 }
 
 func (m *Module) RegisterRoutes(r chi.Router) {
-	r.Get("/{parent_id}", m.handler.GetChildren)
 	r.Post("/", m.handler.Create)
 	r.Post("/{id}/move", m.handler.Move)
 	r.Patch("/{id}", m.handler.Update)

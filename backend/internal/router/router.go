@@ -16,7 +16,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func NewRouter(
+func New(
 	cfg *config.Config,
 	log *slog.Logger,
 	authModule *auth.Module,
