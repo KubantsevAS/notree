@@ -63,7 +63,7 @@ func (f *nodeStoreFake) GetNodeByID(_ context.Context, params sqlcNode.GetNodeBy
 	return sqlcNode.Node{}, pgx.ErrNoRows
 }
 
-func TestHierarchyServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
+func TestGetChildren(t *testing.T) {
 	parentID := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
 	userID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	childOneID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
@@ -86,7 +86,7 @@ func TestHierarchyServiceGetChildrenReturnsChildrenInSortOrder(t *testing.T) {
 	require.Equal(t, childTwoID.String(), children[1].ID)
 }
 
-func TestHierarchyServiceGetChildrenReturnsErrNodeNotFoundWhenParentMissing(t *testing.T) {
+func TestGetChildren_NodeNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	nodeID := testutil.UUIDFromStringT(t, testUUID2)
 
@@ -95,7 +95,7 @@ func TestHierarchyServiceGetChildrenReturnsErrNodeNotFoundWhenParentMissing(t *t
 	require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
 }
 
-func TestHierarchyServiceGetParentReturnsParent(t *testing.T) {
+func TestGetParent(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	nodeID := testutil.UUIDFromStringT(t, testUUID2)
 	parentID := testutil.UUIDFromStringT(t, testUUID3)
@@ -140,7 +140,7 @@ func TestHierarchyServiceGetParentReturnsParent(t *testing.T) {
 	require.Equal(t, userID, store.lastGetParentParams.UserID)
 }
 
-func TestHierarchyServiceGetParentReturnsErrNodeNotFoundWhenNodeMissing(t *testing.T) {
+func TestGetParent_NodeNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	nodeID := testutil.UUIDFromStringT(t, testUUID2)
 
@@ -150,7 +150,7 @@ func TestHierarchyServiceGetParentReturnsErrNodeNotFoundWhenNodeMissing(t *testi
 	require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
 }
 
-func TestHierarchyServiceGetParentReturnsErrNodeIsRootWhenNodeHasNoParent(t *testing.T) {
+func TestGetParent_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	rootID := testutil.UUIDFromStringT(t, testUUID2)
 

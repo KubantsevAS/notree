@@ -30,7 +30,7 @@ func withRouteParam(req *http.Request, key, value string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
 }
 
-func TestHierarchyHandlerGetChildrenSuccess(t *testing.T) {
+func TestHandlerGetChildren(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	parentID := testutil.UUIDFromStringT(t, testUUID2)
 	updatedAt := time.Now()
@@ -69,7 +69,7 @@ func TestHierarchyHandlerGetChildrenSuccess(t *testing.T) {
 	require.Nil(t, payload[0].DeletedAt)
 }
 
-func TestHierarchyHandlerGetChildrenUnauthorized(t *testing.T) {
+func TestHandlerGetChildren_Unauthorized(t *testing.T) {
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
 	req := withRouteParam(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), "id", testUUID1)
@@ -81,7 +81,7 @@ func TestHierarchyHandlerGetChildrenUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "User ID not found in context")
 }
 
-func TestHierarchyHandlerGetChildrenNodeNotFound(t *testing.T) {
+func TestHandlerGetChildren_NodeNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
@@ -98,7 +98,7 @@ func TestHierarchyHandlerGetChildrenNodeNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found")
 }
 
-func TestHandlerGetChildrenInvalidUUID(t *testing.T) {
+func TestHandlerGetChildren_InvalidUUID(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
@@ -115,7 +115,7 @@ func TestHandlerGetChildrenInvalidUUID(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid node id format")
 }
 
-func TestHierarchyHandlerInternalErrors(t *testing.T) {
+func TestHandler_InternalErrors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	tests := []struct {
 		name     string
