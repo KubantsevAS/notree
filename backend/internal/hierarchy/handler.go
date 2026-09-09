@@ -56,7 +56,7 @@ func (h *Handler) GetChildren(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
-// GetChildren godoc
+// GetParent godoc
 // @Summary      Get parent node
 // @Description  Retrieves parent for a specific node.
 // @Tags         Hierarchy
