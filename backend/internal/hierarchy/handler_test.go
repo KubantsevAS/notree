@@ -99,9 +99,14 @@ func TestHierarchyHandlerGetChildrenNodeNotFound(t *testing.T) {
 }
 
 func TestHandlerGetChildrenInvalidUUID(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
-	req := withRouteParam(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), "id", testUUIDBad)
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil),
+		userID,
+	), "id", testUUIDBad)
 	res := httptest.NewRecorder()
 
 	handler.GetChildren(res, req)
@@ -141,7 +146,7 @@ func TestHierarchyHandlerInternalErrors(t *testing.T) {
 			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
 				return &hierarchyStoreFake{childrenErr: sql.ErrConnDone},
 					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1)},
+						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1), UserID: userID},
 					}}
 			},
 			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
