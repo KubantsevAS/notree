@@ -81,7 +81,7 @@ func TestHierarchyHandlerGetChildrenUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "User ID not found in context")
 }
 
-func TestHierarchyHandlerGetChildrenParentNotFound(t *testing.T) {
+func TestHierarchyHandlerGetChildrenNodeNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
 
@@ -95,7 +95,7 @@ func TestHierarchyHandlerGetChildrenParentNotFound(t *testing.T) {
 	handler.GetChildren(res, req)
 
 	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "parent not found")
+	testutil.AssertErrorJSON(t, res, "node not found")
 }
 
 func TestHandlerGetChildrenInvalidUUID(t *testing.T) {
