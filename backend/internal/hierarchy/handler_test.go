@@ -87,23 +87,6 @@ func TestHandlerGetChildren_NodeNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found")
 }
 
-func TestHandlerGetChildren_InvalidUUID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := withRouteParam(withNodeUserContext(
-		t,
-		httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil),
-		userID,
-	), "id", testUUIDBad)
-	res := httptest.NewRecorder()
-
-	handler.GetChildren(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid node id format")
-}
-
 func TestHandlerGetParent(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testUUID1)
 	nodeID := testutil.UUIDFromStringT(t, testUUID2)
@@ -192,24 +175,6 @@ func TestHandlerGetParent_NodeNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found")
 }
 
-func TestHandlerGetParent_InvalidUUID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := withRouteParam(withNodeUserContext(
-		t,
-		httptest.NewRequest(http.MethodGet, "/nodes/:id/parent", nil),
-		userID,
-	), "id", testUUIDBad)
-	res := httptest.NewRecorder()
-
-	handler.GetParent(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid node id format")
-}
-
 func TestHandler_Unauthorized(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -241,6 +206,46 @@ func TestHandler_Unauthorized(t *testing.T) {
 
 			require.Equal(t, http.StatusUnauthorized, res.Code)
 			testutil.AssertErrorJSON(t, res, "User ID not found in context")
+		})
+	}
+}
+
+func TestHandler_InvalidUUID(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	tests := []struct {
+		name    string
+		nodeID  string
+		path    string
+		execute func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request)
+	}{
+		{
+			name:    "children invalid UUID",
+			nodeID:  testUUIDBad,
+			path:    "/nodes/" + testUUIDBad + "/children",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
+		},
+		{
+			name:    "parent invalid UUID",
+			nodeID:  testUUIDBad,
+			path:    "/nodes/" + testUUIDBad + "/parent",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			req := withRouteParam(withNodeUserContext(
+				t,
+				httptest.NewRequest(http.MethodGet, tc.path, nil),
+				userID,
+			), "id", tc.nodeID)
+			res := httptest.NewRecorder()
+
+			tc.execute(handler, res, req)
+
+			require.Equal(t, http.StatusBadRequest, res.Code)
+			testutil.AssertErrorJSON(t, res, "invalid node id format")
 		})
 	}
 }
