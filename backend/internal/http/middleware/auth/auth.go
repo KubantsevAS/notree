@@ -12,7 +12,7 @@ import (
 func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("access_token")
+			cookie, err := r.Cookie(middleware.CookieAccessToken)
 			if err != nil {
 				httputil.WriteErrorJSON(w, "missing token", http.StatusUnauthorized)
 				return

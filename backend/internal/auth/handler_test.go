@@ -13,6 +13,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	authDb "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func TestAuthHandlerRegisterSuccess(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, res.Code)
 
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	require.Equal(t, "new@example.com", userStore.createUserParams[0].Email)
 }
 
@@ -109,7 +110,7 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	handler.Login(res, req)
 
 	require.Equal(t, http.StatusOK, res.Code)
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 }
 
 func TestAuthHandlerLoginUnauthorized(t *testing.T) {
@@ -148,13 +149,13 @@ func TestAuthHandlerRefreshTokensSuccess(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/refresh-tokens", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "refresh-token-value"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "refresh-token-value"})
 	res := httptest.NewRecorder()
 
 	handler.RefreshTokens(res, req)
 
 	require.Equal(t, http.StatusOK, res.Code)
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	require.Len(t, store.deleteRefreshTokenArg, 1)
 	require.Equal(t, "refresh-token-value", store.deleteRefreshTokenArg[0])
 }
@@ -178,7 +179,7 @@ func TestAuthHandlerRefreshTokensInvalidToken(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/refresh-tokens", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "bad-token"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "bad-token"})
 	res := httptest.NewRecorder()
 
 	handler.RefreshTokens(res, req)
@@ -191,13 +192,13 @@ func TestAuthHandlerLogoutClearsCookies(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/logout", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh-token"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "old-refresh-token"})
 	res := httptest.NewRecorder()
 
 	handler.Logout(res, req)
 
 	require.Equal(t, http.StatusNoContent, res.Code)
-	cookies := testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	cookies := testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	for _, cookie := range cookies {
 		require.Equal(t, -1, cookie.MaxAge)
 		require.Equal(t, "", cookie.Value)
@@ -213,7 +214,7 @@ func TestAuthHandlerLogoutWithoutCookie(t *testing.T) {
 	handler.Logout(res, req)
 
 	require.Equal(t, http.StatusNoContent, res.Code)
-	cookies := testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	cookies := testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	for _, cookie := range cookies {
 		require.Equal(t, -1, cookie.MaxAge)
 	}

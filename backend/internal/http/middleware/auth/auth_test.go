@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
@@ -31,7 +32,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("invalid token", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: "invalid-token"})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: "invalid-token"})
 		res := httptest.NewRecorder()
 
 		auth.AuthMiddleware(secret)(nextShouldNotBeCalled).ServeHTTP(res, req)
@@ -47,7 +48,7 @@ func TestAuthMiddleware(t *testing.T) {
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: token})
 		res := httptest.NewRecorder()
 
 		auth.AuthMiddleware(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +65,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("empty token is treated as invalid", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: ""})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: ""})
 		res := httptest.NewRecorder()
 
 		auth.AuthMiddleware(secret)(nextShouldNotBeCalled).ServeHTTP(res, req)
