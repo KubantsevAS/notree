@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/KubantsevAS/notree/backend/pkg/jwt"
@@ -13,8 +14,6 @@ import (
 )
 
 func TestAuthMiddleware(t *testing.T) {
-	const secret = "test-secret"
-
 	nextShouldNotBeCalled := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("next handler should not be called")
 	})
@@ -23,7 +22,7 @@ func TestAuthMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 		res := httptest.NewRecorder()
 
-		auth.AuthMiddleware(secret)(nextShouldNotBeCalled).ServeHTTP(res, req)
+		auth.AuthMiddleware(testutil.TestSecret)(nextShouldNotBeCalled).ServeHTTP(res, req)
 
 		require.Equal(t, http.StatusUnauthorized, res.Code)
 		testutil.AssertErrorJSON(t, res, "missing token")
@@ -31,26 +30,26 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("invalid token", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: "invalid-token"})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: "invalid-token"})
 		res := httptest.NewRecorder()
 
-		auth.AuthMiddleware(secret)(nextShouldNotBeCalled).ServeHTTP(res, req)
+		auth.AuthMiddleware(testutil.TestSecret)(nextShouldNotBeCalled).ServeHTTP(res, req)
 
 		require.Equal(t, http.StatusUnauthorized, res.Code)
 		testutil.AssertErrorJSON(t, res, "invalid or expired access token")
 	})
 
 	t.Run("valid token sets user id in context", func(t *testing.T) {
-		userID := testutil.UUIDFromString("11111111-1111-4111-8111-111111111111")
+		userID := testutil.UUIDFromString(testutil.UUID1)
 
-		token, err := jwt.GenerateAccessToken(userID, secret)
+		token, err := jwt.GenerateAccessToken(userID, testutil.TestSecret)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: token})
 		res := httptest.NewRecorder()
 
-		auth.AuthMiddleware(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth.AuthMiddleware(testutil.TestSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctxUserID, err := httputil.GetUserIDFromCtx(r.Context())
 			require.NoError(t, err)
 
@@ -64,10 +63,10 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("empty token is treated as invalid", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-		req.AddCookie(&http.Cookie{Name: "access_token", Value: ""})
+		req.AddCookie(&http.Cookie{Name: middleware.CookieAccessToken, Value: ""})
 		res := httptest.NewRecorder()
 
-		auth.AuthMiddleware(secret)(nextShouldNotBeCalled).ServeHTTP(res, req)
+		auth.AuthMiddleware(testutil.TestSecret)(nextShouldNotBeCalled).ServeHTTP(res, req)
 
 		require.Equal(t, http.StatusUnauthorized, res.Code)
 		testutil.AssertErrorJSON(t, res, "invalid or expired access token")

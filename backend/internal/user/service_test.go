@@ -16,30 +16,30 @@ import (
 )
 
 var (
-	userID = testutil.UUIDFromString("11111111-1111-4111-8111-111111111111")
+	userID = testutil.UUIDFromString(testutil.UUID1)
 )
 
 type userStoreFake struct {
-	getUserByIdResult             *userDb.UsersPublic
-	getUserByIdErr                error
-	getUserPasswordHashResult     string
-	getUserPasswordHashErr        error
-	createUserResult              pgtype.UUID
-	createUserErr                 error
-	setVerificationTokenErr       error
-	setVerificationTokenParams    []userDb.SetVerificationTokenParams
-	updateUserPasswordErr         error
-	updateUserPasswordParams      []userDb.UpdateUserPasswordParams
-	updateUserProfileResult       *userDb.UpdateUserProfileRow
-	updateUserProfileErr          error
-	updateUserProfileParams       []userDb.UpdateUserProfileParams
-	updateUserPreferencesResult   *userDb.UpdateUserPreferencesRow
-	updateUserPreferencesErr      error
-	updateUserPreferencesParams   []userDb.UpdateUserPreferencesParams
-	verifyEmailByTokenResult      pgtype.UUID
-	verifyEmailByTokenErr         error
-	verifyEmailByTokenParams      []userDb.VerifyEmailByTokenParams
-	verifyEmailAlreadyVerified    bool
+	getUserByIdResult           *userDb.UsersPublic
+	getUserByIdErr              error
+	getUserPasswordHashResult   string
+	getUserPasswordHashErr      error
+	createUserResult            pgtype.UUID
+	createUserErr               error
+	setVerificationTokenErr     error
+	setVerificationTokenParams  []userDb.SetVerificationTokenParams
+	updateUserPasswordErr       error
+	updateUserPasswordParams    []userDb.UpdateUserPasswordParams
+	updateUserProfileResult     *userDb.UpdateUserProfileRow
+	updateUserProfileErr        error
+	updateUserProfileParams     []userDb.UpdateUserProfileParams
+	updateUserPreferencesResult *userDb.UpdateUserPreferencesRow
+	updateUserPreferencesErr    error
+	updateUserPreferencesParams []userDb.UpdateUserPreferencesParams
+	verifyEmailByTokenResult    pgtype.UUID
+	verifyEmailByTokenErr       error
+	verifyEmailByTokenParams    []userDb.VerifyEmailByTokenParams
+	verifyEmailAlreadyVerified  bool
 }
 
 func (r *userStoreFake) GetUserById(ctx context.Context, id pgtype.UUID) (userDb.UsersPublic, error) {
@@ -106,7 +106,7 @@ func (r *userStoreFake) VerifyEmailByToken(ctx context.Context, params userDb.Ve
 	return r.verifyEmailByTokenResult, nil
 }
 
-func TestUserServiceGetUserByIdSuccess(t *testing.T) {
+func TestGetUserById(t *testing.T) {
 	email := "test@example.com"
 
 	repo := &userStoreFake{
@@ -126,7 +126,7 @@ func TestUserServiceGetUserByIdSuccess(t *testing.T) {
 	require.Equal(t, email, profile.Email)
 }
 
-func TestUserServiceGetUserByIdNotFound(t *testing.T) {
+func TestGetUserById_UserNotFound(t *testing.T) {
 	repo := &userStoreFake{
 		getUserByIdErr: sql.ErrNoRows,
 	}
@@ -139,7 +139,7 @@ func TestUserServiceGetUserByIdNotFound(t *testing.T) {
 	require.ErrorIs(t, err, user.ErrUserNotFound)
 }
 
-func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
+func TestUpdateUserProfile_EmptyUpdate(t *testing.T) {
 	repo := &userStoreFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
@@ -154,7 +154,7 @@ func TestUserServiceUpdateUserProfileEmptyUpdate(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
+func TestUpdateUserProfile(t *testing.T) {
 	newUsername := "newusername"
 	newAvatarUrl := "https://example.com/avatar.jpg"
 	now := time.Now()
@@ -182,7 +182,7 @@ func TestUserServiceUpdateUserProfileSuccess(t *testing.T) {
 	require.Equal(t, &newAvatarUrl, resp.AvatarUrl)
 }
 
-func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
+func TestUpdateUserPreferences_EmptyUpdate(t *testing.T) {
 	repo := &userStoreFake{}
 	svc := user.NewService(repo, nil)
 	ctx := context.Background()
@@ -198,7 +198,7 @@ func TestUserServiceUpdateUserPreferencesEmptyUpdate(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
+func TestUpdateUserPreferences(t *testing.T) {
 	locale := "en-US"
 	timezone := "America/New_York"
 	prefs := json.RawMessage(`{"theme":"dark"}`)
@@ -229,7 +229,7 @@ func TestUserServiceUpdateUserPreferencesSuccess(t *testing.T) {
 	require.Equal(t, &timezone, resp.Timezone)
 }
 
-func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
+func TestUpdateUserPassword_WrongCredentials(t *testing.T) {
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("current"), bcrypt.DefaultCost)
 
 	repo := &userStoreFake{
@@ -249,7 +249,7 @@ func TestUserServiceUpdateUserPasswordWrongCurrentPassword(t *testing.T) {
 	require.ErrorIs(t, err, user.ErrWrongCredentials)
 }
 
-func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
+func TestUpdateUserPassword(t *testing.T) {
 	currentPassword := "current"
 	newPassword := "newpass"
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
@@ -271,7 +271,7 @@ func TestUserServiceUpdateUserPasswordSuccess(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
+func TestUpdateUserPassword_UserNotFound(t *testing.T) {
 	repo := &userStoreFake{
 		getUserPasswordHashErr: sql.ErrNoRows,
 	}
@@ -289,7 +289,7 @@ func TestUserServiceUpdateUserPasswordUserNotFound(t *testing.T) {
 	require.ErrorIs(t, err, user.ErrUserNotFound)
 }
 
-func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
+func TestVerifyEmailByToken(t *testing.T) {
 	token := "valid-token-123"
 
 	repo := &userStoreFake{
@@ -304,7 +304,7 @@ func TestUserServiceVerifyEmailByTokenSuccess(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
+func TestVerifyEmailByToken_InvalidVerificationToken(t *testing.T) {
 	token := "invalid-token"
 
 	repo := &userStoreFake{
@@ -319,8 +319,7 @@ func TestUserServiceVerifyEmailByTokenInvalidToken(t *testing.T) {
 	require.ErrorIs(t, err, user.ErrInvalidVerificationToken)
 }
 
-func TestUserServiceGetUserByIdTableDriven(t *testing.T) {
-
+func TestGetUserById_TableDriven(t *testing.T) {
 	tests := []struct {
 		name     string
 		email    string

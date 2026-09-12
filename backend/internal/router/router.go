@@ -3,26 +3,26 @@ package router
 import (
 	"log/slog"
 
-	"github.com/KubantsevAS/notree/backend/internal/auth"
 	"github.com/KubantsevAS/notree/backend/internal/config"
-	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	mwAuth "github.com/KubantsevAS/notree/backend/internal/http/middleware/auth"
 	mwLogger "github.com/KubantsevAS/notree/backend/internal/http/middleware/logger"
-	"github.com/KubantsevAS/notree/backend/internal/node"
-	"github.com/KubantsevAS/notree/backend/internal/user"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+type Registrar interface {
+	RegisterRoutes(r chi.Router)
+}
+
 func New(
 	cfg *config.Config,
 	log *slog.Logger,
-	authModule *auth.Module,
-	userModule *user.Module,
-	nodeModule *node.Module,
-	hierarchyModule *hierarchy.Module,
+	authModule Registrar,
+	userModule Registrar,
+	nodeModule Registrar,
+	hierarchyModule Registrar,
 ) *chi.Mux {
 	r := chi.NewRouter()
 

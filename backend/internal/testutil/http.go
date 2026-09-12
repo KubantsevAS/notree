@@ -11,6 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func DoRequest(t *testing.T, h http.Handler, method, target string, headers map[string]string, cookies ...http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, target, nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	for i := range cookies {
+		req.AddCookie(&cookies[i])
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
 func NewJSONRequest(t *testing.T, method, url string, body any) *http.Request {
 	t.Helper()
 	var buf bytes.Buffer

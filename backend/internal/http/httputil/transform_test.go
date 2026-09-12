@@ -4,20 +4,21 @@ import (
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPgUUIDFromString(t *testing.T) {
-	validStr := "ebde9d75-dd29-4702-afde-1f93772f905d"
-	invalidStr := "not-a-uuid"
+	validStr := testutil.StringPtr(testutil.UUID1)
+	invalidStr := testutil.StringPtr(testutil.BadUUID)
 
 	tests := []struct {
 		name    string
 		input   *string
 		wantErr bool
 	}{
-		{"Valid UUID", &validStr, false},
-		{"Invalid UUID", &invalidStr, true},
+		{"Valid UUID", validStr, false},
+		{"Invalid UUID", invalidStr, true},
 	}
 
 	for _, tt := range tests {

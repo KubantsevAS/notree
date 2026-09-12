@@ -13,6 +13,7 @@ import (
 	"github.com/KubantsevAS/notree/backend/internal/config"
 	authDb "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ func newAuthHandlerWithFakes(t *testing.T, store *authStoreFake, userStore *user
 	t.Helper()
 
 	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: "secret"}},
+		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
 		store,
 		userStore,
 		mailer,
@@ -32,10 +33,11 @@ func newAuthHandlerWithFakes(t *testing.T, store *authStoreFake, userStore *user
 	return auth.NewHandler(service)
 }
 
-func TestAuthHandlerRegisterSuccess(t *testing.T) {
+func TestHandlerRegister(t *testing.T) {
+	testUserID := testutil.UUIDFromString(testutil.UUID1)
 	userStore := &userStoreFake{
 		getUserByEmailErr: sql.ErrNoRows,
-		createUserResult:  testutil.UUIDFromString(userID),
+		createUserResult:  testUserID,
 	}
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
 
@@ -49,11 +51,11 @@ func TestAuthHandlerRegisterSuccess(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, res.Code)
 
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	require.Equal(t, "new@example.com", userStore.createUserParams[0].Email)
 }
 
-func TestAuthHandlerRegisterConflict(t *testing.T) {
+func TestHandlerRegister_Conflict(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserByEmailResult: userDb.User{Email: "exists@example.com"},
 	}
@@ -71,7 +73,7 @@ func TestAuthHandlerRegisterConflict(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, auth.ErrUserExist.Error())
 }
 
-func TestAuthHandlerRegisterInternalError(t *testing.T) {
+func TestHandlerRegister_InternalError(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserByEmailErr: sql.ErrNoRows,
 		createUserErr:     errors.New("db connection lost"),
@@ -87,13 +89,14 @@ func TestAuthHandlerRegisterInternalError(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "internal server error")
 }
 
-func TestAuthHandlerLoginSuccess(t *testing.T) {
+func TestHandlerLogin(t *testing.T) {
+	testUserID := testutil.UUIDFromString(testutil.UUID1)
 	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
 	userStore := &userStoreFake{
 		getUserByEmailResult: userDb.User{
-			ID:           testutil.UUIDFromString(userID),
+			ID:           testUserID,
 			Email:        "user@example.com",
 			PasswordHash: string(hash),
 		},
@@ -109,16 +112,17 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	handler.Login(res, req)
 
 	require.Equal(t, http.StatusOK, res.Code)
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 }
 
-func TestAuthHandlerLoginUnauthorized(t *testing.T) {
+func TestHandlerLogin_Unauthorized(t *testing.T) {
+	testUserID := testutil.UUIDFromString(testutil.UUID1)
 	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
 	userStore := &userStoreFake{
 		getUserByEmailResult: userDb.User{
-			ID:           testutil.UUIDFromString(userID),
+			ID:           testUserID,
 			Email:        "user@example.com",
 			PasswordHash: string(hash),
 		},
@@ -137,29 +141,30 @@ func TestAuthHandlerLoginUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, auth.ErrWrongCredentials.Error())
 }
 
-func TestAuthHandlerRefreshTokensSuccess(t *testing.T) {
+func TestHandler_RefreshTokens(t *testing.T) {
+	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	store := &authStoreFake{
 		getRefreshTokenResult: authDb.RefreshToken{
 			TokenHash: "refresh-token-value",
-			UserID:    testutil.UUIDFromStringT(t, userID),
+			UserID:    testUserID,
 			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
 		},
 	}
 	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/refresh-tokens", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "refresh-token-value"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "refresh-token-value"})
 	res := httptest.NewRecorder()
 
 	handler.RefreshTokens(res, req)
 
 	require.Equal(t, http.StatusOK, res.Code)
-	testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	require.Len(t, store.deleteRefreshTokenArg, 1)
 	require.Equal(t, "refresh-token-value", store.deleteRefreshTokenArg[0])
 }
 
-func TestAuthHandlerRefreshTokensMissingCookie(t *testing.T) {
+func TestHandlerRefreshTokens_MissingCookie(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/refresh-tokens", nil)
@@ -171,14 +176,14 @@ func TestAuthHandlerRefreshTokensMissingCookie(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "missing refresh token")
 }
 
-func TestAuthHandlerRefreshTokensInvalidToken(t *testing.T) {
+func TestHandlerRefreshTokens_InvalidToken(t *testing.T) {
 	store := &authStoreFake{
 		getRefreshTokenErr: sql.ErrNoRows,
 	}
 	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/refresh-tokens", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "bad-token"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "bad-token"})
 	res := httptest.NewRecorder()
 
 	handler.RefreshTokens(res, req)
@@ -187,24 +192,24 @@ func TestAuthHandlerRefreshTokensInvalidToken(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, auth.ErrInvalidRefreshToken.Error())
 }
 
-func TestAuthHandlerLogoutClearsCookies(t *testing.T) {
+func TestHandlerLogout_ClearsCookies(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/logout", nil)
-	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: "old-refresh-token"})
+	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "old-refresh-token"})
 	res := httptest.NewRecorder()
 
 	handler.Logout(res, req)
 
 	require.Equal(t, http.StatusNoContent, res.Code)
-	cookies := testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	cookies := testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	for _, cookie := range cookies {
 		require.Equal(t, -1, cookie.MaxAge)
 		require.Equal(t, "", cookie.Value)
 	}
 }
 
-func TestAuthHandlerLogoutWithoutCookie(t *testing.T) {
+func TestHandlerLogout_WithoutCookie(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
@@ -213,16 +218,17 @@ func TestAuthHandlerLogoutWithoutCookie(t *testing.T) {
 	handler.Logout(res, req)
 
 	require.Equal(t, http.StatusNoContent, res.Code)
-	cookies := testutil.AssertAuthCookies(t, res, "access_token", "refresh_token")
+	cookies := testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 	for _, cookie := range cookies {
 		require.Equal(t, -1, cookie.MaxAge)
 	}
 }
 
-func TestAuthHandlerForgotPasswordSuccess(t *testing.T) {
+func TestHandlerForgotPassword(t *testing.T) {
+	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	mailer := &fakeMailer{sent: make(chan string, 1)}
 	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{ID: testutil.UUIDFromStringT(t, userID), Email: "reset@example.com"},
+		getUserByEmailResult: userDb.User{ID: testUserID, Email: "reset@example.com"},
 	}
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, mailer)
 
@@ -244,9 +250,10 @@ func TestAuthHandlerForgotPasswordSuccess(t *testing.T) {
 	}
 }
 
-func TestAuthHandlerResetPasswordSuccess(t *testing.T) {
+func TestHandlerResetPassword(t *testing.T) {
+	testUserID := testutil.UUIDFromString(testutil.UUID1)
 	userStore := &userStoreFake{
-		getUserIdByResetPasswordResult: testutil.UUIDFromString(userID),
+		getUserIdByResetPasswordResult: testUserID,
 	}
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
 
@@ -261,10 +268,10 @@ func TestAuthHandlerResetPasswordSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, res.Code)
 	testutil.AssertMessageJSON(t, res, "password has been reset successfully")
 	require.Len(t, userStore.updateUserPasswordParams, 1)
-	require.Equal(t, testutil.UUIDFromString(userID), userStore.updateUserPasswordParams[0].ID)
+	require.Equal(t, testUserID, userStore.updateUserPasswordParams[0].ID)
 }
 
-func TestAuthHandlerResetPasswordInvalidToken(t *testing.T) {
+func TestHandlerResetPassword_InvalidToken(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserIdByResetPasswordErr: sql.ErrNoRows,
 	}
@@ -282,7 +289,7 @@ func TestAuthHandlerResetPasswordInvalidToken(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid or expired token")
 }
 
-func TestAuthHandlerRequestBodyValidation(t *testing.T) {
+func TestHandlerRequest_BodyValidation(t *testing.T) {
 	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
 
 	for _, tc := range []struct {

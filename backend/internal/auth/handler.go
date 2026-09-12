@@ -6,6 +6,7 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 )
 
 type Handler struct {
@@ -44,8 +45,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
-	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	httputil.SetCookie(w, middleware.CookieAccessToken, tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, middleware.CookieRefreshToken, tokens.RefreshToken, 7*24*3600, true)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -78,8 +79,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
-	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	httputil.SetCookie(w, middleware.CookieAccessToken, tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, middleware.CookieRefreshToken, tokens.RefreshToken, 7*24*3600, true)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -93,7 +94,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure      500  {object}  dto.ErrorResponse "internal server error"
 // @Router       /auth/refresh-tokens [post]
 func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("refresh_token")
+	cookie, err := r.Cookie(middleware.CookieRefreshToken)
 	if err != nil {
 		httputil.WriteErrorJSON(w, "missing refresh token", http.StatusUnauthorized)
 		return
@@ -109,8 +110,8 @@ func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.SetCookie(w, "access_token", tokens.AccessToken, 15*60, true)
-	httputil.SetCookie(w, "refresh_token", tokens.RefreshToken, 7*24*3600, true)
+	httputil.SetCookie(w, middleware.CookieAccessToken, tokens.AccessToken, 15*60, true)
+	httputil.SetCookie(w, middleware.CookieRefreshToken, tokens.RefreshToken, 7*24*3600, true)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -121,13 +122,13 @@ func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 // @Success      204 "No Content"
 // @Router       /auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("refresh_token")
+	cookie, err := r.Cookie(middleware.CookieRefreshToken)
 	if err == nil {
 		_ = h.service.Logout(r.Context(), cookie.Value)
 	}
 
-	httputil.ClearCookie(w, "access_token")
-	httputil.ClearCookie(w, "refresh_token")
+	httputil.ClearCookie(w, middleware.CookieAccessToken)
+	httputil.ClearCookie(w, middleware.CookieRefreshToken)
 	w.WriteHeader(http.StatusNoContent)
 }
 

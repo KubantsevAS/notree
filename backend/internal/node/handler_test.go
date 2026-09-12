@@ -31,8 +31,8 @@ func withRouteParam(req *http.Request, key, value string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
 }
 
-func TestNodeHandlerCreateSuccess(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerCreate(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	fake := &nodeStoreFake{}
 	handler := node.NewHandler(node.NewService(fake))
 
@@ -53,7 +53,7 @@ func TestNodeHandlerCreateSuccess(t *testing.T) {
 	require.Equal(t, "hello", payload.Title)
 }
 
-func TestNodeHandlerCreateUnauthorized(t *testing.T) {
+func TestHandlerCreate_Unauthorized(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/nodes", map[string]string{"type": "note", "title": "hello"})
@@ -65,12 +65,12 @@ func TestNodeHandlerCreateUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "User ID not found in context")
 }
 
-func TestNodeHandlerCreateInvalidParentID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerCreate_InvalidParentID(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withNodeUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/nodes", node.CreateNodeRequest{
-		ParentID: testutil.StringPtr(testUUIDBad),
+		ParentID: testutil.StringPtr(testutil.BadUUID),
 		Type:     "note",
 		Title:    "child",
 	}), userID)
@@ -82,13 +82,13 @@ func TestNodeHandlerCreateInvalidParentID(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid parent id")
 }
 
-func TestNodeHandlerCreateParentNotFound(t *testing.T) {
+func TestHandlerCreate_ParentNotFound(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 	req := withNodeUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/nodes", node.CreateNodeRequest{
-		ParentID: testutil.StringPtr(testUUID2),
+		ParentID: testutil.StringPtr(testutil.UUID2),
 		Type:     "note",
 		Title:    "child",
-	}), testutil.UUIDFromStringT(t, testUUID1))
+	}), testutil.UUIDFromStringT(t, testutil.UUID1))
 	res := httptest.NewRecorder()
 
 	handler.Create(res, req)
@@ -96,8 +96,8 @@ func TestNodeHandlerCreateParentNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "parent not found")
 }
 
-func TestNodeHandlerCreateInvalidBody(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerCreate_InvalidBody(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withNodeUserContext(
@@ -111,19 +111,19 @@ func TestNodeHandlerCreateInvalidBody(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, res.Code)
 }
 
-func TestNodeHandlerDeleteSuccess(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	fake := &nodeStoreFake{softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testUUID2)}}
+func TestHandlerDelete(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	fake := &nodeStoreFake{softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testutil.UUID2)}}
 	handler := node.NewHandler(node.NewService(fake))
 
 	req := withRouteParam(
 		withNodeUserContext(
 			t,
-			httptest.NewRequest(http.MethodDelete, "/nodes/"+testUUID1, nil),
+			httptest.NewRequest(http.MethodDelete, "/nodes/"+testutil.UUID1, nil),
 			userID,
 		),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -133,8 +133,8 @@ func TestNodeHandlerDeleteSuccess(t *testing.T) {
 	require.Len(t, fake.softDeleteParams, 1)
 }
 
-func TestNodeHandlerDeleteInvalidNodeID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerDelete_InvalidNodeID(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
@@ -147,7 +147,7 @@ func TestNodeHandlerDeleteInvalidNodeID(t *testing.T) {
 			userID,
 		),
 		"id",
-		"bad-id",
+		testutil.BadUUID,
 	)
 	res := httptest.NewRecorder()
 
@@ -157,18 +157,18 @@ func TestNodeHandlerDeleteInvalidNodeID(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid node id format")
 }
 
-func TestNodeHandlerDeleteNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerDelete_NotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
 		withNodeUserContext(
 			t,
-			httptest.NewRequest(http.MethodDelete, "/nodes/"+testUUID1, nil),
+			httptest.NewRequest(http.MethodDelete, "/nodes/"+testutil.UUID1, nil),
 			userID,
 		),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -178,9 +178,9 @@ func TestNodeHandlerDeleteNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found or access denied")
 }
 
-func TestNodeHandlerUpdateSuccess(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+func TestHandlerUpdate(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	updatedAt := time.Now()
 	fake := &nodeStoreFake{
 		updateResult: nodeDb.UpdateNodeRow{
@@ -219,8 +219,8 @@ func TestNodeHandlerUpdateSuccess(t *testing.T) {
 	require.Len(t, fake.updateParams, 1)
 }
 
-func TestNodeHandlerUpdateEmptyPayload(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerUpdate_EmptyPayload(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
@@ -229,7 +229,7 @@ func TestNodeHandlerUpdateEmptyPayload(t *testing.T) {
 			userID,
 		),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -239,8 +239,8 @@ func TestNodeHandlerUpdateEmptyPayload(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "no fields provided for update")
 }
 
-func TestNodeHandlerUpdateInvalidNodeID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerUpdate_InvalidNodeID(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
@@ -254,7 +254,7 @@ func TestNodeHandlerUpdateInvalidNodeID(t *testing.T) {
 			userID,
 		),
 		"id",
-		"bad-id",
+		testutil.BadUUID,
 	)
 	res := httptest.NewRecorder()
 
@@ -264,8 +264,8 @@ func TestNodeHandlerUpdateInvalidNodeID(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid node id format")
 }
 
-func TestNodeHandlerUpdateAccessDenied(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerUpdate_NotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{updateErr: pgx.ErrNoRows}))
 
 	req := withRouteParam(withNodeUserContext(
@@ -279,7 +279,7 @@ func TestNodeHandlerUpdateAccessDenied(t *testing.T) {
 		userID,
 	),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -288,10 +288,10 @@ func TestNodeHandlerUpdateAccessDenied(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found or access denied")
 }
 
-func TestNodeHandlerMoveSuccess(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	parentID := testutil.UUIDFromStringT(t, testUUID3)
+func TestHandlerMove(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	updatedAt := time.Now()
 	fake := &nodeStoreFake{
 		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
@@ -326,9 +326,9 @@ func TestNodeHandlerMoveSuccess(t *testing.T) {
 	require.EqualValues(t, 42, payload.SortOrder)
 }
 
-func TestNodeHandlerMoveCircularReference(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+func TestHandlerMove_CircularReference(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
@@ -350,16 +350,16 @@ func TestNodeHandlerMoveCircularReference(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node cannot be a descendant of itself (circular reference)")
 }
 
-func TestNodeHandlerMoveInvalidParentUUID(t *testing.T) {
+func TestHandlerMove_InvalidParentID(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 	req := withRouteParam(
 		withNodeUserContext(
 			t,
-			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]string{"parent_id": "bad-uuid"}),
-			testutil.UUIDFromStringT(t, testUUID1),
+			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]string{"parent_id": testutil.BadUUID}),
+			testutil.UUIDFromStringT(t, testutil.UUID1),
 		),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -368,18 +368,18 @@ func TestNodeHandlerMoveInvalidParentUUID(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid parent id")
 }
 
-func TestNodeHandlerMoveParentNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandlerMove_ParentNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	req := withRouteParam(
 		withNodeUserContext(
 			t,
-			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]any{"parent_id": testUUID2}),
+			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]any{"parent_id": testutil.UUID2}),
 			userID,
 		),
 		"id",
-		testUUID1,
+		testutil.UUID1,
 	)
 	res := httptest.NewRecorder()
 
@@ -388,7 +388,7 @@ func TestNodeHandlerMoveParentNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "parent not found")
 }
 
-func TestNodeHandlerRequiresAuthentication(t *testing.T) {
+func TestHandler_Unauthorized(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
 	tests := []struct {
@@ -412,14 +412,14 @@ func TestNodeHandlerRequiresAuthentication(t *testing.T) {
 		{
 			"Move",
 			http.MethodPost,
-			map[string]any{"parent_id": testUUID1},
+			map[string]any{"parent_id": testutil.UUID1},
 			func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Move(w, r) },
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := withRouteParam(testutil.NewJSONRequest(t, tc.method, "/nodes", tc.body), "id", testUUID1)
+			req := withRouteParam(testutil.NewJSONRequest(t, tc.method, "/nodes", tc.body), "id", testutil.UUID1)
 			res := httptest.NewRecorder()
 
 			tc.execute(handler, res, req)
@@ -430,8 +430,8 @@ func TestNodeHandlerRequiresAuthentication(t *testing.T) {
 	}
 }
 
-func TestNodeHandlerInternalErrors(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
+func TestHandler_InternalErrors(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	tests := []struct {
 		name     string
 		method   string
@@ -445,15 +445,15 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 			name:     "move db error",
 			method:   http.MethodPost,
 			routeKey: "id",
-			path:     "/nodes/" + testUUID1 + "/move",
+			path:     "/nodes/" + testutil.UUID1 + "/move",
 			body: map[string]any{
-				"parent_id":  testUUID2,
+				"parent_id":  testutil.UUID2,
 				"sort_order": 10,
 			},
 			setup: func(t *testing.T) *nodeStoreFake {
 				return &nodeStoreFake{
 					getNodeByIDResult: map[string]nodeDb.Node{
-						testUUID2: {ID: testutil.UUIDFromStringT(t, testUUID2), UserID: userID},
+						testutil.UUID2: {ID: testutil.UUIDFromStringT(t, testutil.UUID2), UserID: userID},
 					},
 					moveErr: errors.New("db down"),
 				}
@@ -464,7 +464,7 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 			name:     "delete db error",
 			method:   http.MethodDelete,
 			routeKey: "id",
-			path:     "/nodes/" + testUUID1,
+			path:     "/nodes/" + testutil.UUID1,
 			body:     nil,
 			setup: func(t *testing.T) *nodeStoreFake {
 				return &nodeStoreFake{softDeleteErr: errors.New("db down")}
@@ -475,7 +475,7 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 			name:     "update db error",
 			method:   http.MethodPatch,
 			routeKey: "id",
-			path:     "/nodes/" + testUUID1,
+			path:     "/nodes/" + testutil.UUID1,
 			body:     node.UpdateNodeRequest{Title: testutil.StringPtr("new title")},
 			setup: func(t *testing.T) *nodeStoreFake {
 				return &nodeStoreFake{updateErr: errors.New("db down")}
@@ -492,7 +492,7 @@ func TestNodeHandlerInternalErrors(t *testing.T) {
 			req := testutil.NewJSONRequest(t, tc.method, tc.path, tc.body)
 			req = withNodeUserContext(t, req, userID)
 
-			req = withRouteParam(req, tc.routeKey, testUUID1)
+			req = withRouteParam(req, tc.routeKey, testutil.UUID1)
 
 			res := httptest.NewRecorder()
 
