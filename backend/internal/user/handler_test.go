@@ -44,7 +44,7 @@ func withUserContext(t *testing.T, req *http.Request, userID pgtype.UUID) *http.
 	return req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID.String()))
 }
 
-func TestUserHandlerGetProfileSuccess(t *testing.T) {
+func TestHandlerGetProfile(t *testing.T) {
 	now := time.Now()
 	store := &userStoreFake{
 		getUserByIdResult: &userDb.UsersPublic{
@@ -75,7 +75,7 @@ func TestUserHandlerGetProfileSuccess(t *testing.T) {
 	require.Equal(t, "alice@example.com", payload.Email)
 }
 
-func TestUserHandlerGetProfileUnauthorized(t *testing.T) {
+func TestHandlerGetProfile_Unauthorized(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil)
@@ -87,7 +87,7 @@ func TestUserHandlerGetProfileUnauthorized(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "User ID not found in context")
 }
 
-func TestUserHandlerGetProfileNotFound(t *testing.T) {
+func TestHandlerGetProfile_UserNotFound(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{getUserByIdErr: sql.ErrNoRows}, nil)
 
 	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
@@ -99,7 +99,7 @@ func TestUserHandlerGetProfileNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "user not found")
 }
 
-func TestUserHandlerGetProfileInternalError(t *testing.T) {
+func TestHandlerGetProfile_InternalError(t *testing.T) {
 	store := &userStoreFake{getUserByIdErr: errors.New("db timeout")}
 	handler := newUserHandlerWithFakes(store, nil)
 
@@ -112,7 +112,7 @@ func TestUserHandlerGetProfileInternalError(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "internal server error")
 }
 
-func TestUserHandlerUpdateProfileSuccess(t *testing.T) {
+func TestHandlerUpdateProfile(t *testing.T) {
 	username := "new-name"
 	avatarURL := "https://example.com/avatar.jpg"
 	updatedAt := time.Now()
@@ -141,7 +141,7 @@ func TestUserHandlerUpdateProfileSuccess(t *testing.T) {
 	require.Len(t, store.updateUserProfileParams, 1)
 }
 
-func TestUserHandlerUpdateProfileEmptyPayload(t *testing.T) {
+func TestHandlerUpdateProfile_EmptyPayload(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
 
 	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", map[string]any{}), userID)
@@ -153,7 +153,7 @@ func TestUserHandlerUpdateProfileEmptyPayload(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "no fields provided for update")
 }
 
-func TestUserHandlerUpdatePreferencesSuccess(t *testing.T) {
+func TestHandlerUpdatePreferences(t *testing.T) {
 	locale := "ru-RU"
 	timezone := "Europe/Moscow"
 	preferences := json.RawMessage(`{"theme":"light"}`)
@@ -185,7 +185,7 @@ func TestUserHandlerUpdatePreferencesSuccess(t *testing.T) {
 	require.Len(t, store.updateUserPreferencesParams, 1)
 }
 
-func TestUserHandlerChangePasswordSuccess(t *testing.T) {
+func TestHandlerChangePassword(t *testing.T) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
@@ -207,7 +207,7 @@ func TestUserHandlerChangePasswordSuccess(t *testing.T) {
 	require.Len(t, store.updateUserPasswordParams, 1)
 }
 
-func TestUserHandlerChangePasswordWrongOldPassword(t *testing.T) {
+func TestHandlerChangePassword_WrongOldPassword(t *testing.T) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
@@ -226,7 +226,7 @@ func TestUserHandlerChangePasswordWrongOldPassword(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "wrong old password")
 }
 
-func TestUserHandlerChangePasswordInternalError(t *testing.T) {
+func TestHandlerChangePassword_InternalError(t *testing.T) {
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 
 	store := &userStoreFake{
@@ -247,7 +247,7 @@ func TestUserHandlerChangePasswordInternalError(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "internal server error")
 }
 
-func TestUserHandlerSendVerificationTokenSuccess(t *testing.T) {
+func TestHandlerSendVerificationToken(t *testing.T) {
 	mailer := &fakeVerificationMailer{sent: make(chan string, 1)}
 	store := &userStoreFake{
 		getUserByIdResult: &userDb.UsersPublic{
@@ -275,7 +275,7 @@ func TestUserHandlerSendVerificationTokenSuccess(t *testing.T) {
 	}
 }
 
-func TestUserHandlerVerifyEmailByTokenSuccess(t *testing.T) {
+func TestHandlerVerifyEmailByToken(t *testing.T) {
 	store := &userStoreFake{verifyEmailByTokenResult: userID}
 	handler := newUserHandlerWithFakes(store, nil)
 
@@ -291,7 +291,7 @@ func TestUserHandlerVerifyEmailByTokenSuccess(t *testing.T) {
 	require.Len(t, store.verifyEmailByTokenParams, 1)
 }
 
-func TestUserHandlerVerifyEmailByTokenInvalidToken(t *testing.T) {
+func TestHandlerVerifyEmailByToken_InvalidToken(t *testing.T) {
 	store := &userStoreFake{verifyEmailByTokenErr: sql.ErrNoRows}
 	handler := newUserHandlerWithFakes(store, nil)
 
@@ -306,7 +306,7 @@ func TestUserHandlerVerifyEmailByTokenInvalidToken(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "invalid or expired token")
 }
 
-func TestUserHandlerRequiresAuthentication(t *testing.T) {
+func TestHandler_RequiresAuthentication(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
 	tests := []struct {
 		name   string
@@ -350,7 +350,7 @@ func TestUserHandlerRequiresAuthentication(t *testing.T) {
 	}
 }
 
-func TestUserHandlerUpdateProfileInternalError(t *testing.T) {
+func TestHandlerUpdateProfile_InternalError(t *testing.T) {
 	store := &userStoreFake{updateUserProfileErr: errors.New("db error")}
 	handler := newUserHandlerWithFakes(store, nil)
 

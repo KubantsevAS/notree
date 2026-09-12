@@ -6,15 +6,16 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
+	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetUserIDFromCtx(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+		ctx := context.WithValue(context.Background(), middleware.UserIDKey, testutil.UUID1)
 		id, err := httputil.GetUserIDFromCtx(ctx)
 		require.NoError(t, err)
-		require.Equal(t, "user-123", id)
+		require.Equal(t, testutil.UUID1, id)
 	})
 
 	t.Run("Missing in context", func(t *testing.T) {

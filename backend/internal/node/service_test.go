@@ -15,14 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testUUIDBad = "bad-uuid"
-	testUUID1   = "11111111-1111-4111-8111-111111111111"
-	testUUID2   = "22222222-2222-4222-8222-222222222222"
-	testUUID3   = "33333333-3333-4333-8333-333333333333"
-	testUUID4   = "44444444-4444-4444-8444-444444444444"
-)
-
 type nodeStoreFake struct {
 	createParams      []nodeDb.CreateNodeParams
 	createResult      nodeDb.Node
@@ -110,7 +102,7 @@ func (f *nodeStoreFake) UpdateNode(_ context.Context, params nodeDb.UpdateNodePa
 	return f.updateResult, nil
 }
 
-func TestNodeServiceCreateNodeSortOrderIncreases(t *testing.T) {
+func TestCreateNode_SortOrderIncreases(t *testing.T) {
 	fake := &nodeStoreFake{}
 	service := node.NewService(fake)
 	request := &node.CreateNodeRequest{Type: "note", Title: "test"}
@@ -125,7 +117,7 @@ func TestNodeServiceCreateNodeSortOrderIncreases(t *testing.T) {
 	require.Greater(t, fake.createParams[1].SortOrder, fake.createParams[0].SortOrder)
 }
 
-func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
+func TestCreateNode_ValidatesParentID(t *testing.T) {
 	var errTimeout = errors.New("timeout")
 	tests := []struct {
 		name    string
@@ -135,19 +127,19 @@ func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
 	}{
 		{
 			name:    "invalid parent uuid",
-			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUIDBad), Type: "note", Title: "child"},
+			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testutil.BadUUID), Type: "note", Title: "child"},
 			fake:    &nodeStoreFake{},
 			wantErr: node.ErrInvalidParentID,
 		},
 		{
 			name:    "parent not found",
-			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUID1), Type: "note", Title: "child"},
+			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testutil.UUID1), Type: "note", Title: "child"},
 			fake:    &nodeStoreFake{},
 			wantErr: node.ErrParentNotFound,
 		},
 		{
 			name:    "db error on parent lookup",
-			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testUUID1), Type: "note", Title: "child"},
+			req:     &node.CreateNodeRequest{ParentID: testutil.StringPtr(testutil.UUID1), Type: "note", Title: "child"},
 			fake:    &nodeStoreFake{getNodeByIDErr: errTimeout},
 			wantErr: errTimeout,
 		},
@@ -161,7 +153,7 @@ func TestNodeServiceCreateNodeValidatesParentID(t *testing.T) {
 	}
 }
 
-func TestNodeServiceDeleteNode(t *testing.T) {
+func TestDeleteNode(t *testing.T) {
 	tests := []struct {
 		name    string
 		nodeID  pgtype.UUID
@@ -172,10 +164,10 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 	}{
 		{
 			name:   "success",
-			nodeID: testutil.UUIDFromStringT(t, testUUID3),
-			userID: testutil.UUIDFromStringT(t, testUUID4),
+			nodeID: testutil.UUIDFromStringT(t, testutil.UUID3),
+			userID: testutil.UUIDFromStringT(t, testutil.UUID4),
 			fake: &nodeStoreFake{
-				softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testUUID3)},
+				softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testutil.UUID3)},
 			},
 			check: func(t *testing.T, fake *nodeStoreFake) {
 				t.Helper()
@@ -184,8 +176,8 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 		},
 		{
 			name:    "not found or no access",
-			nodeID:  testutil.UUIDFromStringT(t, testUUID2),
-			userID:  testutil.UUIDFromStringT(t, testUUID1),
+			nodeID:  testutil.UUIDFromStringT(t, testutil.UUID2),
+			userID:  testutil.UUIDFromStringT(t, testutil.UUID1),
 			fake:    &nodeStoreFake{},
 			wantErr: node.ErrNodeNotFoundOrNoAccess,
 		},
@@ -211,7 +203,7 @@ func TestNodeServiceDeleteNode(t *testing.T) {
 	}
 }
 
-func TestNodeServiceUpdateNode(t *testing.T) {
+func TestUpdateNode(t *testing.T) {
 	tests := []struct {
 		name    string
 		nodeID  pgtype.UUID
@@ -228,8 +220,8 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 		},
 		{
 			name:   "success",
-			nodeID: testutil.UUIDFromStringT(t, testUUID3),
-			userID: testutil.UUIDFromStringT(t, testUUID4),
+			nodeID: testutil.UUIDFromStringT(t, testutil.UUID3),
+			userID: testutil.UUIDFromStringT(t, testutil.UUID4),
 			fake: &nodeStoreFake{
 				updateResult: nodeDb.UpdateNodeRow{
 					Type:      nodeDb.NodeTypeTask,
@@ -272,7 +264,7 @@ func TestNodeServiceUpdateNode(t *testing.T) {
 	}
 }
 
-func TestNodeServiceMoveNode(t *testing.T) {
+func TestMoveNode(t *testing.T) {
 	tests := []struct {
 		name    string
 		nodeID  pgtype.UUID
@@ -294,46 +286,46 @@ func TestNodeServiceMoveNode(t *testing.T) {
 		},
 		{
 			name:    "node cannot be a descendant of itself when parent is same id",
-			nodeID:  testutil.UUIDFromStringT(t, testUUID1),
-			req:     &node.MoveNodeRequest{ParentID: node.NullableString{Value: testutil.StringPtr(testUUID1), IsSet: true}},
+			nodeID:  testutil.UUIDFromStringT(t, testutil.UUID1),
+			req:     &node.MoveNodeRequest{ParentID: node.NullableString{Value: testutil.StringPtr(testutil.UUID1), IsSet: true}},
 			wantErr: node.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
 			name:   "node cannot be a descendant of itself when ancestor contains node",
-			nodeID: testutil.UUIDFromStringT(t, testUUID1),
+			nodeID: testutil.UUIDFromStringT(t, testutil.UUID1),
 			fake: &nodeStoreFake{
 				getNodeByIDResult: map[string]nodeDb.Node{
-					testUUID2: {ID: testutil.UUIDFromStringT(t, testUUID2)},
+					testutil.UUID2: {ID: testutil.UUIDFromStringT(t, testutil.UUID2)},
 				},
 				ancestors: map[string][]pgtype.UUID{
-					testUUID2: {testutil.UUIDFromStringT(t, testUUID1)},
+					testutil.UUID2: {testutil.UUIDFromStringT(t, testutil.UUID1)},
 				},
 			},
-			req:     &node.MoveNodeRequest{ParentID: node.NullableString{Value: testutil.StringPtr(testUUID2), IsSet: true}},
+			req:     &node.MoveNodeRequest{ParentID: node.NullableString{Value: testutil.StringPtr(testutil.UUID2), IsSet: true}},
 			wantErr: node.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
 			name:   "success",
-			nodeID: testutil.UUIDFromStringT(t, testUUID3),
-			userID: testutil.UUIDFromStringT(t, testUUID4),
+			nodeID: testutil.UUIDFromStringT(t, testutil.UUID3),
+			userID: testutil.UUIDFromStringT(t, testutil.UUID4),
 			fake: &nodeStoreFake{
 				getNodeByIDResult: map[string]nodeDb.Node{
-					testUUID2: {ID: testutil.UUIDFromStringT(t, testUUID2), UserID: testutil.UUIDFromStringT(t, testUUID4)},
+					testutil.UUID2: {ID: testutil.UUIDFromStringT(t, testutil.UUID2), UserID: testutil.UUIDFromStringT(t, testutil.UUID4)},
 				},
 				moveResult: nodeDb.MoveNodeRow{
-					ParentID:  testutil.UUIDFromStringT(t, testUUID2),
+					ParentID:  testutil.UUIDFromStringT(t, testutil.UUID2),
 					SortOrder: 42,
 					UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				},
 			},
 			req: &node.MoveNodeRequest{
-				ParentID:  node.NullableString{Value: testutil.StringPtr(testUUID2), IsSet: true},
+				ParentID:  node.NullableString{Value: testutil.StringPtr(testutil.UUID2), IsSet: true},
 				SortOrder: testutil.Int64Ptr(42),
 			},
 			check: func(t *testing.T, resp node.MoveNodeResponse) {
 				t.Helper()
 				require.NotNil(t, resp.ParentID)
-				require.Equal(t, testUUID2, *resp.ParentID)
+				require.Equal(t, testutil.UUID2, *resp.ParentID)
 				require.EqualValues(t, 42, resp.SortOrder)
 			},
 		},
@@ -359,13 +351,13 @@ func TestNodeServiceMoveNode(t *testing.T) {
 	}
 }
 
-func TestNodeServiceCreateNodeAddsParentAndSortOrder(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	parentID := testutil.UUIDFromStringT(t, testUUID2)
+func TestCreateNode_AddsParentAndSortOrder(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	fake := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{testUUID2: {ID: parentID, UserID: userID}},
+		getNodeByIDResult: map[string]nodeDb.Node{testutil.UUID2: {ID: parentID, UserID: userID}},
 		createResult: nodeDb.Node{
-			ID:        testutil.UUIDFromStringT(t, testUUID3),
+			ID:        testutil.UUIDFromStringT(t, testutil.UUID3),
 			ParentID:  parentID,
 			Type:      nodeDb.NodeTypeNote,
 			Title:     "child",
@@ -375,12 +367,12 @@ func TestNodeServiceCreateNodeAddsParentAndSortOrder(t *testing.T) {
 	}
 
 	resp, err := node.NewService(fake).CreateNode(context.Background(), userID, &node.CreateNodeRequest{
-		ParentID: testutil.StringPtr(testUUID2),
+		ParentID: testutil.StringPtr(testutil.UUID2),
 		Type:     "note",
 		Title:    "child",
 	})
 	require.NoError(t, err)
-	require.Equal(t, testUUID2, resp.ParentID)
+	require.Equal(t, testutil.UUID2, resp.ParentID)
 	require.Equal(t, "note", resp.Type)
 	require.Equal(t, "child", resp.Title)
 	require.Len(t, fake.createParams, 1)

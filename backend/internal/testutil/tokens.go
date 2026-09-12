@@ -16,7 +16,7 @@ func AccessTokenCookie(token string) http.Cookie {
 
 func MakeAccessToken(t *testing.T, secret string, userID string) string {
 	t.Helper()
-	token, err := pkgJwt.GenerateAccessToken(MustUUID(t, userID), secret)
+	token, err := pkgJwt.GenerateAccessToken(UUIDFromStringT(t, userID), secret)
 	require.NoError(t, err)
 	return token
 }
