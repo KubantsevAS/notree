@@ -125,6 +125,77 @@ func (q *Queries) GetChildren(ctx context.Context, arg GetChildrenParams) ([]Nod
 	return items, nil
 }
 
+const getDescendants = `-- name: GetDescendants :many
+WITH RECURSIVE descendants AS (
+    SELECT
+        child.id,
+        child.parent_id,
+        child.sort_order,
+        ARRAY[child.sort_order] AS so_path,
+        ARRAY[child.id] AS id_path
+    FROM nodes AS child
+    WHERE child.parent_id = $1
+      AND child.user_id = $2
+      AND child.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        child.id,
+        child.parent_id,
+        child.sort_order,
+        d.so_path || child.sort_order,
+        d.id_path || child.id
+    FROM descendants AS d
+    JOIN nodes AS child
+      ON child.parent_id = d.id
+     AND child.user_id = $2
+     AND child.deleted_at IS NULL
+)
+SELECT n.id, n.user_id, n.parent_id, n.type, n.title, n.sort_order, n.created_at, n.updated_at, n.deleted_at
+FROM descendants AS d
+JOIN nodes AS n
+  ON n.id = d.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY d.so_path, d.id_path
+`
+
+type GetDescendantsParams struct {
+	ParentID pgtype.UUID `json:"parent_id"`
+	UserID   pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetDescendants(ctx context.Context, arg GetDescendantsParams) ([]Node, error) {
+	rows, err := q.db.Query(ctx, getDescendants, arg.ParentID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Node
+	for rows.Next() {
+		var i Node
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ParentID,
+			&i.Type,
+			&i.Title,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getParent = `-- name: GetParent :one
 SELECT parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at
 FROM nodes AS node

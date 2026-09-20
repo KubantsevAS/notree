@@ -50,3 +50,38 @@ JOIN nodes AS n
  AND n.user_id = $2
  AND n.deleted_at IS NULL
 ORDER BY a.depth DESC;
+
+-- name: GetDescendants :many
+WITH RECURSIVE descendants AS (
+    SELECT
+        child.id,
+        child.parent_id,
+        child.sort_order,
+        ARRAY[child.sort_order] AS so_path,
+        ARRAY[child.id] AS id_path
+    FROM nodes AS child
+    WHERE child.parent_id = $1
+      AND child.user_id = $2
+      AND child.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        child.id,
+        child.parent_id,
+        child.sort_order,
+        d.so_path || child.sort_order,
+        d.id_path || child.id
+    FROM descendants AS d
+    JOIN nodes AS child
+      ON child.parent_id = d.id
+     AND child.user_id = $2
+     AND child.deleted_at IS NULL
+)
+SELECT n.*
+FROM descendants AS d
+JOIN nodes AS n
+  ON n.id = d.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY d.so_path, d.id_path;
