@@ -54,10 +54,7 @@ func NewService(store Store, nodeStore NodeStore) *Service {
 }
 
 func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
-	if _, err := s.nodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: nodeID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNodeNotFound
-		}
+	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
 		return nil, err
 	}
 
