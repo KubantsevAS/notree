@@ -11,6 +11,84 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getAncestors = `-- name: GetAncestors :many
+WITH RECURSIVE ancestors AS (
+    SELECT
+        parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at,
+        1 AS depth
+    FROM nodes AS node
+    JOIN nodes AS parent
+      ON parent.id = node.parent_id
+     AND parent.user_id = node.user_id
+     AND parent.deleted_at IS NULL
+    WHERE node.id = $1
+      AND node.user_id = $2
+      AND node.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at,
+        ancestors.depth + 1
+    FROM ancestors
+    JOIN nodes AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.user_id = ancestors.user_id
+     AND parent.deleted_at IS NULL
+)
+SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at, depth FROM ancestors
+ORDER BY depth DESC
+`
+
+type GetAncestorsParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+type GetAncestorsRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ParentID  pgtype.UUID        `json:"parent_id"`
+	Type      NodeType           `json:"type"`
+	Title     string             `json:"title"`
+	SortOrder int64              `json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	Depth     int32              `json:"depth"`
+}
+
+func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]GetAncestorsRow, error) {
+	rows, err := q.db.Query(ctx, getAncestors, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAncestorsRow
+	for rows.Next() {
+		var i GetAncestorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ParentID,
+			&i.Type,
+			&i.Title,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.Depth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getChildren = `-- name: GetChildren :many
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
 WHERE parent_id = $1 
