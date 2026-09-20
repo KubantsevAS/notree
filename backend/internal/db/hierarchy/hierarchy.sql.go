@@ -14,7 +14,8 @@ import (
 const getAncestors = `-- name: GetAncestors :many
 WITH RECURSIVE ancestors AS (
     SELECT
-        parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at,
+        parent.id,
+        parent.parent_id,
         1 AS depth
     FROM nodes AS node
     JOIN nodes AS parent
@@ -28,16 +29,22 @@ WITH RECURSIVE ancestors AS (
     UNION ALL
 
     SELECT
-        parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at,
+        parent.id,
+        parent.parent_id,
         ancestors.depth + 1
     FROM ancestors
     JOIN nodes AS parent
       ON parent.id = ancestors.parent_id
-     AND parent.user_id = ancestors.user_id
+     AND parent.user_id = $2
      AND parent.deleted_at IS NULL
 )
-SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at, depth FROM ancestors
-ORDER BY depth DESC
+SELECT n.id, n.user_id, n.parent_id, n.type, n.title, n.sort_order, n.created_at, n.updated_at, n.deleted_at
+FROM ancestors AS a
+JOIN nodes AS n
+  ON n.id = a.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY a.depth DESC
 `
 
 type GetAncestorsParams struct {
@@ -45,28 +52,15 @@ type GetAncestorsParams struct {
 	UserID pgtype.UUID `json:"user_id"`
 }
 
-type GetAncestorsRow struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	ParentID  pgtype.UUID        `json:"parent_id"`
-	Type      NodeType           `json:"type"`
-	Title     string             `json:"title"`
-	SortOrder int64              `json:"sort_order"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
-	Depth     int32              `json:"depth"`
-}
-
-func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]GetAncestorsRow, error) {
+func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]Node, error) {
 	rows, err := q.db.Query(ctx, getAncestors, arg.ID, arg.UserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAncestorsRow
+	var items []Node
 	for rows.Next() {
-		var i GetAncestorsRow
+		var i Node
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -77,7 +71,6 @@ func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]G
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Depth,
 		); err != nil {
 			return nil, err
 		}

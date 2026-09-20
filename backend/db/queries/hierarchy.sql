@@ -19,7 +19,8 @@ ORDER BY sort_order ASC;
 -- name: GetAncestors :many
 WITH RECURSIVE ancestors AS (
     SELECT
-        parent.*,
+        parent.id,
+        parent.parent_id,
         1 AS depth
     FROM nodes AS node
     JOIN nodes AS parent
@@ -33,13 +34,19 @@ WITH RECURSIVE ancestors AS (
     UNION ALL
 
     SELECT
-        parent.*,
+        parent.id,
+        parent.parent_id,
         ancestors.depth + 1
     FROM ancestors
     JOIN nodes AS parent
       ON parent.id = ancestors.parent_id
-     AND parent.user_id = ancestors.user_id
+     AND parent.user_id = $2
      AND parent.deleted_at IS NULL
 )
-SELECT * FROM ancestors
-ORDER BY depth DESC;
+SELECT n.*
+FROM ancestors AS a
+JOIN nodes AS n
+  ON n.id = a.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY a.depth DESC;

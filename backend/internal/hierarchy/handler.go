@@ -101,3 +101,6 @@ func (h *Handler) GetParent(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
+
+func (s *Handler) GetAncestors(w http.ResponseWriter, r *http.Request)   {}
+func (s *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {}

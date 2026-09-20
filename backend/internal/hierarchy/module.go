@@ -25,4 +25,6 @@ func NewModule(
 func (m *Module) RegisterRoutes(r chi.Router) {
 	r.Get("/{id}/children", m.handler.GetChildren)
 	r.Get("/{id}/parent", m.handler.GetParent)
+	r.Get("/{id}/ancestors", m.handler.GetAncestors)
+	r.Get("/{id}/descendants", m.handler.GetDescendants)
 }

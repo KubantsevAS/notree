@@ -48,6 +48,8 @@ func (f *hierarchyStoreFake) GetParent(_ context.Context, params sqlcHierarchy.G
 	return f.parent, nil
 }
 
+func (f *hierarchyStoreFake) GetAncestors(context.Context, sqlcHierarchy.GetAncestorsParams) ([]sqlcHierarchy.Node, error)
+
 type nodeStoreFake struct {
 	getNodeByIDResult map[string]sqlcNode.Node
 	getNodeByIDErr    error
