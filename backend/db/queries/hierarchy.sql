@@ -17,10 +17,10 @@ WHERE node.id = $1
 
 -- name: GetChildren :many
 SELECT * FROM nodes
-WHERE parent_id = $1 
-  AND user_id = $2 
+WHERE parent_id = @parent_id
+  AND user_id = @user_id
   AND deleted_at IS NULL
-ORDER BY sort_order ASC;
+ORDER BY sort_order ASC, id ASC;
 
 -- name: GetAncestors :many
 WITH RECURSIVE ancestors AS (
@@ -170,14 +170,21 @@ SELECT pg_advisory_xact_lock(hashtextextended('hierarchy:' || (sqlc.arg('user_id
 -- name: GetPrevSiblingRank :one
 SELECT n.sort_order
 FROM nodes AS n
-WHERE n.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
-  AND n.user_id = @user_id
+WHERE n.user_id = @user_id
+  AND n.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
   AND n.deleted_at IS NULL
   AND n.id <> @exclude_id
-  AND (
-      sqlc.narg('before_rank')::bigint IS NULL
-      OR (n.sort_order, n.id) < (sqlc.narg('before_rank')::bigint, sqlc.narg('before_id')::uuid)
-  )
+  AND (n.sort_order, n.id) < (sqlc.arg('before_rank')::bigint, sqlc.arg('before_id')::uuid)
+ORDER BY n.sort_order DESC, n.id DESC
+LIMIT 1;
+
+-- name: GetLastSiblingRank :one
+SELECT n.sort_order
+FROM nodes AS n
+WHERE n.user_id = @user_id
+  AND n.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
+  AND n.deleted_at IS NULL
+  AND n.id <> @exclude_id
 ORDER BY n.sort_order DESC, n.id DESC
 LIMIT 1;
 
@@ -189,8 +196,8 @@ FROM (
         c.id,
         ROW_NUMBER() OVER (ORDER BY c.sort_order, c.id) AS position
     FROM nodes AS c
-    WHERE c.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
-      AND c.user_id = @user_id
+    WHERE c.user_id = @user_id
+      AND c.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
       AND c.deleted_at IS NULL
       AND c.id <> @exclude_id
 ) AS ranked

@@ -28,6 +28,7 @@ type Store interface {
 
 	LockUserHierarchy(context.Context, pgtype.UUID) error
 	GetPrevSiblingRank(context.Context, sqlcHierarchy.GetPrevSiblingRankParams) (int64, error)
+	GetLastSiblingRank(context.Context, sqlcHierarchy.GetLastSiblingRankParams) (int64, error)
 	RebalanceChildren(context.Context, sqlcHierarchy.RebalanceChildrenParams) error
 	MoveNode(context.Context, sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error)
 }
@@ -320,33 +321,38 @@ func rankFor(ctx context.Context, store Store, nodeID, parentID, beforeID, userI
 }
 
 func neighbourRanks(ctx context.Context, store Store, nodeID, parentID, beforeID, userID pgtype.UUID) (prev, next *int64, err error) {
-	params := sqlcHierarchy.GetPrevSiblingRankParams{
-		ParentID:  parentID,
-		UserID:    userID,
-		ExcludeID: nodeID,
-	}
-
+	var prevRank int64
 	if beforeID.Valid {
 		if beforeID == nodeID {
 			return nil, nil, ErrBeforeNotSibling
 		}
-		before, err := store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: beforeID, UserID: userID})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+		before, getErr := store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: beforeID, UserID: userID})
+		if getErr != nil {
+			if errors.Is(getErr, pgx.ErrNoRows) {
 				return nil, nil, ErrBeforeNotSibling
 			}
-			return nil, nil, err
+			return nil, nil, getErr
 		}
 		if before.ParentID != parentID {
 			return nil, nil, ErrBeforeNotSibling
 		}
 
 		next = &before.SortOrder
-		params.BeforeRank = pgtype.Int8{Int64: before.SortOrder, Valid: true}
-		params.BeforeID = beforeID
+		prevRank, err = store.GetPrevSiblingRank(ctx, sqlcHierarchy.GetPrevSiblingRankParams{
+			UserID:     userID,
+			ParentID:   parentID,
+			ExcludeID:  nodeID,
+			BeforeRank: before.SortOrder,
+			BeforeID:   beforeID,
+		})
+	} else {
+		prevRank, err = store.GetLastSiblingRank(ctx, sqlcHierarchy.GetLastSiblingRankParams{
+			UserID:    userID,
+			ParentID:  parentID,
+			ExcludeID: nodeID,
+		})
 	}
 
-	prevRank, err := store.GetPrevSiblingRank(ctx, params)
 	switch {
 	case err == nil:
 		prev = &prevRank

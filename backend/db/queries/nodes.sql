@@ -8,8 +8,8 @@ VALUES (
     COALESCE((
         SELECT MAX(sibling.sort_order)
         FROM nodes AS sibling
-        WHERE sibling.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
-          AND sibling.user_id = @user_id
+        WHERE sibling.user_id = @user_id
+          AND sibling.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
           AND sibling.deleted_at IS NULL
     ), 0) + sqlc.arg('gap')::bigint
 )

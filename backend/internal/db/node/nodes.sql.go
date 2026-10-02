@@ -21,8 +21,8 @@ VALUES (
     COALESCE((
         SELECT MAX(sibling.sort_order)
         FROM nodes AS sibling
-        WHERE sibling.parent_id IS NOT DISTINCT FROM $2::uuid
-          AND sibling.user_id = $1
+        WHERE sibling.user_id = $1
+          AND sibling.parent_id IS NOT DISTINCT FROM $2::uuid
           AND sibling.deleted_at IS NULL
     ), 0) + $5::bigint
 )

@@ -355,7 +355,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "before a sibling",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -366,7 +366,7 @@ func TestMoveNode(t *testing.T) {
 					ParentID:   parentID,
 					UserID:     userID,
 					ExcludeID:  nodeID,
-					BeforeRank: pgtype.Int8{Int64: 2000, Valid: true},
+					BeforeRank: 2000,
 					BeforeID:   siblingID,
 				}}, store.prevRankCalls)
 				require.Equal(t, []sqlcHierarchy.MoveNodeParams{{ID: nodeID, UserID: userID, ParentID: parentID, SortOrder: 1500}}, store.moveCalls)
@@ -385,12 +385,13 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "end of list",
 			req:   moveReq(str(testutil.UUID3), nil),
-			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(5000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(5000)}},
 			nodes: nodeSetOf(moving, parent),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, 5000+rank.Gap, resp.SortOrder)
-				require.False(t, store.prevRankCalls[0].BeforeRank.Valid, "without before_id the last sibling is looked up")
+				require.Empty(t, store.prevRankCalls)
+				require.Len(t, store.lastRankCalls, 1, "without before_id the last sibling is looked up")
 			},
 		},
 		{
@@ -410,13 +411,14 @@ func TestMoveNode(t *testing.T) {
 				t.Helper()
 				require.Nil(t, resp.ParentID)
 				require.Empty(t, store.inSubtreeCalls)
+				require.False(t, store.lastRankCalls[0].ParentID.Valid)
 				require.False(t, store.moveCalls[0].ParentID.Valid)
 			},
 		},
 		{
 			name:  "reorder within same parent skips parent checks",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
 			nodes: nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID}, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -427,7 +429,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "no gap rebalances siblings",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -470,7 +472,7 @@ func TestMoveNode_NoGapAfterRebalance(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	store := &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1999), int64Ptr(1999)}}
+	store := &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(1999)}}
 	nodes := nodeSetOf(
 		sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID},
 		sqlcHierarchy.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID4), UserID: userID, ParentID: parentID, SortOrder: 2000},

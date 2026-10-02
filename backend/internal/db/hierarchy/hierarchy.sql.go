@@ -84,10 +84,10 @@ func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]N
 
 const getChildren = `-- name: GetChildren :many
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
-WHERE parent_id = $1 
-  AND user_id = $2 
+WHERE parent_id = $1
+  AND user_id = $2
   AND deleted_at IS NULL
-ORDER BY sort_order ASC
+ORDER BY sort_order ASC, id ASC
 `
 
 type GetChildrenParams struct {
@@ -196,6 +196,30 @@ func (q *Queries) GetDescendants(ctx context.Context, arg GetDescendantsParams) 
 	return items, nil
 }
 
+const getLastSiblingRank = `-- name: GetLastSiblingRank :one
+SELECT n.sort_order
+FROM nodes AS n
+WHERE n.user_id = $1
+  AND n.parent_id IS NOT DISTINCT FROM $2::uuid
+  AND n.deleted_at IS NULL
+  AND n.id <> $3
+ORDER BY n.sort_order DESC, n.id DESC
+LIMIT 1
+`
+
+type GetLastSiblingRankParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	ExcludeID pgtype.UUID `json:"exclude_id"`
+}
+
+func (q *Queries) GetLastSiblingRank(ctx context.Context, arg GetLastSiblingRankParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getLastSiblingRank, arg.UserID, arg.ParentID, arg.ExcludeID)
+	var sort_order int64
+	err := row.Scan(&sort_order)
+	return sort_order, err
+}
+
 const getNode = `-- name: GetNode :one
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
 WHERE id = $1
@@ -262,30 +286,27 @@ func (q *Queries) GetParent(ctx context.Context, arg GetParentParams) (Node, err
 const getPrevSiblingRank = `-- name: GetPrevSiblingRank :one
 SELECT n.sort_order
 FROM nodes AS n
-WHERE n.parent_id IS NOT DISTINCT FROM $1::uuid
-  AND n.user_id = $2
+WHERE n.user_id = $1
+  AND n.parent_id IS NOT DISTINCT FROM $2::uuid
   AND n.deleted_at IS NULL
   AND n.id <> $3
-  AND (
-      $4::bigint IS NULL
-      OR (n.sort_order, n.id) < ($4::bigint, $5::uuid)
-  )
+  AND (n.sort_order, n.id) < ($4::bigint, $5::uuid)
 ORDER BY n.sort_order DESC, n.id DESC
 LIMIT 1
 `
 
 type GetPrevSiblingRankParams struct {
-	ParentID   pgtype.UUID `json:"parent_id"`
 	UserID     pgtype.UUID `json:"user_id"`
+	ParentID   pgtype.UUID `json:"parent_id"`
 	ExcludeID  pgtype.UUID `json:"exclude_id"`
-	BeforeRank pgtype.Int8 `json:"before_rank"`
+	BeforeRank int64       `json:"before_rank"`
 	BeforeID   pgtype.UUID `json:"before_id"`
 }
 
 func (q *Queries) GetPrevSiblingRank(ctx context.Context, arg GetPrevSiblingRankParams) (int64, error) {
 	row := q.db.QueryRow(ctx, getPrevSiblingRank,
-		arg.ParentID,
 		arg.UserID,
+		arg.ParentID,
 		arg.ExcludeID,
 		arg.BeforeRank,
 		arg.BeforeID,
@@ -507,8 +528,8 @@ FROM (
         c.id,
         ROW_NUMBER() OVER (ORDER BY c.sort_order, c.id) AS position
     FROM nodes AS c
-    WHERE c.parent_id IS NOT DISTINCT FROM $2::uuid
-      AND c.user_id = $3
+    WHERE c.user_id = $2
+      AND c.parent_id IS NOT DISTINCT FROM $3::uuid
       AND c.deleted_at IS NULL
       AND c.id <> $4
 ) AS ranked
@@ -517,16 +538,16 @@ WHERE n.id = ranked.id
 
 type RebalanceChildrenParams struct {
 	Gap       int64       `json:"gap"`
-	ParentID  pgtype.UUID `json:"parent_id"`
 	UserID    pgtype.UUID `json:"user_id"`
+	ParentID  pgtype.UUID `json:"parent_id"`
 	ExcludeID pgtype.UUID `json:"exclude_id"`
 }
 
 func (q *Queries) RebalanceChildren(ctx context.Context, arg RebalanceChildrenParams) error {
 	_, err := q.db.Exec(ctx, rebalanceChildren,
 		arg.Gap,
-		arg.ParentID,
 		arg.UserID,
+		arg.ParentID,
 		arg.ExcludeID,
 	)
 	return err

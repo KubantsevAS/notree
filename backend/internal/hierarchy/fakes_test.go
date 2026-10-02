@@ -35,8 +35,9 @@ type hierarchyStoreFake struct {
 	inSubtreeCalls      []sqlcHierarchy.IsInSubtreeParams
 	lockErr             error
 	lockCalls           []pgtype.UUID
-	prevRanks           []*int64
+	siblingRanks        []*int64
 	prevRankCalls       []sqlcHierarchy.GetPrevSiblingRankParams
+	lastRankCalls       []sqlcHierarchy.GetLastSiblingRankParams
 	rebalanceErr        error
 	rebalanceCalls      []sqlcHierarchy.RebalanceChildrenParams
 	moveErr             error
@@ -105,12 +106,21 @@ func (f *hierarchyStoreFake) LockUserHierarchy(_ context.Context, userID pgtype.
 }
 
 func (f *hierarchyStoreFake) GetPrevSiblingRank(_ context.Context, params sqlcHierarchy.GetPrevSiblingRankParams) (int64, error) {
-	call := len(f.prevRankCalls)
 	f.prevRankCalls = append(f.prevRankCalls, params)
-	if call >= len(f.prevRanks) || f.prevRanks[call] == nil {
+	return f.nextSiblingRank()
+}
+
+func (f *hierarchyStoreFake) GetLastSiblingRank(_ context.Context, params sqlcHierarchy.GetLastSiblingRankParams) (int64, error) {
+	f.lastRankCalls = append(f.lastRankCalls, params)
+	return f.nextSiblingRank()
+}
+
+func (f *hierarchyStoreFake) nextSiblingRank() (int64, error) {
+	call := len(f.prevRankCalls) + len(f.lastRankCalls) - 1
+	if call >= len(f.siblingRanks) || f.siblingRanks[call] == nil {
 		return 0, pgx.ErrNoRows
 	}
-	return *f.prevRanks[call], nil
+	return *f.siblingRanks[call], nil
 }
 
 func (f *hierarchyStoreFake) RebalanceChildren(_ context.Context, params sqlcHierarchy.RebalanceChildrenParams) error {
