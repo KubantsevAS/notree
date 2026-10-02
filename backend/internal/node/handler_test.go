@@ -288,106 +288,6 @@ func TestHandlerUpdate_NotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found or access denied")
 }
 
-func TestHandlerMove(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	updatedAt := time.Now()
-	fake := &nodeStoreFake{
-		getNodeByIDResult: map[string]nodeDb.Node{parentID.String(): {ID: parentID, UserID: userID}},
-		moveResult: nodeDb.MoveNodeRow{
-			ParentID:  parentID,
-			SortOrder: 42,
-			UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
-		},
-	}
-	handler := node.NewHandler(node.NewService(fake))
-
-	req := withRouteParam(
-		withNodeUserContext(t, testutil.NewJSONRequest(
-			t,
-			http.MethodPost,
-			"/nodes/:id/move",
-			map[string]any{
-				"parent_id":  parentID.String(),
-				"sort_order": 42,
-			},
-		), userID), "id", nodeID.String(),
-	)
-	res := httptest.NewRecorder()
-
-	handler.Move(res, req)
-
-	require.Equal(t, http.StatusOK, res.Code)
-	var payload node.MoveNodeResponse
-	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
-	require.NotNil(t, payload.ParentID)
-	require.Equal(t, parentID.String(), *payload.ParentID)
-	require.EqualValues(t, 42, payload.SortOrder)
-}
-
-func TestHandlerMove_CircularReference(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := withRouteParam(
-		withNodeUserContext(t, testutil.NewJSONRequest(
-			t,
-			http.MethodPost,
-			"/nodes/:id/move",
-			map[string]any{
-				"parent_id":  nodeID.String(),
-				"sort_order": 42,
-			},
-		), userID), "id", nodeID.String(),
-	)
-	res := httptest.NewRecorder()
-
-	handler.Move(res, req)
-
-	require.Equal(t, http.StatusConflict, res.Code)
-	testutil.AssertErrorJSON(t, res, "node cannot be a descendant of itself (circular reference)")
-}
-
-func TestHandlerMove_InvalidParentID(t *testing.T) {
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-	req := withRouteParam(
-		withNodeUserContext(
-			t,
-			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]string{"parent_id": testutil.BadUUID}),
-			testutil.UUIDFromStringT(t, testutil.UUID1),
-		),
-		"id",
-		testutil.UUID1,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Move(res, req)
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid parent id")
-}
-
-func TestHandlerMove_ParentNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := withRouteParam(
-		withNodeUserContext(
-			t,
-			testutil.NewJSONRequest(t, http.MethodPost, "/nodes/:id/move", map[string]any{"parent_id": testutil.UUID2}),
-			userID,
-		),
-		"id",
-		testutil.UUID1,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Move(res, req)
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "parent not found")
-}
-
 func TestHandler_Unauthorized(t *testing.T) {
 	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
 
@@ -408,12 +308,6 @@ func TestHandler_Unauthorized(t *testing.T) {
 			http.MethodPatch,
 			node.UpdateNodeRequest{Title: testutil.StringPtr("t")},
 			func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Update(w, r) },
-		},
-		{
-			"Move",
-			http.MethodPost,
-			map[string]any{"parent_id": testutil.UUID1},
-			func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Move(w, r) },
 		},
 	}
 
@@ -441,25 +335,6 @@ func TestHandler_InternalErrors(t *testing.T) {
 		setup    func(t *testing.T) *nodeStoreFake
 		execute  func(h *node.Handler, w http.ResponseWriter, r *http.Request)
 	}{
-		{
-			name:     "move db error",
-			method:   http.MethodPost,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/move",
-			body: map[string]any{
-				"parent_id":  testutil.UUID2,
-				"sort_order": 10,
-			},
-			setup: func(t *testing.T) *nodeStoreFake {
-				return &nodeStoreFake{
-					getNodeByIDResult: map[string]nodeDb.Node{
-						testutil.UUID2: {ID: testutil.UUIDFromStringT(t, testutil.UUID2), UserID: userID},
-					},
-					moveErr: errors.New("db down"),
-				}
-			},
-			execute: func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Move(w, r) },
-		},
 		{
 			name:     "delete db error",
 			method:   http.MethodDelete,

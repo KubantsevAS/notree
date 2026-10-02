@@ -2,12 +2,14 @@ package hierarchy_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5"
@@ -42,6 +44,12 @@ type hierarchyStoreFake struct {
 	root                sqlcHierarchy.Node
 	rootErr             error
 	lastRootArgs        sqlcHierarchy.GetRootParams
+	inSubtree           bool
+	inSubtreeErr        error
+	inSubtreeCalls      []sqlcHierarchy.IsInSubtreeParams
+	moveResult          sqlcHierarchy.MoveNodeRow
+	moveErr             error
+	moveCalls           []sqlcHierarchy.MoveNodeParams
 }
 
 func (f *hierarchyStoreFake) GetChildren(context.Context, sqlcHierarchy.GetChildrenParams) ([]sqlcHierarchy.Node, error) {
@@ -90,6 +98,22 @@ func (f *hierarchyStoreFake) GetRoot(_ context.Context, params sqlcHierarchy.Get
 		return sqlcHierarchy.Node{}, f.rootErr
 	}
 	return f.root, nil
+}
+
+func (f *hierarchyStoreFake) IsInSubtree(_ context.Context, params sqlcHierarchy.IsInSubtreeParams) (bool, error) {
+	f.inSubtreeCalls = append(f.inSubtreeCalls, params)
+	if f.inSubtreeErr != nil {
+		return false, f.inSubtreeErr
+	}
+	return f.inSubtree, nil
+}
+
+func (f *hierarchyStoreFake) MoveNode(_ context.Context, params sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error) {
+	f.moveCalls = append(f.moveCalls, params)
+	if f.moveErr != nil {
+		return sqlcHierarchy.MoveNodeRow{}, f.moveErr
+	}
+	return f.moveResult, nil
 }
 
 type nodeStoreFake struct {
@@ -405,4 +429,154 @@ func TestGetRoot_RootNotFound(t *testing.T) {
 	_, err := service.GetRoot(context.Background(), nodeID, userID)
 
 	require.ErrorIs(t, err, hierarchy.ErrRootNotFound)
+}
+
+func TestMoveNode(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	parentID := testutil.UUIDFromStringT(t, testUUID3)
+	parentExists := func() *nodeStoreFake {
+		return &nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
+			testUUID3: {ID: parentID, UserID: userID},
+		}}
+	}
+	moveTo := func(id string) *hierarchy.MoveNodeRequest {
+		return &hierarchy.MoveNodeRequest{ParentID: hierarchy.NullableString{Value: testutil.StringPtr(id), IsSet: true}}
+	}
+
+	tests := []struct {
+		name      string
+		req       *hierarchy.MoveNodeRequest
+		store     *hierarchyStoreFake
+		nodeStore *nodeStoreFake
+		wantErr   error
+		check     func(*testing.T, hierarchy.MoveNodeResponse, *hierarchyStoreFake)
+	}{
+		{
+			name:    "empty request",
+			req:     &hierarchy.MoveNodeRequest{},
+			wantErr: domain.ErrEmptyUpdate,
+		},
+		{
+			name:    "invalid parent uuid",
+			req:     moveTo(testUUIDBad),
+			wantErr: hierarchy.ErrInvalidParentID,
+		},
+		{
+			name:    "empty parent uuid",
+			req:     moveTo(""),
+			wantErr: hierarchy.ErrInvalidParentID,
+		},
+		{
+			name:    "self parent",
+			req:     moveTo(testUUID2),
+			wantErr: hierarchy.ErrNodeCannotBeADescendantOfItself,
+		},
+		{
+			name:    "parent not found",
+			req:     moveTo(testUUID3),
+			wantErr: hierarchy.ErrParentNotFound,
+		},
+		{
+			name:      "parent is inside node subtree",
+			req:       moveTo(testUUID3),
+			store:     &hierarchyStoreFake{inSubtree: true},
+			nodeStore: parentExists(),
+			wantErr:   hierarchy.ErrNodeCannotBeADescendantOfItself,
+		},
+		{
+			name:      "subtree check error",
+			req:       moveTo(testUUID3),
+			store:     &hierarchyStoreFake{inSubtreeErr: sql.ErrConnDone},
+			nodeStore: parentExists(),
+			wantErr:   sql.ErrConnDone,
+		},
+		{
+			name:      "node not found",
+			req:       moveTo(testUUID3),
+			store:     &hierarchyStoreFake{moveErr: pgx.ErrNoRows},
+			nodeStore: parentExists(),
+			wantErr:   hierarchy.ErrNodeNotFound,
+		},
+		{
+			name: "success",
+			req: &hierarchy.MoveNodeRequest{
+				ParentID:  hierarchy.NullableString{Value: testutil.StringPtr(testUUID3), IsSet: true},
+				SortOrder: testutil.Int64Ptr(42),
+			},
+			store: &hierarchyStoreFake{moveResult: sqlcHierarchy.MoveNodeRow{
+				ParentID:  parentID,
+				SortOrder: 42,
+				UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			}},
+			nodeStore: parentExists(),
+			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
+				t.Helper()
+				require.NotNil(t, resp.ParentID)
+				require.Equal(t, testUUID3, *resp.ParentID)
+				require.EqualValues(t, 42, resp.SortOrder)
+
+				require.Len(t, store.inSubtreeCalls, 1)
+				require.Equal(t, sqlcHierarchy.IsInSubtreeParams{RootID: nodeID, NodeID: parentID, UserID: userID}, store.inSubtreeCalls[0])
+
+				require.Len(t, store.moveCalls, 1)
+				require.True(t, store.moveCalls[0].UpdateParent.Bool)
+				require.Equal(t, parentID, store.moveCalls[0].ParentID)
+			},
+		},
+		{
+			name: "move to root skips parent checks",
+			req:  &hierarchy.MoveNodeRequest{ParentID: hierarchy.NullableString{IsSet: true}},
+			store: &hierarchyStoreFake{moveResult: sqlcHierarchy.MoveNodeRow{
+				UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			}},
+			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
+				t.Helper()
+				require.Nil(t, resp.ParentID)
+				require.Empty(t, store.inSubtreeCalls)
+				require.True(t, store.moveCalls[0].UpdateParent.Bool)
+				require.False(t, store.moveCalls[0].ParentID.Valid)
+			},
+		},
+		{
+			name: "reorder only keeps parent",
+			req:  &hierarchy.MoveNodeRequest{SortOrder: testutil.Int64Ptr(7)},
+			store: &hierarchyStoreFake{moveResult: sqlcHierarchy.MoveNodeRow{
+				SortOrder: 7,
+				UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			}},
+			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
+				t.Helper()
+				require.EqualValues(t, 7, resp.SortOrder)
+				require.Empty(t, store.inSubtreeCalls)
+				require.False(t, store.moveCalls[0].UpdateParent.Bool)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := tt.store
+			if store == nil {
+				store = &hierarchyStoreFake{}
+			}
+			nodeStore := tt.nodeStore
+			if nodeStore == nil {
+				nodeStore = &nodeStoreFake{}
+			}
+
+			resp, err := hierarchy.NewService(store, nodeStore).MoveNode(context.Background(), nodeID, userID, tt.req)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				if store.moveErr == nil {
+					require.Empty(t, store.moveCalls, "validation errors must not reach MoveNode")
+				}
+				return
+			}
+			require.NoError(t, err)
+			if tt.check != nil {
+				tt.check(t, resp, store)
+			}
+		})
+	}
 }

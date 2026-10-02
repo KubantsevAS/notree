@@ -350,3 +350,82 @@ func (q *Queries) GetSubtree(ctx context.Context, arg GetSubtreeParams) ([]Node,
 	}
 	return items, nil
 }
+
+const isInSubtree = `-- name: IsInSubtree :one
+WITH RECURSIVE ancestors AS (
+    SELECT
+        node.id,
+        node.parent_id,
+        ARRAY[node.id] AS id_path
+    FROM nodes AS node
+    WHERE node.id = $2
+      AND node.user_id = $3
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.parent_id,
+        ancestors.id_path || parent.id
+    FROM ancestors
+    JOIN nodes AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.user_id = $3
+    WHERE NOT parent.id = ANY(ancestors.id_path)
+)
+SELECT COALESCE(bool_or(a.id = $1::uuid), false)::boolean AS is_in_subtree
+FROM ancestors AS a
+`
+
+type IsInSubtreeParams struct {
+	RootID pgtype.UUID `json:"root_id"`
+	NodeID pgtype.UUID `json:"node_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) IsInSubtree(ctx context.Context, arg IsInSubtreeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isInSubtree, arg.RootID, arg.NodeID, arg.UserID)
+	var is_in_subtree bool
+	err := row.Scan(&is_in_subtree)
+	return is_in_subtree, err
+}
+
+const moveNode = `-- name: MoveNode :one
+UPDATE nodes
+SET
+    parent_id = CASE
+                    WHEN $1::boolean THEN $2
+                    ELSE parent_id
+                END,
+    sort_order = COALESCE($3, sort_order),
+    updated_at = NOW()
+WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
+RETURNING parent_id, sort_order, updated_at
+`
+
+type MoveNodeParams struct {
+	UpdateParent pgtype.Bool `json:"update_parent"`
+	ParentID     pgtype.UUID `json:"parent_id"`
+	SortOrder    pgtype.Int8 `json:"sort_order"`
+	ID           pgtype.UUID `json:"id"`
+	UserID       pgtype.UUID `json:"user_id"`
+}
+
+type MoveNodeRow struct {
+	ParentID  pgtype.UUID        `json:"parent_id"`
+	SortOrder int64              `json:"sort_order"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) MoveNode(ctx context.Context, arg MoveNodeParams) (MoveNodeRow, error) {
+	row := q.db.QueryRow(ctx, moveNode,
+		arg.UpdateParent,
+		arg.ParentID,
+		arg.SortOrder,
+		arg.ID,
+		arg.UserID,
+	)
+	var i MoveNodeRow
+	err := row.Scan(&i.ParentID, &i.SortOrder, &i.UpdatedAt)
+	return i, err
+}

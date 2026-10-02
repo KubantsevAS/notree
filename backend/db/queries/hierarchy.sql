@@ -147,3 +147,41 @@ JOIN nodes AS n
  AND n.user_id = $2
  AND n.deleted_at IS NULL
 WHERE a.parent_id IS NULL;
+
+
+-- name: MoveNode :one
+UPDATE nodes
+SET
+    parent_id = CASE
+                    WHEN sqlc.narg('update_parent')::boolean THEN sqlc.narg('parent_id')
+                    ELSE parent_id
+                END,
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    updated_at = NOW()
+WHERE id = @id AND user_id = @user_id AND deleted_at IS NULL
+RETURNING parent_id, sort_order, updated_at;
+
+-- name: IsInSubtree :one
+WITH RECURSIVE ancestors AS (
+    SELECT
+        node.id,
+        node.parent_id,
+        ARRAY[node.id] AS id_path
+    FROM nodes AS node
+    WHERE node.id = @node_id
+      AND node.user_id = @user_id
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.parent_id,
+        ancestors.id_path || parent.id
+    FROM ancestors
+    JOIN nodes AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.user_id = @user_id
+    WHERE NOT parent.id = ANY(ancestors.id_path)
+)
+SELECT COALESCE(bool_or(a.id = sqlc.arg('root_id')::uuid), false)::boolean AS is_in_subtree
+FROM ancestors AS a;

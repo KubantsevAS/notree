@@ -6,6 +6,8 @@ import (
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
 	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
+	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -24,16 +26,11 @@ type Store interface {
 	GetSubtree(context.Context, sqlcHierarchy.GetSubtreeParams) ([]sqlcHierarchy.Node, error)
 	GetRoot(context.Context, sqlcHierarchy.GetRootParams) (sqlcHierarchy.Node, error)
 
-	//TODO IsDescendant(
-	// 	ctx context.Context,
-	// 	nodeID pgtype.UUID,
-	// 	potentialAncestorID pgtype.UUID,
-	// 	userID pgtype.UUID,
-	// ) (bool, error)
+	IsInSubtree(context.Context, sqlcHierarchy.IsInSubtreeParams) (bool, error)
 
 	//TODO GetBreadcrumbs(context.Context, pgtype.UUID) (BreadcrumbItem, error)
 
-	//TODO MoveNode(context.Context, node.MoveNodeParams) (node.MoveNodeRow, error)
+	MoveNode(context.Context, sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error)
 
 	//TODO ReorderNode(context.Context, pgtype.UUID) error
 }
@@ -204,6 +201,81 @@ func (s *Service) GetRoot(ctx context.Context, nodeID pgtype.UUID, userID pgtype
 	}
 
 	return mapNodeToResponse(root), nil
+}
+
+func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *MoveNodeRequest) (MoveNodeResponse, error) {
+	if !req.ParentID.IsSet && req.SortOrder == nil {
+		return MoveNodeResponse{}, domain.ErrEmptyUpdate
+	}
+
+	params := sqlcHierarchy.MoveNodeParams{
+		ID:           nodeID,
+		UserID:       userID,
+		UpdateParent: pgtype.Bool{Bool: req.ParentID.IsSet, Valid: true},
+		ParentID:     pgtype.UUID{Valid: false},
+	}
+
+	if req.ParentID.IsSet && req.ParentID.Value != nil {
+		parentID, err := httputil.PgUUIDFromString(req.ParentID.Value)
+		if err != nil {
+			return MoveNodeResponse{}, ErrInvalidParentID
+		}
+
+		if err := s.validateNewParent(ctx, nodeID, parentID, userID); err != nil {
+			return MoveNodeResponse{}, err
+		}
+		params.ParentID = parentID
+	}
+
+	if req.SortOrder != nil {
+		params.SortOrder = pgtype.Int8{Int64: *req.SortOrder, Valid: true}
+	}
+
+	row, err := s.store.MoveNode(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return MoveNodeResponse{}, ErrNodeNotFound
+		}
+		return MoveNodeResponse{}, err
+	}
+
+	response := MoveNodeResponse{
+		SortOrder: row.SortOrder,
+		UpdatedAt: &row.UpdatedAt.Time,
+	}
+	if row.ParentID.Valid {
+		pid := row.ParentID.String()
+		response.ParentID = &pid
+	}
+
+	return response, nil
+}
+
+func (s *Service) validateNewParent(ctx context.Context, nodeID, parentID, userID pgtype.UUID) error {
+	if parentID == nodeID {
+		return ErrNodeCannotBeADescendantOfItself
+	}
+
+	if _, err := s.nodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrParentNotFound
+		}
+		return err
+	}
+
+	inSubtree, err := s.store.IsInSubtree(ctx, sqlcHierarchy.IsInSubtreeParams{
+		RootID: nodeID,
+		NodeID: parentID,
+		UserID: userID,
+	})
+	if err != nil {
+		return err
+	}
+	if inSubtree {
+		return ErrNodeCannotBeADescendantOfItself
+	}
+
+	return nil
 }
 
 func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UUID) error {

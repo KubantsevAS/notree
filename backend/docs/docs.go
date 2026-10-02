@@ -415,6 +415,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/nodes/{id}/ancestors": {
+            "get": {
+                "description": "Retrieves all ancestor nodes for a specific node ordered from root to direct parent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get ancestor nodes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hierarchy.NodeResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/nodes/{id}/children": {
             "get": {
                 "description": "Retrieves a list of direct child nodes for a specific parent node.",
@@ -471,6 +527,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/nodes/{id}/descendants": {
+            "get": {
+                "description": "Retrieves all nested descendant nodes for a specific node in depth-first order.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get descendant nodes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hierarchy.NodeResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/nodes/{id}/move": {
             "post": {
                 "description": "Changes the parent or sort order of a node. Pass ` + "`" + `null` + "`" + ` as parent_id to move the node to the root.",
@@ -481,7 +593,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Nodes"
+                    "Hierarchy"
                 ],
                 "summary": "Move node in tree",
                 "parameters": [
@@ -498,7 +610,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/node.MoveNodeRequest"
+                            "$ref": "#/definitions/hierarchy.MoveNodeRequest"
                         }
                     }
                 ],
@@ -506,7 +618,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/node.MoveNodeResponse"
+                            "$ref": "#/definitions/hierarchy.MoveNodeResponse"
                         }
                     },
                     "400": {
@@ -522,7 +634,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "node not found or access denied",
+                        "description": "node not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -585,6 +697,115 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "node or parent not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/nodes/{id}/root": {
+            "get": {
+                "description": "Retrieves the top-level root node of the tree containing a specific node. Returns the node itself if it is a root.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get root node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/hierarchy.NodeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node or root not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/nodes/{id}/subtree": {
+            "get": {
+                "description": "Retrieves a specific node together with all its nested descendants in depth-first order.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Hierarchy"
+                ],
+                "summary": "Get subtree",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hierarchy.NodeResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid node id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -954,6 +1175,31 @@ const docTemplate = `{
                 }
             }
         },
+        "hierarchy.MoveNodeRequest": {
+            "type": "object",
+            "properties": {
+                "parent_id": {
+                    "$ref": "#/definitions/hierarchy.NullableString"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
+        "hierarchy.MoveNodeResponse": {
+            "type": "object",
+            "properties": {
+                "parent_id": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "hierarchy.NodeResponse": {
             "type": "object",
             "properties": {
@@ -982,6 +1228,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "hierarchy.NullableString": {
+            "type": "object",
+            "properties": {
+                "isSet": {
+                    "type": "boolean"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -1029,42 +1286,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "node.MoveNodeRequest": {
-            "type": "object",
-            "properties": {
-                "parent_id": {
-                    "$ref": "#/definitions/node.NullableString"
-                },
-                "sort_order": {
-                    "type": "integer"
-                }
-            }
-        },
-        "node.MoveNodeResponse": {
-            "type": "object",
-            "properties": {
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "node.NullableString": {
-            "type": "object",
-            "properties": {
-                "isSet": {
-                    "type": "boolean"
-                },
-                "value": {
                     "type": "string"
                 }
             }

@@ -791,3 +791,153 @@ func TestHandler_InternalErrors(t *testing.T) {
 		})
 	}
 }
+
+func newMoveRequest(t *testing.T, userID pgtype.UUID, nodeID string, body any) *http.Request {
+	t.Helper()
+	return withRouteParam(withNodeUserContext(
+		t,
+		testutil.NewJSONRequest(t, http.MethodPost, "/nodes/"+nodeID+"/move", body),
+		userID,
+	), "id", nodeID)
+}
+
+func TestHandlerMove(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	parentID := testutil.UUIDFromStringT(t, testUUID3)
+	fakeNodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{testUUID3: {ID: parentID, UserID: userID}},
+	}
+	fake := &hierarchyStoreFake{
+		moveResult: sqlcHierarchy.MoveNodeRow{
+			ParentID:  parentID,
+			SortOrder: 42,
+			UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		},
+	}
+	handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
+
+	req := newMoveRequest(t, userID, testUUID2, map[string]any{"parent_id": testUUID3, "sort_order": 42})
+	res := httptest.NewRecorder()
+
+	handler.Move(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	var payload hierarchy.MoveNodeResponse
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
+	require.NotNil(t, payload.ParentID)
+	require.Equal(t, testUUID3, *payload.ParentID)
+	require.EqualValues(t, 42, payload.SortOrder)
+}
+
+func TestHandlerMove_Errors(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	parentExists := &nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
+		testUUID3: {ID: testutil.UUIDFromStringT(t, testUUID3), UserID: userID},
+	}}
+
+	tests := []struct {
+		name       string
+		nodeID     string
+		body       any
+		store      *hierarchyStoreFake
+		nodeStore  *nodeStoreFake
+		wantStatus int
+		wantMsg    string
+	}{
+		{
+			name:       "empty update",
+			nodeID:     testUUID2,
+			body:       map[string]any{},
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    "no fields provided for update",
+		},
+		{
+			name:       "invalid node id",
+			nodeID:     testUUIDBad,
+			body:       map[string]any{"sort_order": 1},
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    "invalid node id format",
+		},
+		{
+			name:       "invalid parent id",
+			nodeID:     testUUID2,
+			body:       map[string]any{"parent_id": testUUIDBad},
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    "invalid parent id",
+		},
+		{
+			name:       "parent not found",
+			nodeID:     testUUID2,
+			body:       map[string]any{"parent_id": testUUID3},
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    "parent not found",
+		},
+		{
+			name:       "self parent",
+			nodeID:     testUUID2,
+			body:       map[string]any{"parent_id": testUUID2},
+			wantStatus: http.StatusConflict,
+			wantMsg:    "node cannot be a descendant of itself (circular reference)",
+		},
+		{
+			name:       "parent inside subtree",
+			nodeID:     testUUID2,
+			body:       map[string]any{"parent_id": testUUID3},
+			store:      &hierarchyStoreFake{inSubtree: true},
+			nodeStore:  parentExists,
+			wantStatus: http.StatusConflict,
+			wantMsg:    "node cannot be a descendant of itself (circular reference)",
+		},
+		{
+			name:       "node not found",
+			nodeID:     testUUID2,
+			body:       map[string]any{"sort_order": 1},
+			store:      &hierarchyStoreFake{moveErr: pgx.ErrNoRows},
+			wantStatus: http.StatusNotFound,
+			wantMsg:    "node not found",
+		},
+		{
+			name:       "move db error",
+			nodeID:     testUUID2,
+			body:       map[string]any{"parent_id": testUUID3},
+			store:      &hierarchyStoreFake{moveErr: sql.ErrConnDone},
+			nodeStore:  parentExists,
+			wantStatus: http.StatusInternalServerError,
+			wantMsg:    "internal server error",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := tc.store
+			if store == nil {
+				store = &hierarchyStoreFake{}
+			}
+			nodeStore := tc.nodeStore
+			if nodeStore == nil {
+				nodeStore = &nodeStoreFake{}
+			}
+			handler := hierarchy.NewHandler(hierarchy.NewService(store, nodeStore))
+
+			res := httptest.NewRecorder()
+			handler.Move(res, newMoveRequest(t, userID, tc.nodeID, tc.body))
+
+			require.Equal(t, tc.wantStatus, res.Code)
+			testutil.AssertErrorJSON(t, res, tc.wantMsg)
+		})
+	}
+}
+
+func TestHandlerMove_Unauthorized(t *testing.T) {
+	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+	req := withRouteParam(
+		testutil.NewJSONRequest(t, http.MethodPost, "/nodes/"+testUUID1+"/move", map[string]any{"parent_id": testUUID2}),
+		"id", testUUID1,
+	)
+	res := httptest.NewRecorder()
+
+	handler.Move(res, req)
+
+	require.Equal(t, http.StatusUnauthorized, res.Code)
+	testutil.AssertErrorJSON(t, res, "User ID not found in context")
+}
