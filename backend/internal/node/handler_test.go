@@ -39,60 +39,6 @@ func TestHandlerCreate(t *testing.T) {
 	require.Equal(t, "hello", payload.Title)
 }
 
-func TestHandlerCreate_Unauthorized(t *testing.T) {
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/nodes", map[string]string{"type": "note", "title": "hello"})
-	res := httptest.NewRecorder()
-
-	handler.Create(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "User ID not found in context")
-}
-
-func TestHandlerCreate_InvalidParentID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/nodes", node.CreateNodeRequest{
-		ParentID: testutil.StringPtr(testutil.BadUUID),
-		Type:     "note",
-		Title:    "child",
-	}), userID)
-	res := httptest.NewRecorder()
-
-	handler.Create(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid parent id")
-}
-
-func TestHandlerCreate_ParentNotFound(t *testing.T) {
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/nodes", node.CreateNodeRequest{
-		ParentID: testutil.StringPtr(testutil.UUID2),
-		Type:     "note",
-		Title:    "child",
-	}), testutil.UUIDFromStringT(t, testutil.UUID1))
-	res := httptest.NewRecorder()
-
-	handler.Create(res, req)
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "parent not found")
-}
-
-func TestHandlerCreate_InvalidBody(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithUserID(httptest.NewRequest(http.MethodPost, "/nodes", strings.NewReader("{bad json}")), userID)
-	res := httptest.NewRecorder()
-
-	handler.Create(res, req)
-	require.Equal(t, http.StatusBadRequest, res.Code)
-}
-
 func TestHandlerDelete(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	fake := &nodeStoreFake{softDeleteResult: []pgtype.UUID{testutil.UUIDFromStringT(t, testutil.UUID2)}}
@@ -109,45 +55,6 @@ func TestHandlerDelete(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, res.Code)
 	require.Len(t, fake.softDeleteParams, 1)
-}
-
-func TestHandlerDelete_InvalidNodeID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(
-		testutil.WithUserID(httptest.NewRequest(http.MethodDelete,
-			"/nodes/bad-id",
-			nil,
-		),
-			userID,
-		),
-		"id",
-		testutil.BadUUID,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Delete(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid node id format")
-}
-
-func TestHandlerDelete_NotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(
-		testutil.WithUserID(httptest.NewRequest(http.MethodDelete, "/nodes/"+testutil.UUID1, nil), userID),
-		"id",
-		testutil.UUID1,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Delete(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found or access denied")
 }
 
 func TestHandlerUpdate(t *testing.T) {
@@ -189,156 +96,132 @@ func TestHandlerUpdate(t *testing.T) {
 	require.Len(t, fake.updateParams, 1)
 }
 
-func TestHandlerUpdate_EmptyPayload(t *testing.T) {
+type handlerFunc func(*node.Handler, http.ResponseWriter, *http.Request)
+
+func TestHandler_Errors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(
-		testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/nodes/:id", map[string]any{}), userID),
-		"id",
-		testutil.UUID1,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Update(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "no fields provided for update")
-}
-
-func TestHandlerUpdate_InvalidNodeID(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(
-		testutil.WithUserID(testutil.NewJSONRequest(
-			t,
-			http.MethodPatch,
-			"/nodes/:id",
-			node.UpdateNodeRequest{Title: testutil.StringPtr("t")},
-		),
-			userID,
-		),
-		"id",
-		testutil.BadUUID,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Update(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid node id format")
-}
-
-func TestHandlerUpdate_NotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{updateErr: pgx.ErrNoRows}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(testutil.NewJSONRequest(
-		t,
-		http.MethodPatch,
-		"/nodes/:id",
-		node.UpdateNodeRequest{Title: testutil.StringPtr("title")},
-	),
-		userID,
-	),
-		"id",
-		testutil.UUID1,
-	)
-	res := httptest.NewRecorder()
-
-	handler.Update(res, req)
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found or access denied")
-}
-
-func TestHandler_Unauthorized(t *testing.T) {
-	handler := node.NewHandler(node.NewService(&nodeStoreFake{}))
+	dbErr := errors.New("db down")
+	createBody := node.CreateNodeRequest{Type: "note", Title: "child"}
+	updateBody := node.UpdateNodeRequest{Title: testutil.StringPtr("title")}
 
 	tests := []struct {
-		name    string
-		method  string
-		body    any
-		execute func(h *node.Handler, w http.ResponseWriter, r *http.Request)
+		name       string
+		call       handlerFunc
+		method     string
+		nodeID     string
+		body       any
+		rawBody    string
+		anonymous  bool
+		store      *nodeStoreFake
+		wantStatus int
+		wantMsg    string
 	}{
+		// Create
 		{
-			"Delete",
-			http.MethodDelete,
-			nil,
-			func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Delete(w, r) },
+			name: "create unauthorized", call: (*node.Handler).Create, method: http.MethodPost,
+			body: createBody, anonymous: true,
+			wantStatus: http.StatusUnauthorized, wantMsg: "User ID not found in context",
 		},
 		{
-			"Update",
-			http.MethodPatch,
-			node.UpdateNodeRequest{Title: testutil.StringPtr("t")},
-			func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Update(w, r) },
+			name: "create malformed body", call: (*node.Handler).Create, method: http.MethodPost,
+			rawBody:    "{bad json}",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "create invalid parent id", call: (*node.Handler).Create, method: http.MethodPost,
+			body:       node.CreateNodeRequest{ParentID: testutil.StringPtr(testutil.BadUUID), Type: "note", Title: "child"},
+			wantStatus: http.StatusBadRequest, wantMsg: "invalid parent id",
+		},
+		{
+			name: "create parent not found", call: (*node.Handler).Create, method: http.MethodPost,
+			body:       node.CreateNodeRequest{ParentID: testutil.StringPtr(testutil.UUID2), Type: "note", Title: "child"},
+			wantStatus: http.StatusBadRequest, wantMsg: "parent not found",
+		},
+		{
+			name: "create db error", call: (*node.Handler).Create, method: http.MethodPost,
+			body: createBody, store: &nodeStoreFake{createErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// Delete
+		{
+			name: "delete unauthorized", call: (*node.Handler).Delete, method: http.MethodDelete,
+			nodeID: testutil.UUID2, anonymous: true,
+			wantStatus: http.StatusUnauthorized, wantMsg: "User ID not found in context",
+		},
+		{
+			name: "delete invalid node id", call: (*node.Handler).Delete, method: http.MethodDelete,
+			nodeID:     testutil.BadUUID,
+			wantStatus: http.StatusBadRequest, wantMsg: "invalid node id format",
+		},
+		{
+			name: "delete not found", call: (*node.Handler).Delete, method: http.MethodDelete,
+			nodeID:     testutil.UUID2,
+			wantStatus: http.StatusNotFound, wantMsg: "node not found or access denied",
+		},
+		{
+			name: "delete db error", call: (*node.Handler).Delete, method: http.MethodDelete,
+			nodeID: testutil.UUID2, store: &nodeStoreFake{softDeleteErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// Update
+		{
+			name: "update unauthorized", call: (*node.Handler).Update, method: http.MethodPatch,
+			nodeID: testutil.UUID2, body: updateBody, anonymous: true,
+			wantStatus: http.StatusUnauthorized, wantMsg: "User ID not found in context",
+		},
+		{
+			name: "update invalid node id", call: (*node.Handler).Update, method: http.MethodPatch,
+			nodeID: testutil.BadUUID, body: updateBody,
+			wantStatus: http.StatusBadRequest, wantMsg: "invalid node id format",
+		},
+		{
+			name: "update empty payload", call: (*node.Handler).Update, method: http.MethodPatch,
+			nodeID: testutil.UUID2, body: map[string]any{},
+			wantStatus: http.StatusBadRequest, wantMsg: "no fields provided for update",
+		},
+		{
+			name: "update not found", call: (*node.Handler).Update, method: http.MethodPatch,
+			nodeID: testutil.UUID2, body: updateBody, store: &nodeStoreFake{updateErr: pgx.ErrNoRows},
+			wantStatus: http.StatusNotFound, wantMsg: "node not found or access denied",
+		},
+		{
+			name: "update db error", call: (*node.Handler).Update, method: http.MethodPatch,
+			nodeID: testutil.UUID2, body: updateBody, store: &nodeStoreFake{updateErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := testutil.WithRouteParam(testutil.NewJSONRequest(t, tc.method, "/nodes", tc.body), "id", testutil.UUID1)
+			store := tc.store
+			if store == nil {
+				store = &nodeStoreFake{}
+			}
+			handler := node.NewHandler(node.NewService(store))
+
+			path := "/nodes/" + tc.nodeID
+			var req *http.Request
+			if tc.rawBody != "" {
+				req = httptest.NewRequest(tc.method, path, strings.NewReader(tc.rawBody))
+			} else {
+				req = testutil.NewJSONRequest(t, tc.method, path, tc.body)
+			}
+			if tc.nodeID != "" {
+				req = testutil.WithRouteParam(req, "id", tc.nodeID)
+			}
+			if !tc.anonymous {
+				req = testutil.WithUserID(req, userID)
+			}
 			res := httptest.NewRecorder()
 
-			tc.execute(handler, res, req)
+			tc.call(handler, res, req)
 
-			require.Equal(t, http.StatusUnauthorized, res.Code)
-			testutil.AssertErrorJSON(t, res, "User ID not found in context")
-		})
-	}
-}
-
-func TestHandler_InternalErrors(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	tests := []struct {
-		name     string
-		method   string
-		routeKey string
-		path     string
-		body     any
-		setup    func(t *testing.T) *nodeStoreFake
-		execute  func(h *node.Handler, w http.ResponseWriter, r *http.Request)
-	}{
-		{
-			name:     "delete db error",
-			method:   http.MethodDelete,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1,
-			body:     nil,
-			setup: func(t *testing.T) *nodeStoreFake {
-				return &nodeStoreFake{softDeleteErr: errors.New("db down")}
-			},
-			execute: func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Delete(w, r) },
-		},
-		{
-			name:     "update db error",
-			method:   http.MethodPatch,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1,
-			body:     node.UpdateNodeRequest{Title: testutil.StringPtr("new title")},
-			setup: func(t *testing.T) *nodeStoreFake {
-				return &nodeStoreFake{updateErr: errors.New("db down")}
-			},
-			execute: func(h *node.Handler, w http.ResponseWriter, r *http.Request) { h.Update(w, r) },
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			fake := tc.setup(t)
-			handler := node.NewHandler(node.NewService(fake))
-
-			req := testutil.NewJSONRequest(t, tc.method, tc.path, tc.body)
-			req = testutil.WithUserID(req, userID)
-
-			req = testutil.WithRouteParam(req, tc.routeKey, testutil.UUID1)
-
-			res := httptest.NewRecorder()
-
-			tc.execute(handler, res, req)
-
-			require.Equal(t, http.StatusInternalServerError, res.Code)
-			testutil.AssertErrorJSON(t, res, "internal server error")
+			require.Equal(t, tc.wantStatus, res.Code)
+			if tc.wantMsg != "" {
+				testutil.AssertErrorJSON(t, res, tc.wantMsg)
+			}
 		})
 	}
 }
