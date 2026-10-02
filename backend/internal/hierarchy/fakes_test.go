@@ -5,13 +5,13 @@ import (
 	"time"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type hierarchyStoreFake struct {
+	nodes               *nodeSet
 	children            []sqlcHierarchy.Node
 	childrenErr         error
 	parent              sqlcHierarchy.Node
@@ -130,41 +130,45 @@ func (f *hierarchyStoreFake) MoveNode(_ context.Context, params sqlcHierarchy.Mo
 	}, nil
 }
 
-type nodeStoreFake struct {
-	getNodeByIDResult map[string]sqlcNode.Node
-	getNodeByIDErr    error
+type nodeSet struct {
+	nodes map[string]sqlcHierarchy.Node
+	err   error
 }
 
-func (f *nodeStoreFake) GetNodeByID(_ context.Context, params sqlcNode.GetNodeByIDParams) (sqlcNode.Node, error) {
-	if f.getNodeByIDErr != nil {
-		return sqlcNode.Node{}, f.getNodeByIDErr
-	}
-	if node, ok := f.getNodeByIDResult[params.ID.String()]; ok && node.UserID == params.UserID {
-		return node, nil
-	}
-	return sqlcNode.Node{}, pgx.ErrNoRows
-}
-
-func nodeStoreWith(nodes ...sqlcNode.Node) *nodeStoreFake {
-	result := make(map[string]sqlcNode.Node, len(nodes))
+func nodeSetOf(nodes ...sqlcHierarchy.Node) *nodeSet {
+	result := make(map[string]sqlcHierarchy.Node, len(nodes))
 	for _, n := range nodes {
 		result[n.ID.String()] = n
 	}
-	return &nodeStoreFake{getNodeByIDResult: result}
+	return &nodeSet{nodes: result}
+}
+
+func (f *hierarchyStoreFake) GetNode(_ context.Context, params sqlcHierarchy.GetNodeParams) (sqlcHierarchy.Node, error) {
+	if f.nodes == nil {
+		return sqlcHierarchy.Node{}, pgx.ErrNoRows
+	}
+	if f.nodes.err != nil {
+		return sqlcHierarchy.Node{}, f.nodes.err
+	}
+	if node, ok := f.nodes.nodes[params.ID.String()]; ok && node.UserID == params.UserID {
+		return node, nil
+	}
+	return sqlcHierarchy.Node{}, pgx.ErrNoRows
 }
 
 type txFake struct {
-	repos hierarchy.Repos
+	store *hierarchyStoreFake
 	calls int
 }
 
-func (f *txFake) InTx(_ context.Context, fn func(hierarchy.Repos) error) error {
+func (f *txFake) InTx(_ context.Context, fn func(hierarchy.Store) error) error {
 	f.calls++
-	return fn(f.repos)
+	return fn(f.store)
 }
 
-func newTestService(store *hierarchyStoreFake, nodeStore *nodeStoreFake) *hierarchy.Service {
-	return hierarchy.NewService(store, nodeStore, &txFake{repos: hierarchy.Repos{Store: store, NodeStore: nodeStore}})
+func newTestService(store *hierarchyStoreFake, nodes *nodeSet) *hierarchy.Service {
+	store.nodes = nodes
+	return hierarchy.NewService(store, &txFake{store: store})
 }
 
 func int64Ptr(v int64) *int64 { return &v }

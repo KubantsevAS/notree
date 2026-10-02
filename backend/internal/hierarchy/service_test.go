@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy/rank"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
@@ -36,7 +35,7 @@ func TestService_NodeNotFound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.call(newTestService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			err := tt.call(newTestService(&hierarchyStoreFake{}, &nodeSet{}))
 			require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
 		})
 	}
@@ -47,7 +46,7 @@ func TestGetChildren(t *testing.T) {
 	userID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	childOneID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 	childTwoID := pgtype.UUID{Bytes: [16]byte{4}, Valid: true}
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: parentID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: parentID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		children: []sqlcHierarchy.Node{
 			{ID: childOneID, ParentID: parentID, UserID: userID, Title: "first", SortOrder: 10},
@@ -55,7 +54,7 @@ func TestGetChildren(t *testing.T) {
 		},
 	}
 
-	service := newTestService(fake, fakeNodeStore)
+	service := newTestService(fake, nodes)
 	children, err := service.GetChildren(context.Background(), parentID, userID)
 	require.NoError(t, err)
 	require.Len(t, children, 2)
@@ -69,7 +68,7 @@ func TestGetParent(t *testing.T) {
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	grandparentID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
-	node := sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID}
+	node := sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID}
 
 	createdAt := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 	updatedAt := time.Date(2025, 2, 3, 4, 5, 6, 0, time.UTC)
@@ -84,10 +83,10 @@ func TestGetParent(t *testing.T) {
 		UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	}
 
-	nodeStore := nodeStoreWith(node)
+	nodes := nodeSetOf(node)
 	store := &hierarchyStoreFake{parent: parent}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	res, err := service.GetParent(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
@@ -112,11 +111,11 @@ func TestGetParent_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	root := sqlcNode.Node{ID: rootID, UserID: userID}
-	nodeStore := nodeStoreWith(root)
+	root := sqlcHierarchy.Node{ID: rootID, UserID: userID}
+	nodes := nodeSetOf(root)
 	store := &hierarchyStoreFake{parentErr: errors.New("GetParent must not be called for root node")}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	_, err := service.GetParent(context.Background(), rootID, userID)
 
 	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
@@ -129,7 +128,7 @@ func TestGetAncestors(t *testing.T) {
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	store := &hierarchyStoreFake{
 		ancestors: []sqlcHierarchy.Node{
 			{ID: rootID, UserID: userID, Title: "root"},
@@ -137,7 +136,7 @@ func TestGetAncestors(t *testing.T) {
 		},
 	}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	res, err := service.GetAncestors(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
@@ -154,9 +153,9 @@ func TestGetAncestors_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
 
-	service := newTestService(&hierarchyStoreFake{}, nodeStore)
+	service := newTestService(&hierarchyStoreFake{}, nodes)
 	res, err := service.GetAncestors(context.Background(), rootID, userID)
 
 	require.NoError(t, err)
@@ -170,7 +169,7 @@ func TestGetDescendants(t *testing.T) {
 	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
 	store := &hierarchyStoreFake{
 		descendants: []sqlcHierarchy.Node{
 			{ID: childID, ParentID: rootID, UserID: userID, Title: "child"},
@@ -178,7 +177,7 @@ func TestGetDescendants(t *testing.T) {
 		},
 	}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	res, err := service.GetDescendants(context.Background(), rootID, userID)
 
 	require.NoError(t, err)
@@ -194,9 +193,9 @@ func TestGetDescendants_Empty(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID})
 
-	service := newTestService(&hierarchyStoreFake{}, nodeStore)
+	service := newTestService(&hierarchyStoreFake{}, nodes)
 	res, err := service.GetDescendants(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
@@ -210,7 +209,7 @@ func TestGetSubtree(t *testing.T) {
 	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID})
 	store := &hierarchyStoreFake{
 		subtree: []sqlcHierarchy.Node{
 			{ID: nodeID, UserID: userID, Title: "node"},
@@ -219,7 +218,7 @@ func TestGetSubtree(t *testing.T) {
 		},
 	}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	res, err := service.GetSubtree(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
@@ -238,12 +237,12 @@ func TestGetRoot(t *testing.T) {
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	store := &hierarchyStoreFake{
 		root: sqlcHierarchy.Node{ID: rootID, UserID: userID, Title: "root"},
 	}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	res, err := service.GetRoot(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
@@ -258,10 +257,10 @@ func TestGetRoot_RootNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID})
 	store := &hierarchyStoreFake{rootErr: pgx.ErrNoRows}
 
-	service := newTestService(store, nodeStore)
+	service := newTestService(store, nodes)
 	_, err := service.GetRoot(context.Background(), nodeID, userID)
 
 	require.ErrorIs(t, err, hierarchy.ErrRootNotFound)
@@ -274,9 +273,9 @@ func TestMoveNode(t *testing.T) {
 	siblingID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	oldParentID := testutil.UUIDFromStringT(t, "55555555-5555-4555-8555-555555555555")
 
-	moving := sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: oldParentID}
-	parent := sqlcNode.Node{ID: parentID, UserID: userID}
-	sibling := sqlcNode.Node{ID: siblingID, UserID: userID, ParentID: parentID, SortOrder: 2000}
+	moving := sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: oldParentID}
+	parent := sqlcHierarchy.Node{ID: parentID, UserID: userID}
+	sibling := sqlcHierarchy.Node{ID: siblingID, UserID: userID, ParentID: parentID, SortOrder: 2000}
 
 	moveReq := func(parent, before *string) *hierarchy.MoveNodeRequest {
 		return &hierarchy.MoveNodeRequest{
@@ -287,12 +286,12 @@ func TestMoveNode(t *testing.T) {
 	str := testutil.StringPtr
 
 	tests := []struct {
-		name      string
-		req       *hierarchy.MoveNodeRequest
-		store     *hierarchyStoreFake
-		nodeStore *nodeStoreFake
-		wantErr   error
-		check     func(*testing.T, hierarchy.MoveNodeResponse, *hierarchyStoreFake)
+		name    string
+		req     *hierarchy.MoveNodeRequest
+		store   *hierarchyStoreFake
+		nodes   *nodeSet
+		wantErr error
+		check   func(*testing.T, hierarchy.MoveNodeResponse, *hierarchyStoreFake)
 	}{
 		{
 			name:    "parent_id missing",
@@ -310,54 +309,54 @@ func TestMoveNode(t *testing.T) {
 
 		{name: "node not found", req: moveReq(nil, nil), wantErr: hierarchy.ErrNodeNotFound},
 		{
-			name:      "lock error",
-			req:       moveReq(nil, nil),
-			store:     &hierarchyStoreFake{lockErr: sql.ErrConnDone},
-			nodeStore: nodeStoreWith(moving),
-			wantErr:   sql.ErrConnDone,
+			name:    "lock error",
+			req:     moveReq(nil, nil),
+			store:   &hierarchyStoreFake{lockErr: sql.ErrConnDone},
+			nodes:   nodeSetOf(moving),
+			wantErr: sql.ErrConnDone,
 		},
 		{
-			name:      "self parent",
-			req:       moveReq(str(testutil.UUID2), nil),
-			nodeStore: nodeStoreWith(moving),
-			wantErr:   hierarchy.ErrNodeCannotBeADescendantOfItself,
+			name:    "self parent",
+			req:     moveReq(str(testutil.UUID2), nil),
+			nodes:   nodeSetOf(moving),
+			wantErr: hierarchy.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
-			name:      "parent not found",
-			req:       moveReq(str(testutil.UUID3), nil),
-			nodeStore: nodeStoreWith(moving),
-			wantErr:   hierarchy.ErrParentNotFound,
+			name:    "parent not found",
+			req:     moveReq(str(testutil.UUID3), nil),
+			nodes:   nodeSetOf(moving),
+			wantErr: hierarchy.ErrParentNotFound,
 		},
 		{
-			name:      "parent inside node subtree",
-			req:       moveReq(str(testutil.UUID3), nil),
-			store:     &hierarchyStoreFake{inSubtree: true},
-			nodeStore: nodeStoreWith(moving, parent),
-			wantErr:   hierarchy.ErrNodeCannotBeADescendantOfItself,
+			name:    "parent inside node subtree",
+			req:     moveReq(str(testutil.UUID3), nil),
+			store:   &hierarchyStoreFake{inSubtree: true},
+			nodes:   nodeSetOf(moving, parent),
+			wantErr: hierarchy.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
-			name:      "before is the node itself",
-			req:       moveReq(nil, str(testutil.UUID2)),
-			nodeStore: nodeStoreWith(moving),
-			wantErr:   hierarchy.ErrBeforeNotSibling,
+			name:    "before is the node itself",
+			req:     moveReq(nil, str(testutil.UUID2)),
+			nodes:   nodeSetOf(moving),
+			wantErr: hierarchy.ErrBeforeNotSibling,
 		},
 		{
-			name:      "before not found",
-			req:       moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			nodeStore: nodeStoreWith(moving, parent),
-			wantErr:   hierarchy.ErrBeforeNotSibling,
+			name:    "before not found",
+			req:     moveReq(str(testutil.UUID3), str(testutil.UUID4)),
+			nodes:   nodeSetOf(moving, parent),
+			wantErr: hierarchy.ErrBeforeNotSibling,
 		},
 		{
-			name:      "before under another parent",
-			req:       moveReq(nil, str(testutil.UUID4)),
-			nodeStore: nodeStoreWith(moving, sibling),
-			wantErr:   hierarchy.ErrBeforeNotSibling,
+			name:    "before under another parent",
+			req:     moveReq(nil, str(testutil.UUID4)),
+			nodes:   nodeSetOf(moving, sibling),
+			wantErr: hierarchy.ErrBeforeNotSibling,
 		},
 		{
-			name:      "before a sibling",
-			req:       moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store:     &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
-			nodeStore: nodeStoreWith(moving, parent, sibling),
+			name:  "before a sibling",
+			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
+			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
+			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, testutil.UUID3, *resp.ParentID)
@@ -375,19 +374,19 @@ func TestMoveNode(t *testing.T) {
 			},
 		},
 		{
-			name:      "first in list",
-			req:       moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			nodeStore: nodeStoreWith(moving, parent, sibling),
+			name:  "first in list",
+			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
+			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, _ *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, 2000-rank.Gap, resp.SortOrder)
 			},
 		},
 		{
-			name:      "end of list",
-			req:       moveReq(str(testutil.UUID3), nil),
-			store:     &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(5000)}},
-			nodeStore: nodeStoreWith(moving, parent),
+			name:  "end of list",
+			req:   moveReq(str(testutil.UUID3), nil),
+			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(5000)}},
+			nodes: nodeSetOf(moving, parent),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, 5000+rank.Gap, resp.SortOrder)
@@ -395,18 +394,18 @@ func TestMoveNode(t *testing.T) {
 			},
 		},
 		{
-			name:      "into empty parent",
-			req:       moveReq(str(testutil.UUID3), nil),
-			nodeStore: nodeStoreWith(moving, parent),
+			name:  "into empty parent",
+			req:   moveReq(str(testutil.UUID3), nil),
+			nodes: nodeSetOf(moving, parent),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, _ *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, rank.Gap, resp.SortOrder)
 			},
 		},
 		{
-			name:      "to root skips parent checks",
-			req:       moveReq(nil, nil),
-			nodeStore: nodeStoreWith(moving),
+			name:  "to root skips parent checks",
+			req:   moveReq(nil, nil),
+			nodes: nodeSetOf(moving),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.Nil(t, resp.ParentID)
@@ -415,10 +414,10 @@ func TestMoveNode(t *testing.T) {
 			},
 		},
 		{
-			name:      "reorder within same parent skips parent checks",
-			req:       moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store:     &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
-			nodeStore: nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID}, sibling),
+			name:  "reorder within same parent skips parent checks",
+			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
+			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1000)}},
+			nodes: nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID}, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.EqualValues(t, 1500, resp.SortOrder)
@@ -426,10 +425,10 @@ func TestMoveNode(t *testing.T) {
 			},
 		},
 		{
-			name:      "no gap rebalances siblings",
-			req:       moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store:     &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
-			nodeStore: nodeStoreWith(moving, parent, sibling),
+			name:  "no gap rebalances siblings",
+			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
+			store: &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
+			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.Equal(t, []sqlcHierarchy.RebalanceChildrenParams{{
@@ -450,12 +449,12 @@ func TestMoveNode(t *testing.T) {
 			if store == nil {
 				store = &hierarchyStoreFake{}
 			}
-			nodeStore := tt.nodeStore
-			if nodeStore == nil {
-				nodeStore = &nodeStoreFake{}
+			nodes := tt.nodes
+			if nodes == nil {
+				nodes = &nodeSet{}
 			}
 
-			resp, err := newTestService(store, nodeStore).MoveNode(context.Background(), nodeID, userID, tt.req)
+			resp, err := newTestService(store, nodes).MoveNode(context.Background(), nodeID, userID, tt.req)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				require.Empty(t, store.moveCalls, "a failed move must not write")
@@ -472,16 +471,16 @@ func TestMoveNode_NoGapAfterRebalance(t *testing.T) {
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	store := &hierarchyStoreFake{prevRanks: []*int64{int64Ptr(1999), int64Ptr(1999)}}
-	nodeStore := nodeStoreWith(
-		sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID},
-		sqlcNode.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID4), UserID: userID, ParentID: parentID, SortOrder: 2000},
+	nodes := nodeSetOf(
+		sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID},
+		sqlcHierarchy.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID4), UserID: userID, ParentID: parentID, SortOrder: 2000},
 	)
 	req := &hierarchy.MoveNodeRequest{
 		ParentID: hierarchy.NullableString{Value: testutil.StringPtr(testutil.UUID3), IsSet: true},
 		BeforeID: hierarchy.NullableString{Value: testutil.StringPtr(testutil.UUID4), IsSet: true},
 	}
 
-	_, err := newTestService(store, nodeStore).MoveNode(context.Background(), nodeID, userID, req)
+	_, err := newTestService(store, nodes).MoveNode(context.Background(), nodeID, userID, req)
 
 	require.ErrorIs(t, err, hierarchy.ErrNoRankAfterRebalance)
 	require.Len(t, store.rebalanceCalls, 1, "rebalance is attempted only once")

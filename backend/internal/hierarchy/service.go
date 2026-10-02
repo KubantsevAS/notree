@@ -5,18 +5,14 @@ import (
 	"errors"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy/rank"
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type NodeStore interface {
-	GetNodeByID(context.Context, sqlcNode.GetNodeByIDParams) (sqlcNode.Node, error)
-}
-
 type Store interface {
+	GetNode(context.Context, sqlcHierarchy.GetNodeParams) (sqlcHierarchy.Node, error)
 	GetParent(context.Context, sqlcHierarchy.GetParentParams) (sqlcHierarchy.Node, error)
 	GetChildren(context.Context, sqlcHierarchy.GetChildrenParams) ([]sqlcHierarchy.Node, error)
 
@@ -43,13 +39,12 @@ type Store interface {
 // * }
 
 type Service struct {
-	store     Store
-	nodeStore NodeStore
-	tx        Transactor
+	store Store
+	tx    Transactor
 }
 
-func NewService(store Store, nodeStore NodeStore, tx Transactor) *Service {
-	return &Service{store: store, nodeStore: nodeStore, tx: tx}
+func NewService(store Store, tx Transactor) *Service {
+	return &Service{store: store, tx: tx}
 }
 
 func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) ([]NodeResponse, error) {
@@ -97,7 +92,7 @@ func mapNodeToResponse(n sqlcHierarchy.Node) NodeResponse {
 }
 
 func (s *Service) GetParent(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) (NodeResponse, error) {
-	node, err := s.nodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: nodeID, UserID: userID})
+	node, err := s.store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: nodeID, UserID: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return NodeResponse{}, ErrNodeNotFound
@@ -223,12 +218,12 @@ func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtyp
 	}
 
 	var row sqlcHierarchy.MoveNodeRow
-	err = s.tx.InTx(ctx, func(r Repos) error {
-		if err := r.Store.LockUserHierarchy(ctx, userID); err != nil {
+	err = s.tx.InTx(ctx, func(store Store) error {
+		if err := store.LockUserHierarchy(ctx, userID); err != nil {
 			return err
 		}
 
-		node, err := r.NodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: nodeID, UserID: userID})
+		node, err := store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: nodeID, UserID: userID})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNodeNotFound
@@ -237,17 +232,17 @@ func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtyp
 		}
 
 		if node.ParentID != parentID && parentID.Valid {
-			if err := validateNewParent(ctx, r, nodeID, parentID, userID); err != nil {
+			if err := validateNewParent(ctx, store, nodeID, parentID, userID); err != nil {
 				return err
 			}
 		}
 
-		sortOrder, err := rankFor(ctx, r, nodeID, parentID, beforeID, userID)
+		sortOrder, err := rankFor(ctx, store, nodeID, parentID, beforeID, userID)
 		if err != nil {
 			return err
 		}
 
-		row, err = r.Store.MoveNode(ctx, sqlcHierarchy.MoveNodeParams{
+		row, err = store.MoveNode(ctx, sqlcHierarchy.MoveNodeParams{
 			ID:        nodeID,
 			UserID:    userID,
 			ParentID:  parentID,
@@ -271,19 +266,19 @@ func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtyp
 	return response, nil
 }
 
-func validateNewParent(ctx context.Context, r Repos, nodeID, parentID, userID pgtype.UUID) error {
+func validateNewParent(ctx context.Context, store Store, nodeID, parentID, userID pgtype.UUID) error {
 	if parentID == nodeID {
 		return ErrNodeCannotBeADescendantOfItself
 	}
 
-	if _, err := r.NodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: parentID, UserID: userID}); err != nil {
+	if _, err := store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: parentID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrParentNotFound
 		}
 		return err
 	}
 
-	inSubtree, err := r.Store.IsInSubtree(ctx, sqlcHierarchy.IsInSubtreeParams{
+	inSubtree, err := store.IsInSubtree(ctx, sqlcHierarchy.IsInSubtreeParams{
 		RootID: nodeID,
 		NodeID: parentID,
 		UserID: userID,
@@ -298,9 +293,9 @@ func validateNewParent(ctx context.Context, r Repos, nodeID, parentID, userID pg
 	return nil
 }
 
-func rankFor(ctx context.Context, r Repos, nodeID, parentID, beforeID, userID pgtype.UUID) (int64, error) {
+func rankFor(ctx context.Context, store Store, nodeID, parentID, beforeID, userID pgtype.UUID) (int64, error) {
 	for attempt := 0; ; attempt++ {
-		prev, next, err := neighbourRanks(ctx, r, nodeID, parentID, beforeID, userID)
+		prev, next, err := neighbourRanks(ctx, store, nodeID, parentID, beforeID, userID)
 		if err != nil {
 			return 0, err
 		}
@@ -312,7 +307,7 @@ func rankFor(ctx context.Context, r Repos, nodeID, parentID, beforeID, userID pg
 			return 0, ErrNoRankAfterRebalance
 		}
 
-		err = r.Store.RebalanceChildren(ctx, sqlcHierarchy.RebalanceChildrenParams{
+		err = store.RebalanceChildren(ctx, sqlcHierarchy.RebalanceChildrenParams{
 			Gap:       rank.Gap,
 			ParentID:  parentID,
 			UserID:    userID,
@@ -324,7 +319,7 @@ func rankFor(ctx context.Context, r Repos, nodeID, parentID, beforeID, userID pg
 	}
 }
 
-func neighbourRanks(ctx context.Context, r Repos, nodeID, parentID, beforeID, userID pgtype.UUID) (prev, next *int64, err error) {
+func neighbourRanks(ctx context.Context, store Store, nodeID, parentID, beforeID, userID pgtype.UUID) (prev, next *int64, err error) {
 	params := sqlcHierarchy.GetPrevSiblingRankParams{
 		ParentID:  parentID,
 		UserID:    userID,
@@ -335,7 +330,7 @@ func neighbourRanks(ctx context.Context, r Repos, nodeID, parentID, beforeID, us
 		if beforeID == nodeID {
 			return nil, nil, ErrBeforeNotSibling
 		}
-		before, err := r.NodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{ID: beforeID, UserID: userID})
+		before, err := store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: beforeID, UserID: userID})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, nil, ErrBeforeNotSibling
@@ -351,7 +346,7 @@ func neighbourRanks(ctx context.Context, r Repos, nodeID, parentID, beforeID, us
 		params.BeforeID = beforeID
 	}
 
-	prevRank, err := r.Store.GetPrevSiblingRank(ctx, params)
+	prevRank, err := store.GetPrevSiblingRank(ctx, params)
 	switch {
 	case err == nil:
 		prev = &prevRank
@@ -363,7 +358,7 @@ func neighbourRanks(ctx context.Context, r Repos, nodeID, parentID, beforeID, us
 }
 
 func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UUID) error {
-	_, err := s.nodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{
+	_, err := s.store.GetNode(ctx, sqlcHierarchy.GetNodeParams{
 		ID:     nodeID,
 		UserID: userID,
 	})

@@ -5,32 +5,23 @@ import (
 
 	"github.com/KubantsevAS/notree/backend/internal/db"
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/jackc/pgx/v5"
 )
 
-type Repos struct {
-	Store     Store
-	NodeStore NodeStore
-}
-
 type Transactor interface {
-	InTx(ctx context.Context, fn func(Repos) error) error
+	InTx(ctx context.Context, fn func(Store) error) error
 }
 
-type reposTransactor struct {
+type storeTransactor struct {
 	tx db.Transactor
 }
 
-func newReposTransactor(tx db.Transactor) *reposTransactor {
-	return &reposTransactor{tx: tx}
+func newStoreTransactor(tx db.Transactor) *storeTransactor {
+	return &storeTransactor{tx: tx}
 }
 
-func (t *reposTransactor) InTx(ctx context.Context, fn func(Repos) error) error {
+func (t *storeTransactor) InTx(ctx context.Context, fn func(Store) error) error {
 	return t.tx.InTx(ctx, func(tx pgx.Tx) error {
-		return fn(Repos{
-			Store:     sqlcHierarchy.New(tx),
-			NodeStore: sqlcNode.New(tx),
-		})
+		return fn(sqlcHierarchy.New(tx))
 	})
 }

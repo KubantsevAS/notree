@@ -1,3 +1,9 @@
+-- name: GetNode :one
+SELECT * FROM nodes
+WHERE id = $1
+  AND user_id = $2
+  AND deleted_at IS NULL;
+
 -- name: GetParent :one
 SELECT parent.*
 FROM nodes AS node

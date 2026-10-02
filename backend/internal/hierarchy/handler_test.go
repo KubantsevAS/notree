@@ -10,7 +10,6 @@ import (
 	"time"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/hierarchy/rank"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
@@ -23,7 +22,7 @@ func TestHandlerGetChildren(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	updatedAt := time.Now()
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: parentID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: parentID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		children: []sqlcHierarchy.Node{{
 			ID:        testutil.UUIDFromStringT(t, testutil.UUID3),
@@ -36,7 +35,7 @@ func TestHandlerGetChildren(t *testing.T) {
 			UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
 		}},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), userID), "id", parentID.String())
 	res := httptest.NewRecorder()
@@ -59,7 +58,7 @@ func TestHandlerGetParent(t *testing.T) {
 	grandparentID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	fake := &hierarchyStoreFake{
 		parent: sqlcHierarchy.Node{
 			ID:        parentID,
@@ -72,7 +71,7 @@ func TestHandlerGetParent(t *testing.T) {
 			UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
 		},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/parent", nil), userID), "id", nodeID.String())
 	res := httptest.NewRecorder()
@@ -96,7 +95,7 @@ func TestHandlerGetAncestors(t *testing.T) {
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	fake := &hierarchyStoreFake{
 		ancestors: []sqlcHierarchy.Node{
 			{
@@ -118,7 +117,7 @@ func TestHandlerGetAncestors(t *testing.T) {
 			},
 		},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", nodeID.String())
 	res := httptest.NewRecorder()
@@ -139,8 +138,8 @@ func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
-	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, fakeNodeStore))
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", rootID.String())
 	res := httptest.NewRecorder()
@@ -158,7 +157,7 @@ func TestHandlerGetDescendants(t *testing.T) {
 	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		descendants: []sqlcHierarchy.Node{
 			{
@@ -181,7 +180,7 @@ func TestHandlerGetDescendants(t *testing.T) {
 			},
 		},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/descendants", nil), userID), "id", rootID.String())
 	res := httptest.NewRecorder()
@@ -204,7 +203,7 @@ func TestHandlerGetSubtree(t *testing.T) {
 	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	updatedAt := time.Now()
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		subtree: []sqlcHierarchy.Node{
 			{
@@ -226,7 +225,7 @@ func TestHandlerGetSubtree(t *testing.T) {
 			},
 		},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/subtree", nil), userID), "id", nodeID.String())
 	res := httptest.NewRecorder()
@@ -248,7 +247,7 @@ func TestHandlerGetRoot(t *testing.T) {
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	updatedAt := time.Now()
 
-	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: rootID})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: rootID})
 	fake := &hierarchyStoreFake{
 		root: sqlcHierarchy.Node{
 			ID:        rootID,
@@ -259,7 +258,7 @@ func TestHandlerGetRoot(t *testing.T) {
 			UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
 		},
 	}
-	handler := hierarchy.NewHandler(newTestService(fake, fakeNodeStore))
+	handler := hierarchy.NewHandler(newTestService(fake, nodes))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/root", nil), userID), "id", nodeID.String())
 	res := httptest.NewRecorder()
@@ -296,7 +295,7 @@ func newReadRequest(endpoint, nodeID string) *http.Request {
 func TestHandler_Unauthorized(t *testing.T) {
 	for _, ep := range readEndpoints {
 		t.Run(ep.name, func(t *testing.T) {
-			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeSet{}))
 			res := httptest.NewRecorder()
 
 			ep.call(handler, res, newReadRequest(ep.name, testutil.UUID1))
@@ -312,7 +311,7 @@ func TestHandler_InvalidUUID(t *testing.T) {
 
 	for _, ep := range readEndpoints {
 		t.Run(ep.name, func(t *testing.T) {
-			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeSet{}))
 			res := httptest.NewRecorder()
 
 			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.BadUUID), userID))
@@ -328,7 +327,7 @@ func TestHandler_NodeNotFound(t *testing.T) {
 
 	for _, ep := range readEndpoints {
 		t.Run(ep.name, func(t *testing.T) {
-			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeSet{}))
 			res := httptest.NewRecorder()
 
 			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.UUID2), userID))
@@ -344,8 +343,8 @@ func TestHandler_NodeLookupError(t *testing.T) {
 
 	for _, ep := range readEndpoints {
 		t.Run(ep.name, func(t *testing.T) {
-			nodeStore := &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodeStore))
+			nodes := &nodeSet{err: sql.ErrConnDone}
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
 			res := httptest.NewRecorder()
 
 			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.UUID2), userID))
@@ -359,7 +358,7 @@ func TestHandler_NodeLookupError(t *testing.T) {
 func TestHandler_StoreError(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)})
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)})
 
 	tests := []struct {
 		endpoint string
@@ -376,7 +375,7 @@ func TestHandler_StoreError(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.endpoint, func(t *testing.T) {
-			handler := hierarchy.NewHandler(newTestService(tc.store, nodeStore))
+			handler := hierarchy.NewHandler(newTestService(tc.store, nodes))
 			res := httptest.NewRecorder()
 
 			tc.call(handler, res, testutil.WithUserID(newReadRequest(tc.endpoint, nodeID.String()), userID))
@@ -390,14 +389,14 @@ func TestHandler_StoreError(t *testing.T) {
 func TestHandler_DomainErrors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-	rootNode := sqlcNode.Node{ID: nodeID, UserID: userID}
-	childNode := sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)}
+	rootNode := sqlcHierarchy.Node{ID: nodeID, UserID: userID}
+	childNode := sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)}
 
 	tests := []struct {
 		name       string
 		endpoint   string
 		call       handlerFunc
-		node       sqlcNode.Node
+		node       sqlcHierarchy.Node
 		store      *hierarchyStoreFake
 		wantStatus int
 		wantMsg    string
@@ -432,7 +431,7 @@ func TestHandler_DomainErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := hierarchy.NewHandler(newTestService(tc.store, nodeStoreWith(tc.node)))
+			handler := hierarchy.NewHandler(newTestService(tc.store, nodeSetOf(tc.node)))
 			res := httptest.NewRecorder()
 
 			tc.call(handler, res, testutil.WithUserID(newReadRequest(tc.endpoint, nodeID.String()), userID))
@@ -456,12 +455,12 @@ func TestHandlerMove(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	nodeStore := nodeStoreWith(
-		sqlcNode.Node{ID: nodeID, UserID: userID},
-		sqlcNode.Node{ID: parentID, UserID: userID},
+	nodes := nodeSetOf(
+		sqlcHierarchy.Node{ID: nodeID, UserID: userID},
+		sqlcHierarchy.Node{ID: parentID, UserID: userID},
 	)
 	store := &hierarchyStoreFake{}
-	handler := hierarchy.NewHandler(newTestService(store, nodeStore))
+	handler := hierarchy.NewHandler(newTestService(store, nodes))
 	res := httptest.NewRecorder()
 
 	handler.Move(res, newMoveRequest(t, userID, testutil.UUID2, map[string]any{"parent_id": testutil.UUID3, "before_id": nil}))
@@ -477,8 +476,8 @@ func TestHandlerMove(t *testing.T) {
 func TestHandlerMove_Errors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-	moving := sqlcNode.Node{ID: nodeID, UserID: userID}
-	parent := sqlcNode.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID3), UserID: userID}
+	moving := sqlcHierarchy.Node{ID: nodeID, UserID: userID}
+	parent := sqlcHierarchy.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID3), UserID: userID}
 	toEnd := func(parentID any) map[string]any { return map[string]any{"parent_id": parentID, "before_id": nil} }
 	cycle := "node cannot be a descendant of itself (circular reference)"
 
@@ -487,7 +486,7 @@ func TestHandlerMove_Errors(t *testing.T) {
 		nodeID     string
 		body       any
 		store      *hierarchyStoreFake
-		nodeStore  *nodeStoreFake
+		nodes      *nodeSet
 		wantStatus int
 		wantMsg    string
 	}{
@@ -497,21 +496,21 @@ func TestHandlerMove_Errors(t *testing.T) {
 		{name: "invalid parent id", body: toEnd(testutil.BadUUID), wantStatus: http.StatusBadRequest, wantMsg: "invalid parent id"},
 		{name: "invalid before id", body: map[string]any{"parent_id": nil, "before_id": testutil.BadUUID}, wantStatus: http.StatusBadRequest, wantMsg: "invalid before id"},
 		{name: "node not found", body: toEnd(nil), wantStatus: http.StatusNotFound, wantMsg: "node not found"},
-		{name: "parent not found", body: toEnd(testutil.UUID3), nodeStore: nodeStoreWith(moving), wantStatus: http.StatusBadRequest, wantMsg: "parent not found"},
-		{name: "self parent", body: toEnd(testutil.UUID2), nodeStore: nodeStoreWith(moving), wantStatus: http.StatusConflict, wantMsg: cycle},
+		{name: "parent not found", body: toEnd(testutil.UUID3), nodes: nodeSetOf(moving), wantStatus: http.StatusBadRequest, wantMsg: "parent not found"},
+		{name: "self parent", body: toEnd(testutil.UUID2), nodes: nodeSetOf(moving), wantStatus: http.StatusConflict, wantMsg: cycle},
 		{
 			name: "parent inside subtree", body: toEnd(testutil.UUID3),
-			store: &hierarchyStoreFake{inSubtree: true}, nodeStore: nodeStoreWith(moving, parent),
+			store: &hierarchyStoreFake{inSubtree: true}, nodes: nodeSetOf(moving, parent),
 			wantStatus: http.StatusConflict, wantMsg: cycle,
 		},
 		{
 			name: "before not a sibling", body: map[string]any{"parent_id": testutil.UUID3, "before_id": testutil.UUID4},
-			nodeStore:  nodeStoreWith(moving, parent),
+			nodes:      nodeSetOf(moving, parent),
 			wantStatus: http.StatusBadRequest, wantMsg: "before_id must reference another child of parent_id",
 		},
 		{
 			name: "db error", body: toEnd(nil),
-			store: &hierarchyStoreFake{moveErr: sql.ErrConnDone}, nodeStore: nodeStoreWith(moving),
+			store: &hierarchyStoreFake{moveErr: sql.ErrConnDone}, nodes: nodeSetOf(moving),
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
 	}
@@ -522,15 +521,15 @@ func TestHandlerMove_Errors(t *testing.T) {
 			if store == nil {
 				store = &hierarchyStoreFake{}
 			}
-			nodeStore := tc.nodeStore
-			if nodeStore == nil {
-				nodeStore = &nodeStoreFake{}
+			nodes := tc.nodes
+			if nodes == nil {
+				nodes = &nodeSet{}
 			}
 			nodeIDParam := tc.nodeID
 			if nodeIDParam == "" {
 				nodeIDParam = testutil.UUID2
 			}
-			handler := hierarchy.NewHandler(newTestService(store, nodeStore))
+			handler := hierarchy.NewHandler(newTestService(store, nodes))
 			res := httptest.NewRecorder()
 
 			handler.Move(res, newMoveRequest(t, userID, nodeIDParam, tc.body))
@@ -542,7 +541,7 @@ func TestHandlerMove_Errors(t *testing.T) {
 }
 
 func TestHandlerMove_Unauthorized(t *testing.T) {
-	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, &nodeSet{}))
 	req := testutil.WithRouteParam(
 		testutil.NewJSONRequest(t, http.MethodPost, "/nodes/"+testutil.UUID1+"/move", map[string]any{"parent_id": nil, "before_id": nil}),
 		"id", testutil.UUID1,

@@ -196,6 +196,35 @@ func (q *Queries) GetDescendants(ctx context.Context, arg GetDescendantsParams) 
 	return items, nil
 }
 
+const getNode = `-- name: GetNode :one
+SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
+WHERE id = $1
+  AND user_id = $2
+  AND deleted_at IS NULL
+`
+
+type GetNodeParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetNode(ctx context.Context, arg GetNodeParams) (Node, error) {
+	row := q.db.QueryRow(ctx, getNode, arg.ID, arg.UserID)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ParentID,
+		&i.Type,
+		&i.Title,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getParent = `-- name: GetParent :one
 SELECT parent.id, parent.user_id, parent.parent_id, parent.type, parent.title, parent.sort_order, parent.created_at, parent.updated_at, parent.deleted_at
 FROM nodes AS node
