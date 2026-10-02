@@ -1,6 +1,18 @@
 -- name: CreateNode :one
 INSERT INTO nodes (user_id, parent_id, type, title, sort_order)
-VALUES ($1, $2, $3, $4, $5)
+VALUES (
+    @user_id,
+    sqlc.narg('parent_id'),
+    @type,
+    @title,
+    COALESCE((
+        SELECT MAX(sibling.sort_order)
+        FROM nodes AS sibling
+        WHERE sibling.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
+          AND sibling.user_id = @user_id
+          AND sibling.deleted_at IS NULL
+    ), 0) + sqlc.arg('gap')::bigint
+)
 RETURNING *;
 
 -- name: GetNodeByID :one

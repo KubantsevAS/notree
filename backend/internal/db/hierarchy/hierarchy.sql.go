@@ -230,6 +230,42 @@ func (q *Queries) GetParent(ctx context.Context, arg GetParentParams) (Node, err
 	return i, err
 }
 
+const getPrevSiblingRank = `-- name: GetPrevSiblingRank :one
+SELECT n.sort_order
+FROM nodes AS n
+WHERE n.parent_id IS NOT DISTINCT FROM $1::uuid
+  AND n.user_id = $2
+  AND n.deleted_at IS NULL
+  AND n.id <> $3
+  AND (
+      $4::bigint IS NULL
+      OR (n.sort_order, n.id) < ($4::bigint, $5::uuid)
+  )
+ORDER BY n.sort_order DESC, n.id DESC
+LIMIT 1
+`
+
+type GetPrevSiblingRankParams struct {
+	ParentID   pgtype.UUID `json:"parent_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+	ExcludeID  pgtype.UUID `json:"exclude_id"`
+	BeforeRank pgtype.Int8 `json:"before_rank"`
+	BeforeID   pgtype.UUID `json:"before_id"`
+}
+
+func (q *Queries) GetPrevSiblingRank(ctx context.Context, arg GetPrevSiblingRankParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getPrevSiblingRank,
+		arg.ParentID,
+		arg.UserID,
+		arg.ExcludeID,
+		arg.BeforeRank,
+		arg.BeforeID,
+	)
+	var sort_order int64
+	err := row.Scan(&sort_order)
+	return sort_order, err
+}
+
 const getRoot = `-- name: GetRoot :one
 WITH RECURSIVE ancestors AS (
     SELECT
@@ -390,25 +426,30 @@ func (q *Queries) IsInSubtree(ctx context.Context, arg IsInSubtreeParams) (bool,
 	return is_in_subtree, err
 }
 
+const lockUserHierarchy = `-- name: LockUserHierarchy :exec
+SELECT pg_advisory_xact_lock(hashtextextended('hierarchy:' || ($1::uuid)::text, 0))
+`
+
+func (q *Queries) LockUserHierarchy(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockUserHierarchy, userID)
+	return err
+}
+
 const moveNode = `-- name: MoveNode :one
 UPDATE nodes
 SET
-    parent_id = CASE
-                    WHEN $1::boolean THEN $2
-                    ELSE parent_id
-                END,
-    sort_order = COALESCE($3, sort_order),
+    parent_id = $1,
+    sort_order = $2,
     updated_at = NOW()
-WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
+WHERE id = $3 AND user_id = $4 AND deleted_at IS NULL
 RETURNING parent_id, sort_order, updated_at
 `
 
 type MoveNodeParams struct {
-	UpdateParent pgtype.Bool `json:"update_parent"`
-	ParentID     pgtype.UUID `json:"parent_id"`
-	SortOrder    pgtype.Int8 `json:"sort_order"`
-	ID           pgtype.UUID `json:"id"`
-	UserID       pgtype.UUID `json:"user_id"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	SortOrder int64       `json:"sort_order"`
+	ID        pgtype.UUID `json:"id"`
+	UserID    pgtype.UUID `json:"user_id"`
 }
 
 type MoveNodeRow struct {
@@ -419,7 +460,6 @@ type MoveNodeRow struct {
 
 func (q *Queries) MoveNode(ctx context.Context, arg MoveNodeParams) (MoveNodeRow, error) {
 	row := q.db.QueryRow(ctx, moveNode,
-		arg.UpdateParent,
 		arg.ParentID,
 		arg.SortOrder,
 		arg.ID,
@@ -428,4 +468,37 @@ func (q *Queries) MoveNode(ctx context.Context, arg MoveNodeParams) (MoveNodeRow
 	var i MoveNodeRow
 	err := row.Scan(&i.ParentID, &i.SortOrder, &i.UpdatedAt)
 	return i, err
+}
+
+const rebalanceChildren = `-- name: RebalanceChildren :exec
+UPDATE nodes AS n
+SET sort_order = ranked.position * $1::bigint
+FROM (
+    SELECT
+        c.id,
+        ROW_NUMBER() OVER (ORDER BY c.sort_order, c.id) AS position
+    FROM nodes AS c
+    WHERE c.parent_id IS NOT DISTINCT FROM $2::uuid
+      AND c.user_id = $3
+      AND c.deleted_at IS NULL
+      AND c.id <> $4
+) AS ranked
+WHERE n.id = ranked.id
+`
+
+type RebalanceChildrenParams struct {
+	Gap       int64       `json:"gap"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	ExcludeID pgtype.UUID `json:"exclude_id"`
+}
+
+func (q *Queries) RebalanceChildren(ctx context.Context, arg RebalanceChildrenParams) error {
+	_, err := q.db.Exec(ctx, rebalanceChildren,
+		arg.Gap,
+		arg.ParentID,
+		arg.UserID,
+		arg.ExcludeID,
+	)
+	return err
 }
