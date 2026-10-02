@@ -1,10 +1,10 @@
 package hierarchy
 
 import (
+	"github.com/KubantsevAS/notree/backend/internal/db"
 	"github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Module struct {
@@ -14,9 +14,9 @@ type Module struct {
 func NewModule(
 	store *hierarchy.Queries,
 	nodeStore *node.Queries,
-	pool *pgxpool.Pool,
+	tx db.Transactor,
 ) *Module {
-	service := NewService(store, nodeStore, NewPgTransactor(pool))
+	service := NewService(store, nodeStore, newReposTransactor(tx))
 	handler := NewHandler(service)
 
 	return &Module{
