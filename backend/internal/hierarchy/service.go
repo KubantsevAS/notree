@@ -21,15 +21,15 @@ type Store interface {
 	GetAncestors(context.Context, sqlcHierarchy.GetAncestorsParams) ([]sqlcHierarchy.Node, error)
 	GetDescendants(context.Context, sqlcHierarchy.GetDescendantsParams) ([]sqlcHierarchy.Node, error)
 
+	GetSubtree(context.Context, sqlcHierarchy.GetSubtreeParams) ([]sqlcHierarchy.Node, error)
+	GetRoot(context.Context, sqlcHierarchy.GetRootParams) (sqlcHierarchy.Node, error)
+
 	//TODO IsDescendant(
 	// 	ctx context.Context,
 	// 	nodeID pgtype.UUID,
 	// 	potentialAncestorID pgtype.UUID,
 	// 	userID pgtype.UUID,
 	// ) (bool, error)
-
-	//TODO GetSubtree(context.Context, pgtype.UUID) ([]node.Node, error) // GetDescendants + Node itself
-	//TODO GetRoot(context.Context, pgtype.UUID) (node.Node, error)
 
 	//TODO GetBreadcrumbs(context.Context, pgtype.UUID) (BreadcrumbItem, error)
 
@@ -164,6 +164,46 @@ func (s *Service) GetDescendants(ctx context.Context, nodeID pgtype.UUID, userID
 	}
 
 	return response, nil
+}
+
+func (s *Service) GetSubtree(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) (GetSubtreeResponse, error) {
+	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
+		return nil, err
+	}
+
+	subtree, err := s.store.GetSubtree(ctx, sqlcHierarchy.GetSubtreeParams{
+		ID:     nodeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]NodeResponse, 0, len(subtree))
+	for _, n := range subtree {
+		response = append(response, mapNodeToResponse(n))
+	}
+
+	return response, nil
+}
+
+func (s *Service) GetRoot(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) (NodeResponse, error) {
+	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
+		return NodeResponse{}, err
+	}
+
+	root, err := s.store.GetRoot(ctx, sqlcHierarchy.GetRootParams{
+		ID:     nodeID,
+		UserID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NodeResponse{}, ErrRootNotFound
+		}
+		return NodeResponse{}, err
+	}
+
+	return mapNodeToResponse(root), nil
 }
 
 func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UUID) error {

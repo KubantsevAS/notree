@@ -36,6 +36,12 @@ type hierarchyStoreFake struct {
 	descendants         []sqlcHierarchy.Node
 	descendantsErr      error
 	lastDescendantsArgs sqlcHierarchy.GetDescendantsParams
+	subtree             []sqlcHierarchy.Node
+	subtreeErr          error
+	lastSubtreeArgs     sqlcHierarchy.GetSubtreeParams
+	root                sqlcHierarchy.Node
+	rootErr             error
+	lastRootArgs        sqlcHierarchy.GetRootParams
 }
 
 func (f *hierarchyStoreFake) GetChildren(context.Context, sqlcHierarchy.GetChildrenParams) ([]sqlcHierarchy.Node, error) {
@@ -68,6 +74,22 @@ func (f *hierarchyStoreFake) GetDescendants(_ context.Context, params sqlcHierar
 		return nil, f.descendantsErr
 	}
 	return f.descendants, nil
+}
+
+func (f *hierarchyStoreFake) GetSubtree(_ context.Context, params sqlcHierarchy.GetSubtreeParams) ([]sqlcHierarchy.Node, error) {
+	f.lastSubtreeArgs = params
+	if f.subtreeErr != nil {
+		return nil, f.subtreeErr
+	}
+	return f.subtree, nil
+}
+
+func (f *hierarchyStoreFake) GetRoot(_ context.Context, params sqlcHierarchy.GetRootParams) (sqlcHierarchy.Node, error) {
+	f.lastRootArgs = params
+	if f.rootErr != nil {
+		return sqlcHierarchy.Node{}, f.rootErr
+	}
+	return f.root, nil
 }
 
 type nodeStoreFake struct {
@@ -294,4 +316,93 @@ func TestGetDescendants_NodeNotFound(t *testing.T) {
 	_, err := service.GetDescendants(context.Background(), nodeID, userID)
 
 	require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
+}
+
+func TestGetSubtree(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	childID := testutil.UUIDFromStringT(t, testUUID3)
+	grandchildID := testutil.UUIDFromStringT(t, testUUID4)
+
+	nodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
+	}
+	store := &hierarchyStoreFake{
+		subtree: []sqlcHierarchy.Node{
+			{ID: nodeID, UserID: userID, Title: "node"},
+			{ID: childID, ParentID: nodeID, UserID: userID, Title: "child"},
+			{ID: grandchildID, ParentID: childID, UserID: userID, Title: "grandchild"},
+		},
+	}
+
+	service := hierarchy.NewService(store, nodeStore)
+	res, err := service.GetSubtree(context.Background(), nodeID, userID)
+
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	require.Equal(t, nodeID.String(), res[0].ID)
+	require.Equal(t, childID.String(), res[1].ID)
+	require.Equal(t, grandchildID.String(), res[2].ID)
+	require.Equal(t, childID.String(), *res[2].ParentID)
+	require.Equal(t, nodeID, store.lastSubtreeArgs.ID)
+	require.Equal(t, userID, store.lastSubtreeArgs.UserID)
+}
+
+func TestGetSubtree_NodeNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+
+	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
+	_, err := service.GetSubtree(context.Background(), nodeID, userID)
+
+	require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
+}
+
+func TestGetRoot(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	parentID := testutil.UUIDFromStringT(t, testUUID3)
+	rootID := testutil.UUIDFromStringT(t, testUUID4)
+
+	nodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID}},
+	}
+	store := &hierarchyStoreFake{
+		root: sqlcHierarchy.Node{ID: rootID, UserID: userID, Title: "root"},
+	}
+
+	service := hierarchy.NewService(store, nodeStore)
+	res, err := service.GetRoot(context.Background(), nodeID, userID)
+
+	require.NoError(t, err)
+	require.Equal(t, rootID.String(), res.ID)
+	require.Equal(t, "root", res.Title)
+	require.Nil(t, res.ParentID)
+	require.Equal(t, nodeID, store.lastRootArgs.ID)
+	require.Equal(t, userID, store.lastRootArgs.UserID)
+}
+
+func TestGetRoot_NodeNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+
+	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
+	_, err := service.GetRoot(context.Background(), nodeID, userID)
+
+	require.ErrorIs(t, err, hierarchy.ErrNodeNotFound)
+}
+
+func TestGetRoot_RootNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+
+	nodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
+	}
+	store := &hierarchyStoreFake{rootErr: pgx.ErrNoRows}
+
+	service := hierarchy.NewService(store, nodeStore)
+	_, err := service.GetRoot(context.Background(), nodeID, userID)
+
+	require.ErrorIs(t, err, hierarchy.ErrRootNotFound)
 }

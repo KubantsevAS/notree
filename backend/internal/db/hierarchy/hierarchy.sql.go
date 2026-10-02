@@ -229,3 +229,124 @@ func (q *Queries) GetParent(ctx context.Context, arg GetParentParams) (Node, err
 	)
 	return i, err
 }
+
+const getRoot = `-- name: GetRoot :one
+WITH RECURSIVE ancestors AS (
+    SELECT
+        node.id,
+        node.parent_id
+    FROM nodes AS node
+    WHERE node.id = $1
+      AND node.user_id = $2
+      AND node.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.parent_id
+    FROM ancestors
+    JOIN nodes AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.user_id = $2
+     AND parent.deleted_at IS NULL
+)
+SELECT n.id, n.user_id, n.parent_id, n.type, n.title, n.sort_order, n.created_at, n.updated_at, n.deleted_at
+FROM ancestors AS a
+JOIN nodes AS n
+  ON n.id = a.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+WHERE a.parent_id IS NULL
+`
+
+type GetRootParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetRoot(ctx context.Context, arg GetRootParams) (Node, error) {
+	row := q.db.QueryRow(ctx, getRoot, arg.ID, arg.UserID)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ParentID,
+		&i.Type,
+		&i.Title,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getSubtree = `-- name: GetSubtree :many
+WITH RECURSIVE subtree AS (
+    SELECT
+        node.id,
+        node.parent_id,
+        ARRAY[node.sort_order] AS so_path,
+        ARRAY[node.id] AS id_path
+    FROM nodes AS node
+    WHERE node.id = $1
+      AND node.user_id = $2
+      AND node.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        child.id,
+        child.parent_id,
+        s.so_path || child.sort_order,
+        s.id_path || child.id
+    FROM subtree AS s
+    JOIN nodes AS child
+      ON child.parent_id = s.id
+     AND child.user_id = $2
+     AND child.deleted_at IS NULL
+)
+SELECT n.id, n.user_id, n.parent_id, n.type, n.title, n.sort_order, n.created_at, n.updated_at, n.deleted_at
+FROM subtree AS s
+JOIN nodes AS n
+  ON n.id = s.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY s.so_path, s.id_path
+`
+
+type GetSubtreeParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetSubtree(ctx context.Context, arg GetSubtreeParams) ([]Node, error) {
+	rows, err := q.db.Query(ctx, getSubtree, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Node
+	for rows.Next() {
+		var i Node
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ParentID,
+			&i.Type,
+			&i.Title,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

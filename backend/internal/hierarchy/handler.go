@@ -181,3 +181,86 @@ func (h *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
+
+// GetSubtree godoc
+// @Summary      Get subtree
+// @Description  Retrieves a specific node together with all its nested descendants in depth-first order.
+// @Tags         Hierarchy
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      200 {array} NodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/subtree [get]
+func (h *Handler) GetSubtree(w http.ResponseWriter, r *http.Request) {
+	nodeID := chi.URLParam(r, "id")
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	response, err := h.service.GetSubtree(r.Context(), parsedNodeID, userID)
+	if err != nil {
+		if errors.Is(err, ErrNodeNotFound) {
+			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
+
+// GetRoot godoc
+// @Summary      Get root node
+// @Description  Retrieves the top-level root node of the tree containing a specific node. Returns the node itself if it is a root.
+// @Tags         Hierarchy
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      200 {object} NodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node or root not found"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/root [get]
+func (h *Handler) GetRoot(w http.ResponseWriter, r *http.Request) {
+	nodeID := chi.URLParam(r, "id")
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	response, err := h.service.GetRoot(r.Context(), parsedNodeID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNodeNotFound):
+			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
+		case errors.Is(err, ErrRootNotFound):
+			httputil.WriteErrorJSON(w, "root not found", http.StatusNotFound)
+		default:
+			httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}

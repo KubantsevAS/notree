@@ -85,3 +85,65 @@ JOIN nodes AS n
  AND n.user_id = $2
  AND n.deleted_at IS NULL
 ORDER BY d.so_path, d.id_path;
+
+-- name: GetSubtree :many
+WITH RECURSIVE subtree AS (
+    SELECT
+        node.id,
+        node.parent_id,
+        ARRAY[node.sort_order] AS so_path,
+        ARRAY[node.id] AS id_path
+    FROM nodes AS node
+    WHERE node.id = $1
+      AND node.user_id = $2
+      AND node.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        child.id,
+        child.parent_id,
+        s.so_path || child.sort_order,
+        s.id_path || child.id
+    FROM subtree AS s
+    JOIN nodes AS child
+      ON child.parent_id = s.id
+     AND child.user_id = $2
+     AND child.deleted_at IS NULL
+)
+SELECT n.*
+FROM subtree AS s
+JOIN nodes AS n
+  ON n.id = s.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+ORDER BY s.so_path, s.id_path;
+
+-- name: GetRoot :one
+WITH RECURSIVE ancestors AS (
+    SELECT
+        node.id,
+        node.parent_id
+    FROM nodes AS node
+    WHERE node.id = $1
+      AND node.user_id = $2
+      AND node.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.parent_id
+    FROM ancestors
+    JOIN nodes AS parent
+      ON parent.id = ancestors.parent_id
+     AND parent.user_id = $2
+     AND parent.deleted_at IS NULL
+)
+SELECT n.*
+FROM ancestors AS a
+JOIN nodes AS n
+  ON n.id = a.id
+ AND n.user_id = $2
+ AND n.deleted_at IS NULL
+WHERE a.parent_id IS NULL;
