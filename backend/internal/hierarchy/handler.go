@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/KubantsevAS/notree/backend/internal/domain"
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/go-chi/chi/v5"
 )
@@ -268,14 +267,14 @@ func (h *Handler) GetRoot(w http.ResponseWriter, r *http.Request) {
 
 // Move godoc
 // @Summary      Move node in tree
-// @Description  Changes the parent or sort order of a node. Pass `null` as parent_id to move the node to the root.
+// @Description  Places a node under parent_id right before before_id. Both fields are required: `null` parent_id means the root, `null` before_id means the end of the list. The same parent_id reorders the node among its siblings.
 // @Tags         Hierarchy
 // @Accept       json
 // @Produce      json
 // @Param        id path string true "Node ID (UUID)"
 // @Param        request body MoveNodeRequest true "Move parameters"
 // @Success      200 {object} MoveNodeResponse
-// @Failure      400 {object} dto.ErrorResponse "invalid parent ID format or parent not found"
+// @Failure      400 {object} dto.ErrorResponse "parent_id or before_id missing, invalid or not found"
 // @Failure      401 {object} dto.ErrorResponse "unauthorized"
 // @Failure      404 {object} dto.ErrorResponse "node not found"
 // @Failure      409 {object} dto.ErrorResponse "node cannot be a descendant of itself (circular reference)"
@@ -305,8 +304,14 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 	response, err := h.service.MoveNode(r.Context(), parsedNodeID, userID, body)
 	if err != nil {
 		switch {
-		case errors.Is(err, domain.ErrEmptyUpdate):
-			httputil.WriteErrorJSON(w, "no fields provided for update", http.StatusBadRequest)
+		case errors.Is(err, ErrParentIDRequired):
+			httputil.WriteErrorJSON(w, "parent_id is required", http.StatusBadRequest)
+		case errors.Is(err, ErrBeforeIDRequired):
+			httputil.WriteErrorJSON(w, "before_id is required", http.StatusBadRequest)
+		case errors.Is(err, ErrInvalidBeforeID):
+			httputil.WriteErrorJSON(w, "invalid before id", http.StatusBadRequest)
+		case errors.Is(err, ErrBeforeNotSibling):
+			httputil.WriteErrorJSON(w, "before_id must reference another child of parent_id", http.StatusBadRequest)
 		case errors.Is(err, ErrInvalidParentID):
 			httputil.WriteErrorJSON(w, "invalid parent id", http.StatusBadRequest)
 		case errors.Is(err, ErrParentNotFound):
