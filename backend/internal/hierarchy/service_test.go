@@ -17,14 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testUUIDBad = "bad-uuid"
-	testUUID1   = "11111111-1111-4111-8111-111111111111"
-	testUUID2   = "22222222-2222-4222-8222-222222222222"
-	testUUID3   = "33333333-3333-4333-8333-333333333333"
-	testUUID4   = "44444444-4444-4444-8444-444444444444"
-)
-
 type hierarchyStoreFake struct {
 	children            []sqlcHierarchy.Node
 	childrenErr         error
@@ -155,8 +147,8 @@ func TestGetChildren(t *testing.T) {
 }
 
 func TestGetChildren_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetChildren(context.Background(), nodeID, userID)
@@ -164,10 +156,10 @@ func TestGetChildren_NodeNotFound(t *testing.T) {
 }
 
 func TestGetParent(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	parentID := testutil.UUIDFromStringT(t, testUUID3)
-	grandparentID := testutil.UUIDFromStringT(t, testUUID4)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	grandparentID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
 	node := sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID}
 
@@ -209,8 +201,8 @@ func TestGetParent(t *testing.T) {
 }
 
 func TestGetParent_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetParent(context.Background(), nodeID, userID)
@@ -219,8 +211,8 @@ func TestGetParent_NodeNotFound(t *testing.T) {
 }
 
 func TestGetParent_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	rootID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	root := sqlcNode.Node{ID: rootID, UserID: userID}
 	nodeStore := &nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): root}}
@@ -234,10 +226,10 @@ func TestGetParent_NodeIsRoot(t *testing.T) {
 }
 
 func TestGetAncestors(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	parentID := testutil.UUIDFromStringT(t, testUUID3)
-	rootID := testutil.UUIDFromStringT(t, testUUID4)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID}},
@@ -263,8 +255,8 @@ func TestGetAncestors(t *testing.T) {
 }
 
 func TestGetAncestors_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	rootID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
@@ -279,8 +271,8 @@ func TestGetAncestors_NodeIsRoot(t *testing.T) {
 }
 
 func TestGetAncestors_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetAncestors(context.Background(), nodeID, userID)
@@ -289,10 +281,10 @@ func TestGetAncestors_NodeNotFound(t *testing.T) {
 }
 
 func TestGetDescendants(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	rootID := testutil.UUIDFromStringT(t, testUUID2)
-	childID := testutil.UUIDFromStringT(t, testUUID3)
-	grandchildID := testutil.UUIDFromStringT(t, testUUID4)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
@@ -317,8 +309,8 @@ func TestGetDescendants(t *testing.T) {
 }
 
 func TestGetDescendants_Empty(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
@@ -333,8 +325,8 @@ func TestGetDescendants_Empty(t *testing.T) {
 }
 
 func TestGetDescendants_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetDescendants(context.Background(), nodeID, userID)
@@ -343,10 +335,10 @@ func TestGetDescendants_NodeNotFound(t *testing.T) {
 }
 
 func TestGetSubtree(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	childID := testutil.UUIDFromStringT(t, testUUID3)
-	grandchildID := testutil.UUIDFromStringT(t, testUUID4)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
@@ -373,8 +365,8 @@ func TestGetSubtree(t *testing.T) {
 }
 
 func TestGetSubtree_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetSubtree(context.Background(), nodeID, userID)
@@ -383,10 +375,10 @@ func TestGetSubtree_NodeNotFound(t *testing.T) {
 }
 
 func TestGetRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	parentID := testutil.UUIDFromStringT(t, testUUID3)
-	rootID := testutil.UUIDFromStringT(t, testUUID4)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID}},
@@ -407,8 +399,8 @@ func TestGetRoot(t *testing.T) {
 }
 
 func TestGetRoot_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	service := hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{})
 	_, err := service.GetRoot(context.Background(), nodeID, userID)
@@ -417,8 +409,8 @@ func TestGetRoot_NodeNotFound(t *testing.T) {
 }
 
 func TestGetRoot_RootNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
 	nodeStore := &nodeStoreFake{
 		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
@@ -432,12 +424,12 @@ func TestGetRoot_RootNotFound(t *testing.T) {
 }
 
 func TestMoveNode(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testUUID1)
-	nodeID := testutil.UUIDFromStringT(t, testUUID2)
-	parentID := testutil.UUIDFromStringT(t, testUUID3)
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	parentExists := func() *nodeStoreFake {
 		return &nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-			testUUID3: {ID: parentID, UserID: userID},
+			testutil.UUID3: {ID: parentID, UserID: userID},
 		}}
 	}
 	moveTo := func(id string) *hierarchy.MoveNodeRequest {
@@ -459,7 +451,7 @@ func TestMoveNode(t *testing.T) {
 		},
 		{
 			name:    "invalid parent uuid",
-			req:     moveTo(testUUIDBad),
+			req:     moveTo(testutil.BadUUID),
 			wantErr: hierarchy.ErrInvalidParentID,
 		},
 		{
@@ -469,31 +461,31 @@ func TestMoveNode(t *testing.T) {
 		},
 		{
 			name:    "self parent",
-			req:     moveTo(testUUID2),
+			req:     moveTo(testutil.UUID2),
 			wantErr: hierarchy.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
 			name:    "parent not found",
-			req:     moveTo(testUUID3),
+			req:     moveTo(testutil.UUID3),
 			wantErr: hierarchy.ErrParentNotFound,
 		},
 		{
 			name:      "parent is inside node subtree",
-			req:       moveTo(testUUID3),
+			req:       moveTo(testutil.UUID3),
 			store:     &hierarchyStoreFake{inSubtree: true},
 			nodeStore: parentExists(),
 			wantErr:   hierarchy.ErrNodeCannotBeADescendantOfItself,
 		},
 		{
 			name:      "subtree check error",
-			req:       moveTo(testUUID3),
+			req:       moveTo(testutil.UUID3),
 			store:     &hierarchyStoreFake{inSubtreeErr: sql.ErrConnDone},
 			nodeStore: parentExists(),
 			wantErr:   sql.ErrConnDone,
 		},
 		{
 			name:      "node not found",
-			req:       moveTo(testUUID3),
+			req:       moveTo(testutil.UUID3),
 			store:     &hierarchyStoreFake{moveErr: pgx.ErrNoRows},
 			nodeStore: parentExists(),
 			wantErr:   hierarchy.ErrNodeNotFound,
@@ -501,7 +493,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name: "success",
 			req: &hierarchy.MoveNodeRequest{
-				ParentID:  hierarchy.NullableString{Value: testutil.StringPtr(testUUID3), IsSet: true},
+				ParentID:  hierarchy.NullableString{Value: testutil.StringPtr(testutil.UUID3), IsSet: true},
 				SortOrder: testutil.Int64Ptr(42),
 			},
 			store: &hierarchyStoreFake{moveResult: sqlcHierarchy.MoveNodeRow{
@@ -513,7 +505,7 @@ func TestMoveNode(t *testing.T) {
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
 				require.NotNil(t, resp.ParentID)
-				require.Equal(t, testUUID3, *resp.ParentID)
+				require.Equal(t, testutil.UUID3, *resp.ParentID)
 				require.EqualValues(t, 42, resp.SortOrder)
 
 				require.Len(t, store.inSubtreeCalls, 1)
