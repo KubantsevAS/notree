@@ -1,7 +1,6 @@
 package user_test
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,37 +10,15 @@ import (
 	"time"
 
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/KubantsevAS/notree/backend/internal/user"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type fakeVerificationMailer struct {
-	sent chan string
-}
-
-func (f *fakeVerificationMailer) SendPasswordReset(_ context.Context, _ string, _ string) error {
-	return nil
-}
-
-func (f *fakeVerificationMailer) SendVerificationEmail(_ context.Context, _ string, token string) error {
-	if f.sent != nil {
-		f.sent <- token
-	}
-	return nil
-}
-
 func newUserHandlerWithFakes(store *userStoreFake, mailer *fakeVerificationMailer) *user.Handler {
 	service := user.NewService(store, mailer)
 	return user.NewHandler(service)
-}
-
-func withUserContext(t *testing.T, req *http.Request, userID pgtype.UUID) *http.Request {
-	t.Helper()
-	return req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID.String()))
 }
 
 func TestHandlerGetProfile(t *testing.T) {
@@ -63,7 +40,7 @@ func TestHandlerGetProfile(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.GetProfile(res, req)
@@ -73,43 +50,6 @@ func TestHandlerGetProfile(t *testing.T) {
 	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
 	require.Equal(t, userID.String(), payload.ID)
 	require.Equal(t, "alice@example.com", payload.Email)
-}
-
-func TestHandlerGetProfile_Unauthorized(t *testing.T) {
-	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
-
-	req := testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil)
-	res := httptest.NewRecorder()
-
-	handler.GetProfile(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "User ID not found in context")
-}
-
-func TestHandlerGetProfile_UserNotFound(t *testing.T) {
-	handler := newUserHandlerWithFakes(&userStoreFake{getUserByIdErr: sql.ErrNoRows}, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
-	res := httptest.NewRecorder()
-
-	handler.GetProfile(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "user not found")
-}
-
-func TestHandlerGetProfile_InternalError(t *testing.T) {
-	store := &userStoreFake{getUserByIdErr: errors.New("db timeout")}
-	handler := newUserHandlerWithFakes(store, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
-	res := httptest.NewRecorder()
-
-	handler.GetProfile(res, req)
-
-	require.Equal(t, http.StatusInternalServerError, res.Code)
-	testutil.AssertErrorJSON(t, res, "internal server error")
 }
 
 func TestHandlerUpdateProfile(t *testing.T) {
@@ -125,7 +65,7 @@ func TestHandlerUpdateProfile(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{
 		Username:  testutil.StringPtr(username),
 		AvatarUrl: testutil.StringPtr(avatarURL),
 	}), userID)
@@ -139,18 +79,6 @@ func TestHandlerUpdateProfile(t *testing.T) {
 	require.Equal(t, username, *payload.Username)
 	require.Equal(t, avatarURL, *payload.AvatarUrl)
 	require.Len(t, store.updateUserProfileParams, 1)
-}
-
-func TestHandlerUpdateProfile_EmptyPayload(t *testing.T) {
-	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", map[string]any{}), userID)
-	res := httptest.NewRecorder()
-
-	handler.UpdateProfile(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "no fields provided for update")
 }
 
 func TestHandlerUpdatePreferences(t *testing.T) {
@@ -168,7 +96,7 @@ func TestHandlerUpdatePreferences(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/preference", user.UpdateUserPreferencesRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/preference", user.UpdateUserPreferencesRequest{
 		Locale:      testutil.StringPtr(locale),
 		Timezone:    testutil.StringPtr(timezone),
 		Preferences: &preferences,
@@ -194,7 +122,7 @@ func TestHandlerChangePassword(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
 		OldPassword: "current-password",
 		NewPassword: "new-password-123",
 	}), userID)
@@ -205,46 +133,6 @@ func TestHandlerChangePassword(t *testing.T) {
 	require.Equal(t, http.StatusOK, res.Code)
 	testutil.AssertMessageJSON(t, res, "password updated")
 	require.Len(t, store.updateUserPasswordParams, 1)
-}
-
-func TestHandlerChangePassword_WrongOldPassword(t *testing.T) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
-	require.NoError(t, err)
-
-	store := &userStoreFake{getUserPasswordHashResult: string(passwordHash)}
-	handler := newUserHandlerWithFakes(store, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
-		OldPassword: "wrong-password",
-		NewPassword: "new-password-123",
-	}), userID)
-	res := httptest.NewRecorder()
-
-	handler.ChangePassword(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "wrong old password")
-}
-
-func TestHandlerChangePassword_InternalError(t *testing.T) {
-	passwordHash, _ := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
-
-	store := &userStoreFake{
-		getUserPasswordHashResult: string(passwordHash),
-		updateUserPasswordErr:     errors.New("connection lost"),
-	}
-	handler := newUserHandlerWithFakes(store, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
-		OldPassword: "current-password",
-		NewPassword: "new-password-123",
-	}), userID)
-	res := httptest.NewRecorder()
-
-	handler.ChangePassword(res, req)
-
-	require.Equal(t, http.StatusInternalServerError, res.Code)
-	testutil.AssertErrorJSON(t, res, "internal server error")
 }
 
 func TestHandlerSendVerificationToken(t *testing.T) {
@@ -258,7 +146,7 @@ func TestHandlerSendVerificationToken(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, mailer)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/send-verification", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/send-verification", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.SendVerificationToken(res, req)
@@ -279,7 +167,7 @@ func TestHandlerVerifyEmailByToken(t *testing.T) {
 	store := &userStoreFake{verifyEmailByTokenResult: userID}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
 		Token: "valid-token",
 	}), userID)
 	res := httptest.NewRecorder()
@@ -291,74 +179,100 @@ func TestHandlerVerifyEmailByToken(t *testing.T) {
 	require.Len(t, store.verifyEmailByTokenParams, 1)
 }
 
-func TestHandlerVerifyEmailByToken_InvalidToken(t *testing.T) {
-	store := &userStoreFake{verifyEmailByTokenErr: sql.ErrNoRows}
-	handler := newUserHandlerWithFakes(store, nil)
+type handlerFunc func(*user.Handler, http.ResponseWriter, *http.Request)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
-		Token: "invalid-token",
-	}), userID)
-	res := httptest.NewRecorder()
+func TestHandler_Errors(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.MinCost)
+	require.NoError(t, err)
+	dbErr := errors.New("db down")
+	unauthorized := "User ID not found in context"
 
-	handler.VerifyEmailByToken(res, req)
+	updateProfileBody := user.UpdateUserProfileRequest{Username: testutil.StringPtr("new-name")}
+	changePasswordBody := user.ChangePasswordRequest{OldPassword: "current-password", NewPassword: "new-password-123"}
 
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid or expired token")
-}
-
-func TestHandler_RequiresAuthentication(t *testing.T) {
-	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
 	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   any
+		name       string
+		call       handlerFunc
+		method     string
+		body       any
+		anonymous  bool
+		store      *userStoreFake
+		wantStatus int
+		wantMsg    string
 	}{
-		{"GetProfile", http.MethodGet, "/profile/me", nil},
-		{"UpdateProfile", http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{Username: testutil.StringPtr("a")}},
-		{"UpdatePreferences", http.MethodPatch, "/profile/me/preference", user.UpdateUserPreferencesRequest{Locale: testutil.StringPtr("a")}},
-		{"ChangePassword", http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{OldPassword: "a", NewPassword: "b"}},
-		{"SendVerificationToken", http.MethodPost, "/profile/me/send-verification", nil},
-		{"VerifyEmailByToken", http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{Token: "a"}},
+		// Every endpoint requires an authenticated user.
+		{name: "get profile unauthorized", call: (*user.Handler).GetProfile, method: http.MethodGet, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+		{name: "update profile unauthorized", call: (*user.Handler).UpdateProfile, method: http.MethodPatch, body: updateProfileBody, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+		{name: "update preferences unauthorized", call: (*user.Handler).UpdatePreferences, method: http.MethodPatch, body: user.UpdateUserPreferencesRequest{Locale: testutil.StringPtr("a")}, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+		{name: "change password unauthorized", call: (*user.Handler).ChangePassword, method: http.MethodPatch, body: changePasswordBody, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+		{name: "send verification unauthorized", call: (*user.Handler).SendVerificationToken, method: http.MethodPost, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+		{name: "verify email unauthorized", call: (*user.Handler).VerifyEmailByToken, method: http.MethodPost, body: user.VerifyEmailByTokenRequest{Token: "a"}, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
+
+		// GetProfile
+		{
+			name: "get profile user not found", call: (*user.Handler).GetProfile, method: http.MethodGet,
+			store:      &userStoreFake{getUserByIdErr: sql.ErrNoRows},
+			wantStatus: http.StatusNotFound, wantMsg: "user not found",
+		},
+		{
+			name: "get profile db error", call: (*user.Handler).GetProfile, method: http.MethodGet,
+			store:      &userStoreFake{getUserByIdErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// UpdateProfile
+		{
+			name: "update profile empty payload", call: (*user.Handler).UpdateProfile, method: http.MethodPatch,
+			body:       map[string]any{},
+			wantStatus: http.StatusBadRequest, wantMsg: "no fields provided for update",
+		},
+		{
+			name: "update profile db error", call: (*user.Handler).UpdateProfile, method: http.MethodPatch,
+			body: updateProfileBody, store: &userStoreFake{updateUserProfileErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// ChangePassword
+		{
+			name: "change password wrong old password", call: (*user.Handler).ChangePassword, method: http.MethodPatch,
+			body:       user.ChangePasswordRequest{OldPassword: "wrong-password", NewPassword: "new-password-123"},
+			store:      &userStoreFake{getUserPasswordHashResult: string(hash)},
+			wantStatus: http.StatusUnauthorized, wantMsg: "wrong old password",
+		},
+		{
+			name: "change password db error", call: (*user.Handler).ChangePassword, method: http.MethodPatch,
+			body:       changePasswordBody,
+			store:      &userStoreFake{getUserPasswordHashResult: string(hash), updateUserPasswordErr: dbErr},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// VerifyEmailByToken
+		{
+			name: "verify email invalid token", call: (*user.Handler).VerifyEmailByToken, method: http.MethodPost,
+			body:       user.VerifyEmailByTokenRequest{Token: "invalid-token"},
+			store:      &userStoreFake{verifyEmailByTokenErr: sql.ErrNoRows},
+			wantStatus: http.StatusBadRequest, wantMsg: "invalid or expired token",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := testutil.NewJSONRequest(t, tc.method, tc.path, tc.body)
+			store := tc.store
+			if store == nil {
+				store = &userStoreFake{}
+			}
+			handler := newUserHandlerWithFakes(store, nil)
+
+			req := testutil.NewJSONRequest(t, tc.method, "/profile/me", tc.body)
+			if !tc.anonymous {
+				req = testutil.WithUserID(req, userID)
+			}
 			res := httptest.NewRecorder()
 
-			switch tc.path {
-			case "/profile/me":
-				if tc.method == http.MethodGet {
-					handler.GetProfile(res, req)
-				} else {
-					handler.UpdateProfile(res, req)
-				}
-			case "/profile/me/preference":
-				handler.UpdatePreferences(res, req)
-			case "/profile/me/change-password":
-				handler.ChangePassword(res, req)
-			case "/profile/me/send-verification":
-				handler.SendVerificationToken(res, req)
-			case "/profile/me/verify-email":
-				handler.VerifyEmailByToken(res, req)
-			}
+			tc.call(handler, res, req)
 
-			require.Equal(t, http.StatusUnauthorized, res.Code)
-			testutil.AssertErrorJSON(t, res, "User ID not found in context")
+			require.Equal(t, tc.wantStatus, res.Code)
+			testutil.AssertErrorJSON(t, res, tc.wantMsg)
 		})
 	}
-}
-
-func TestHandlerUpdateProfile_InternalError(t *testing.T) {
-	store := &userStoreFake{updateUserProfileErr: errors.New("db error")}
-	handler := newUserHandlerWithFakes(store, nil)
-
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{Username: testutil.StringPtr("new-name")}), userID)
-	res := httptest.NewRecorder()
-
-	handler.UpdateProfile(res, req)
-
-	require.Equal(t, http.StatusInternalServerError, res.Code)
-	testutil.AssertErrorJSON(t, res, "internal server error")
 }

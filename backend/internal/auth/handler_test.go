@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/auth"
-	"github.com/KubantsevAS/notree/backend/internal/config"
 	authDb "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
@@ -20,17 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func newAuthHandlerWithFakes(t *testing.T, store *authStoreFake, userStore *userStoreFake, mailer *fakeMailer) *auth.Handler {
-	t.Helper()
-
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		mailer,
-	)
-
-	return auth.NewHandler(service)
+func newAuthHandlerWithFakes(store *authStoreFake, userStore *userStoreFake, mailer *fakeMailer) *auth.Handler {
+	return auth.NewHandler(newService(store, userStore, mailer))
 }
 
 func TestHandlerRegister(t *testing.T) {
@@ -39,7 +29,7 @@ func TestHandlerRegister(t *testing.T) {
 		getUserByEmailErr: sql.ErrNoRows,
 		createUserResult:  testUserID,
 	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, userStore, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/register", &auth.RegisterRequest{
 		Email:    "new@example.com",
@@ -55,40 +45,6 @@ func TestHandlerRegister(t *testing.T) {
 	require.Equal(t, "new@example.com", userStore.createUserParams[0].Email)
 }
 
-func TestHandlerRegister_Conflict(t *testing.T) {
-	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{Email: "exists@example.com"},
-	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
-
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/register", &auth.RegisterRequest{
-		Email:    "exists@example.com",
-		Password: "password123",
-	})
-	res := httptest.NewRecorder()
-
-	handler.Register(res, req)
-
-	require.Equal(t, http.StatusConflict, res.Code)
-	testutil.AssertErrorJSON(t, res, auth.ErrUserExist.Error())
-}
-
-func TestHandlerRegister_InternalError(t *testing.T) {
-	userStore := &userStoreFake{
-		getUserByEmailErr: sql.ErrNoRows,
-		createUserErr:     errors.New("db connection lost"),
-	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
-
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/register", &auth.RegisterRequest{Email: "new@example.com", Password: "password123"})
-	res := httptest.NewRecorder()
-
-	handler.Register(res, req)
-
-	require.Equal(t, http.StatusInternalServerError, res.Code)
-	testutil.AssertErrorJSON(t, res, "internal server error")
-}
-
 func TestHandlerLogin(t *testing.T) {
 	testUserID := testutil.UUIDFromString(testutil.UUID1)
 	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
@@ -101,7 +57,7 @@ func TestHandlerLogin(t *testing.T) {
 			PasswordHash: string(hash),
 		},
 	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, userStore, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/login", &auth.LoginRequest{
 		Email:    "user@example.com",
@@ -115,32 +71,6 @@ func TestHandlerLogin(t *testing.T) {
 	testutil.AssertAuthCookies(t, res, middleware.CookieAccessToken, middleware.CookieRefreshToken)
 }
 
-func TestHandlerLogin_Unauthorized(t *testing.T) {
-	testUserID := testutil.UUIDFromString(testutil.UUID1)
-	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
-	require.NoError(t, err)
-
-	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{
-			ID:           testUserID,
-			Email:        "user@example.com",
-			PasswordHash: string(hash),
-		},
-	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
-
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/login", &auth.LoginRequest{
-		Email:    "user@example.com",
-		Password: "wrong-password",
-	})
-	res := httptest.NewRecorder()
-
-	handler.Login(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, auth.ErrWrongCredentials.Error())
-}
-
 func TestHandler_RefreshTokens(t *testing.T) {
 	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	store := &authStoreFake{
@@ -150,7 +80,7 @@ func TestHandler_RefreshTokens(t *testing.T) {
 			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
 		},
 	}
-	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
+	handler := newAuthHandlerWithFakes(store, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/refresh-tokens", nil)
 	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "refresh-token-value"})
@@ -164,36 +94,8 @@ func TestHandler_RefreshTokens(t *testing.T) {
 	require.Equal(t, "refresh-token-value", store.deleteRefreshTokenArg[0])
 }
 
-func TestHandlerRefreshTokens_MissingCookie(t *testing.T) {
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
-
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/refresh-tokens", nil)
-	res := httptest.NewRecorder()
-
-	handler.RefreshTokens(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "missing refresh token")
-}
-
-func TestHandlerRefreshTokens_InvalidToken(t *testing.T) {
-	store := &authStoreFake{
-		getRefreshTokenErr: sql.ErrNoRows,
-	}
-	handler := newAuthHandlerWithFakes(t, store, &userStoreFake{}, nil)
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/refresh-tokens", nil)
-	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "bad-token"})
-	res := httptest.NewRecorder()
-
-	handler.RefreshTokens(res, req)
-
-	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, auth.ErrInvalidRefreshToken.Error())
-}
-
 func TestHandlerLogout_ClearsCookies(t *testing.T) {
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, &userStoreFake{}, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: "old-refresh-token"})
@@ -210,7 +112,7 @@ func TestHandlerLogout_ClearsCookies(t *testing.T) {
 }
 
 func TestHandlerLogout_WithoutCookie(t *testing.T) {
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, &userStoreFake{}, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	res := httptest.NewRecorder()
@@ -230,7 +132,7 @@ func TestHandlerForgotPassword(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserByEmailResult: userDb.User{ID: testUserID, Email: "reset@example.com"},
 	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, mailer)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, userStore, mailer)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/forgot-password", auth.ForgotPasswordRequest{
 		Email: "reset@example.com",
@@ -255,7 +157,7 @@ func TestHandlerResetPassword(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserIdByResetPasswordResult: testUserID,
 	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
+	handler := newAuthHandlerWithFakes(&authStoreFake{}, userStore, nil)
 
 	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/reset-password", auth.ResetPasswordRequest{
 		Token:       "valid-token",
@@ -271,54 +173,112 @@ func TestHandlerResetPassword(t *testing.T) {
 	require.Equal(t, testUserID, userStore.updateUserPasswordParams[0].ID)
 }
 
-func TestHandlerResetPassword_InvalidToken(t *testing.T) {
-	userStore := &userStoreFake{
-		getUserIdByResetPasswordErr: sql.ErrNoRows,
-	}
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, userStore, nil)
+type handlerFunc func(*auth.Handler, http.ResponseWriter, *http.Request)
 
-	req := testutil.NewJSONRequest(t, http.MethodPost, "/auth/reset-password", auth.ResetPasswordRequest{
-		Token:       "bad-token",
-		NewPassword: "new-password-123",
-	})
-	res := httptest.NewRecorder()
+func TestHandler_Errors(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+	require.NoError(t, err)
+	existingUser := userDb.User{ID: testutil.UUIDFromString(testutil.UUID1), Email: "user@example.com", PasswordHash: string(hash)}
 
-	handler.ResetPassword(res, req)
-
-	require.Equal(t, http.StatusBadRequest, res.Code)
-	testutil.AssertErrorJSON(t, res, "invalid or expired token")
-}
-
-func TestHandlerRequest_BodyValidation(t *testing.T) {
-	handler := newAuthHandlerWithFakes(t, &authStoreFake{}, &userStoreFake{}, nil)
-
-	for _, tc := range []struct {
-		name       string
-		path       string
-		body       string
-		statusCode int
+	tests := []struct {
+		name          string
+		call          handlerFunc
+		body          string
+		refreshCookie string
+		store         *authStoreFake
+		userStore     *userStoreFake
+		wantStatus    int
+		wantMsg       string
 	}{
-		{name: "register invalid email", path: "/auth/register", body: `{"email":"not-an-email","password":"password123"}`, statusCode: http.StatusBadRequest},
-		{name: "login invalid payload", path: "/auth/login", body: `{"email":"user@example.com"}`, statusCode: http.StatusBadRequest},
-		{name: "forgot password invalid email", path: "/auth/forgot-password", body: `{"email":"nope"}`, statusCode: http.StatusBadRequest},
-		{name: "reset password invalid token", path: "/auth/reset-password", body: `{"token":"","new_password":"new-password-123"}`, statusCode: http.StatusBadRequest},
-	} {
+		// Request validation
+		{
+			name: "register invalid email", call: (*auth.Handler).Register,
+			body:       `{"email":"not-an-email","password":"password123"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "login missing password", call: (*auth.Handler).Login,
+			body:       `{"email":"user@example.com"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "forgot password invalid email", call: (*auth.Handler).ForgotPassword,
+			body:       `{"email":"nope"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "reset password empty token", call: (*auth.Handler).ResetPassword,
+			body:       `{"token":"","new_password":"new-password-123"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+
+		// Register
+		{
+			name: "register user exists", call: (*auth.Handler).Register,
+			body:       `{"email":"user@example.com","password":"password123"}`,
+			userStore:  &userStoreFake{getUserByEmailResult: existingUser},
+			wantStatus: http.StatusConflict, wantMsg: auth.ErrUserExist.Error(),
+		},
+		{
+			name: "register db error", call: (*auth.Handler).Register,
+			body:       `{"email":"new@example.com","password":"password123"}`,
+			userStore:  &userStoreFake{getUserByEmailErr: sql.ErrNoRows, createUserErr: errors.New("db down")},
+			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
+		},
+
+		// Login
+		{
+			name: "login wrong password", call: (*auth.Handler).Login,
+			body:       `{"email":"user@example.com","password":"wrong-password"}`,
+			userStore:  &userStoreFake{getUserByEmailResult: existingUser},
+			wantStatus: http.StatusUnauthorized, wantMsg: auth.ErrWrongCredentials.Error(),
+		},
+
+		// RefreshTokens
+		{
+			name: "refresh missing cookie", call: (*auth.Handler).RefreshTokens,
+			wantStatus: http.StatusUnauthorized, wantMsg: "missing refresh token",
+		},
+		{
+			name: "refresh unknown token", call: (*auth.Handler).RefreshTokens,
+			refreshCookie: "bad-token",
+			store:         &authStoreFake{getRefreshTokenErr: sql.ErrNoRows},
+			wantStatus:    http.StatusUnauthorized, wantMsg: auth.ErrInvalidRefreshToken.Error(),
+		},
+
+		// ResetPassword
+		{
+			name: "reset password unknown token", call: (*auth.Handler).ResetPassword,
+			body:       `{"token":"bad-token","new_password":"new-password-123"}`,
+			userStore:  &userStoreFake{getUserIdByResetPasswordErr: sql.ErrNoRows},
+			wantStatus: http.StatusBadRequest, wantMsg: "invalid or expired token",
+		},
+	}
+
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := testutil.NewJSONRequest(t, http.MethodPost, tc.path, strings.NewReader(tc.body))
+			store, userStore := tc.store, tc.userStore
+			if store == nil {
+				store = &authStoreFake{}
+			}
+			if userStore == nil {
+				userStore = &userStoreFake{}
+			}
+			handler := newAuthHandlerWithFakes(store, userStore, nil)
+
+			req := httptest.NewRequest(http.MethodPost, "/auth", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.refreshCookie != "" {
+				req.AddCookie(&http.Cookie{Name: middleware.CookieRefreshToken, Value: tc.refreshCookie})
+			}
 			res := httptest.NewRecorder()
 
-			switch tc.path {
-			case "/auth/register":
-				handler.Register(res, req)
-			case "/auth/login":
-				handler.Login(res, req)
-			case "/auth/forgot-password":
-				handler.ForgotPassword(res, req)
-			case "/auth/reset-password":
-				handler.ResetPassword(res, req)
-			}
+			tc.call(handler, res, req)
 
-			require.Equal(t, tc.statusCode, res.Code)
+			require.Equal(t, tc.wantStatus, res.Code)
+			if tc.wantMsg != "" {
+				testutil.AssertErrorJSON(t, res, tc.wantMsg)
+			}
 		})
 	}
 }

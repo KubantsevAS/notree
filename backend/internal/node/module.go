@@ -22,7 +22,6 @@ func NewModule(
 
 func (m *Module) RegisterRoutes(r chi.Router) {
 	r.Post("/", m.handler.Create)
-	r.Post("/{id}/move", m.handler.Move)
 	r.Patch("/{id}", m.handler.Update)
 	r.Delete("/{id}", m.handler.Delete)
 }

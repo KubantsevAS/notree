@@ -49,6 +49,22 @@ definitions:
       message:
         type: string
     type: object
+  hierarchy.MoveNodeRequest:
+    properties:
+      parent_id:
+        $ref: '#/definitions/hierarchy.NullableString'
+      sort_order:
+        type: integer
+    type: object
+  hierarchy.MoveNodeResponse:
+    properties:
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   hierarchy.NodeResponse:
     properties:
       created_at:
@@ -68,6 +84,13 @@ definitions:
       updated_at:
         type: string
       user_id:
+        type: string
+    type: object
+  hierarchy.NullableString:
+    properties:
+      isSet:
+        type: boolean
+      value:
         type: string
     type: object
   node.CreateNodeRequest:
@@ -100,29 +123,6 @@ definitions:
       title:
         type: string
       type:
-        type: string
-    type: object
-  node.MoveNodeRequest:
-    properties:
-      parent_id:
-        $ref: '#/definitions/node.NullableString'
-      sort_order:
-        type: integer
-    type: object
-  node.MoveNodeResponse:
-    properties:
-      parent_id:
-        type: string
-      sort_order:
-        type: integer
-      updated_at:
-        type: string
-    type: object
-  node.NullableString:
-    properties:
-      isSet:
-        type: boolean
-      value:
         type: string
     type: object
   node.UpdateNodeRequest:
@@ -505,6 +505,44 @@ paths:
       summary: Update node metadata
       tags:
       - Nodes
+  /nodes/{id}/ancestors:
+    get:
+      description: Retrieves all ancestor nodes for a specific node ordered from root
+        to direct parent.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/hierarchy.NodeResponse'
+            type: array
+        "400":
+          description: invalid node id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get ancestor nodes
+      tags:
+      - Hierarchy
   /nodes/{id}/children:
     get:
       description: Retrieves a list of direct child nodes for a specific parent node.
@@ -542,6 +580,44 @@ paths:
       summary: Get child nodes
       tags:
       - Hierarchy
+  /nodes/{id}/descendants:
+    get:
+      description: Retrieves all nested descendant nodes for a specific node in depth-first
+        order.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/hierarchy.NodeResponse'
+            type: array
+        "400":
+          description: invalid node id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get descendant nodes
+      tags:
+      - Hierarchy
   /nodes/{id}/move:
     post:
       consumes:
@@ -559,14 +635,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/node.MoveNodeRequest'
+          $ref: '#/definitions/hierarchy.MoveNodeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/node.MoveNodeResponse'
+            $ref: '#/definitions/hierarchy.MoveNodeResponse'
         "400":
           description: invalid parent ID format or parent not found
           schema:
@@ -576,7 +652,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "404":
-          description: node not found or access denied
+          description: node not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "409":
@@ -589,7 +665,7 @@ paths:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Move node in tree
       tags:
-      - Nodes
+      - Hierarchy
   /nodes/{id}/parent:
     get:
       description: Retrieves parent for a specific node.
@@ -625,6 +701,80 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Get parent node
+      tags:
+      - Hierarchy
+  /nodes/{id}/root:
+    get:
+      description: Retrieves the top-level root node of the tree containing a specific
+        node. Returns the node itself if it is a root.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/hierarchy.NodeResponse'
+        "400":
+          description: invalid node id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node or root not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get root node
+      tags:
+      - Hierarchy
+  /nodes/{id}/subtree:
+    get:
+      description: Retrieves a specific node together with all its nested descendants
+        in depth-first order.
+      parameters:
+      - description: Node ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/hierarchy.NodeResponse'
+            type: array
+        "400":
+          description: invalid node id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: node not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get subtree
       tags:
       - Hierarchy
   /profile/me:

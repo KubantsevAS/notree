@@ -1,30 +1,6 @@
 package node
 
-import (
-	"encoding/json"
-	"time"
-)
-
-type NullableString struct {
-	Value *string
-	IsSet bool
-}
-
-func (n *NullableString) UnmarshalJSON(data []byte) error {
-	n.IsSet = true
-
-	if string(data) == "null" {
-		n.Value = nil
-		return nil
-	}
-
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	n.Value = &s
-	return nil
-}
+import "time"
 
 type CreateNodeRequest struct {
 	ParentID *string `json:"parent_id"`
@@ -49,16 +25,5 @@ type UpdateNodeRequest struct {
 type UpdateNodeResponse struct {
 	Type      string     `json:"type"`
 	Title     string     `json:"title"`
-	UpdatedAt *time.Time `json:"updated_at"`
-}
-
-type MoveNodeRequest struct {
-	ParentID  NullableString `json:"parent_id"`
-	SortOrder *int64         `json:"sort_order" validate:"omitempty"`
-}
-
-type MoveNodeResponse struct {
-	ParentID  *string    `json:"parent_id"`
-	SortOrder int64      `json:"sort_order"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }

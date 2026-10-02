@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/auth"
-	"github.com/KubantsevAS/notree/backend/internal/config"
 	authDb "github.com/KubantsevAS/notree/backend/internal/db/auth"
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
@@ -16,66 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
-
-type authStoreFake struct {
-	getRefreshTokenResult authDb.RefreshToken
-	getRefreshTokenErr    error
-	createRefreshTokenErr error
-	createRefreshParams   []authDb.CreateRefreshTokenParams
-	deleteRefreshTokenErr error
-	deleteRefreshTokenArg []string
-}
-
-func (f *authStoreFake) CreateRefreshToken(ctx context.Context, params authDb.CreateRefreshTokenParams) error {
-	f.createRefreshParams = append(f.createRefreshParams, params)
-	return f.createRefreshTokenErr
-}
-
-func (f *authStoreFake) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
-	f.deleteRefreshTokenArg = append(f.deleteRefreshTokenArg, tokenHash)
-	return f.deleteRefreshTokenErr
-}
-
-func (f *authStoreFake) GetRefreshToken(ctx context.Context, tokenHash string) (authDb.RefreshToken, error) {
-	return f.getRefreshTokenResult, f.getRefreshTokenErr
-}
-
-type userStoreFake struct {
-	getUserByEmailResult           userDb.User
-	getUserByEmailErr              error
-	createUserResult               pgtype.UUID
-	createUserErr                  error
-	createUserParams               []userDb.CreateUserParams
-	setResetPasswordTokenParams    []userDb.SetResetPasswordTokenParams
-	setResetPasswordTokenErr       error
-	getUserIdByResetPasswordResult pgtype.UUID
-	getUserIdByResetPasswordErr    error
-	updateUserPasswordParams       []userDb.UpdateUserPasswordParams
-	updateUserPasswordErr          error
-}
-
-func (f *userStoreFake) GetUserByEmail(_ context.Context, _ string) (userDb.User, error) {
-	return f.getUserByEmailResult, f.getUserByEmailErr
-}
-
-func (f *userStoreFake) CreateUser(_ context.Context, params userDb.CreateUserParams) (pgtype.UUID, error) {
-	f.createUserParams = append(f.createUserParams, params)
-	return f.createUserResult, f.createUserErr
-}
-
-func (f *userStoreFake) SetResetPasswordToken(_ context.Context, params userDb.SetResetPasswordTokenParams) error {
-	f.setResetPasswordTokenParams = append(f.setResetPasswordTokenParams, params)
-	return f.setResetPasswordTokenErr
-}
-
-func (f *userStoreFake) GetUserIdByResetPasswordToken(_ context.Context, _ pgtype.Text) (pgtype.UUID, error) {
-	return f.getUserIdByResetPasswordResult, f.getUserIdByResetPasswordErr
-}
-
-func (f *userStoreFake) UpdateUserPassword(_ context.Context, params userDb.UpdateUserPasswordParams) error {
-	f.updateUserPasswordParams = append(f.updateUserPasswordParams, params)
-	return f.updateUserPasswordErr
-}
 
 func TestRegister(t *testing.T) {
 	testUserID := testutil.UUIDFromString(testutil.UUID1)
@@ -85,12 +24,7 @@ func TestRegister(t *testing.T) {
 		createUserResult:  testUserID,
 	}
 
-	svc := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
+	svc := newService(store, userStore, nil)
 	tokens, err := svc.Register(
 		context.Background(),
 		&auth.RegisterRequest{Email: "new@example.com", Password: "password123"},
@@ -102,51 +36,6 @@ func TestRegister(t *testing.T) {
 	require.Len(t, store.createRefreshParams, 1)
 	require.Equal(t, testUserID, store.createRefreshParams[0].UserID)
 	require.Equal(t, "new@example.com", userStore.createUserParams[0].Email)
-}
-
-func TestRegister_UserAlreadyExists(t *testing.T) {
-	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{Email: "exists@example.com"},
-	}
-	store := &authStoreFake{}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
-
-	_, err := service.Register(
-		context.Background(),
-		&auth.RegisterRequest{Email: "exists@example.com", Password: "password123"},
-	)
-
-	require.ErrorIs(t, err, auth.ErrUserExist)
-}
-
-func TestRegister_DBError(t *testing.T) {
-	dbErr := errors.New("connection lost")
-
-	store := &authStoreFake{}
-	userStore := &userStoreFake{
-		getUserByEmailErr: sql.ErrNoRows,
-		createUserErr:     dbErr,
-	}
-
-	svc := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
-
-	_, err := svc.Register(
-		context.Background(),
-		&auth.RegisterRequest{Email: "new@example.com", Password: "password123"},
-	)
-
-	require.ErrorIs(t, err, dbErr)
-	require.Empty(t, store.createRefreshParams)
 }
 
 func TestLogin(t *testing.T) {
@@ -162,12 +51,7 @@ func TestLogin(t *testing.T) {
 			PasswordHash: string(hash),
 		},
 	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
+	service := newService(store, userStore, nil)
 
 	tokens, err := service.Login(
 		context.Background(),
@@ -180,117 +64,6 @@ func TestLogin(t *testing.T) {
 	require.Len(t, store.createRefreshParams, 1)
 }
 
-func TestLogin_WrongPassword(t *testing.T) {
-	testUserID := testutil.UUIDFromString(testutil.UUID1)
-	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
-	require.NoError(t, err)
-
-	store := &authStoreFake{}
-	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{
-			ID:           testUserID,
-			Email:        "user@example.com",
-			PasswordHash: string(hash),
-		},
-	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
-
-	_, err = service.Login(
-		context.Background(),
-		&auth.LoginRequest{Email: "user@example.com", Password: "wrong-password"},
-	)
-
-	require.ErrorIs(t, err, auth.ErrWrongCredentials)
-	require.Empty(t, store.createRefreshParams)
-}
-
-func TestLogin_WrongCredentials(t *testing.T) {
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		&authStoreFake{},
-		&userStoreFake{getUserByEmailErr: sql.ErrNoRows},
-		nil,
-	)
-
-	_, err := service.Login(
-		context.Background(),
-		&auth.LoginRequest{Email: "missing@example.com", Password: "password123"},
-	)
-
-	require.ErrorIs(t, err, auth.ErrWrongCredentials)
-}
-
-func TestLogin_DBError(t *testing.T) {
-	testUserID := testutil.UUIDFromString(testutil.UUID1)
-	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-	require.NoError(t, err)
-
-	dbErr := errors.New("db timeout")
-	store := &authStoreFake{
-		createRefreshTokenErr: dbErr,
-	}
-	userStore := &userStoreFake{
-		getUserByEmailResult: userDb.User{
-			ID:           testUserID,
-			Email:        "user@example.com",
-			PasswordHash: string(hash),
-		},
-	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		userStore,
-		nil,
-	)
-
-	_, err = service.Login(
-		context.Background(),
-		&auth.LoginRequest{Email: "user@example.com", Password: "password123"},
-	)
-
-	require.ErrorIs(t, err, dbErr)
-}
-
-func TestRefreshTokens_InvalidRefreshToken(t *testing.T) {
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		&authStoreFake{getRefreshTokenErr: sql.ErrNoRows},
-		&userStoreFake{},
-		nil,
-	)
-
-	_, err := service.RefreshTokens(context.Background(), "bad-token")
-
-	require.ErrorIs(t, err, auth.ErrInvalidRefreshToken)
-}
-
-func TestRefreshTokens_ExpiredToken(t *testing.T) {
-	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	store := &authStoreFake{
-		getRefreshTokenResult: authDb.RefreshToken{
-			TokenHash: "expired-token",
-			UserID:    testUserID,
-			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true},
-		},
-	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		store,
-		&userStoreFake{},
-		nil,
-	)
-
-	_, err := service.RefreshTokens(context.Background(), "expired-token")
-
-	require.ErrorIs(t, err, auth.ErrInvalidRefreshToken)
-	require.Equal(t, []string{"expired-token"}, store.deleteRefreshTokenArg)
-}
-
 func TestForgotPassword(t *testing.T) {
 	email := "reset@example.com"
 	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
@@ -298,12 +71,7 @@ func TestForgotPassword(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserByEmailResult: userDb.User{ID: testUserID, Email: email},
 	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		&authStoreFake{},
-		userStore,
-		mailer,
-	)
+	service := newService(&authStoreFake{}, userStore, mailer)
 
 	err := service.ForgotPassword(context.Background(), &auth.ForgotPasswordRequest{Email: email})
 
@@ -323,12 +91,7 @@ func TestForgotPassword_UserNotFound(t *testing.T) {
 	mailer := &fakeMailer{sent: make(chan string, 1)}
 	userStore := &userStoreFake{getUserByEmailErr: sql.ErrNoRows}
 
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		&authStoreFake{},
-		userStore,
-		mailer,
-	)
+	service := newService(&authStoreFake{}, userStore, mailer)
 
 	err := service.ForgotPassword(context.Background(), &auth.ForgotPasswordRequest{Email: "missing@example.com"})
 
@@ -347,12 +110,7 @@ func TestResetPassword(t *testing.T) {
 	userStore := &userStoreFake{
 		getUserIdByResetPasswordResult: testUserID,
 	}
-	service := auth.NewService(
-		&config.Config{JWT: config.JWTConfig{Secret: testutil.TestSecret}},
-		&authStoreFake{},
-		userStore,
-		nil,
-	)
+	service := newService(&authStoreFake{}, userStore, nil)
 
 	err := service.ResetPassword(
 		context.Background(),
@@ -367,17 +125,114 @@ func TestResetPassword(t *testing.T) {
 	require.NoError(t, bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte("new-password-123")))
 }
 
-type fakeMailer struct {
-	sent chan string
-}
+func TestService_Errors(t *testing.T) {
+	ctx := context.Background()
+	testUserID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+	require.NoError(t, err)
+	existingUser := userDb.User{ID: testUserID, Email: "user@example.com", PasswordHash: string(hash)}
+	dbErr := errors.New("db down")
 
-func (m *fakeMailer) SendPasswordReset(ctx context.Context, email string, token string) error {
-	if m.sent != nil {
-		m.sent <- token
+	register := func(s *auth.Service) error {
+		_, err := s.Register(ctx, &auth.RegisterRequest{Email: "new@example.com", Password: "password123"})
+		return err
 	}
-	return nil
-}
+	login := func(password string) func(*auth.Service) error {
+		return func(s *auth.Service) error {
+			_, err := s.Login(ctx, &auth.LoginRequest{Email: "user@example.com", Password: password})
+			return err
+		}
+	}
+	refresh := func(s *auth.Service) error {
+		_, err := s.RefreshTokens(ctx, "refresh-token")
+		return err
+	}
+	noRefreshTokenIssued := func(t *testing.T, store *authStoreFake, _ *userStoreFake) {
+		t.Helper()
+		require.Empty(t, store.createRefreshParams)
+	}
 
-func (m *fakeMailer) SendVerificationEmail(ctx context.Context, email string, token string) error {
-	return nil
+	tests := []struct {
+		name      string
+		store     *authStoreFake
+		userStore *userStoreFake
+		call      func(*auth.Service) error
+		wantErr   error
+		check     func(*testing.T, *authStoreFake, *userStoreFake)
+	}{
+		{
+			name:      "register: user already exists",
+			userStore: &userStoreFake{getUserByEmailResult: userDb.User{Email: "new@example.com"}},
+			call:      register,
+			wantErr:   auth.ErrUserExist,
+			check:     noRefreshTokenIssued,
+		},
+		{
+			name:      "register: create user db error",
+			userStore: &userStoreFake{getUserByEmailErr: sql.ErrNoRows, createUserErr: dbErr},
+			call:      register,
+			wantErr:   dbErr,
+			check:     noRefreshTokenIssued,
+		},
+		{
+			name:      "login: wrong password",
+			userStore: &userStoreFake{getUserByEmailResult: existingUser},
+			call:      login("wrong-password"),
+			wantErr:   auth.ErrWrongCredentials,
+			check:     noRefreshTokenIssued,
+		},
+		{
+			name:      "login: user not found",
+			userStore: &userStoreFake{getUserByEmailErr: sql.ErrNoRows},
+			call:      login("password123"),
+			wantErr:   auth.ErrWrongCredentials,
+			check:     noRefreshTokenIssued,
+		},
+		{
+			name:      "login: refresh token db error",
+			store:     &authStoreFake{createRefreshTokenErr: dbErr},
+			userStore: &userStoreFake{getUserByEmailResult: existingUser},
+			call:      login("password123"),
+			wantErr:   dbErr,
+		},
+		{
+			name:    "refresh: unknown token",
+			store:   &authStoreFake{getRefreshTokenErr: sql.ErrNoRows},
+			call:    refresh,
+			wantErr: auth.ErrInvalidRefreshToken,
+		},
+		{
+			name: "refresh: expired token is revoked",
+			store: &authStoreFake{getRefreshTokenResult: authDb.RefreshToken{
+				TokenHash: "refresh-token",
+				UserID:    testUserID,
+				ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true},
+			}},
+			call:    refresh,
+			wantErr: auth.ErrInvalidRefreshToken,
+			check: func(t *testing.T, store *authStoreFake, _ *userStoreFake) {
+				t.Helper()
+				require.Equal(t, []string{"refresh-token"}, store.deleteRefreshTokenArg)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, userStore := tt.store, tt.userStore
+			if store == nil {
+				store = &authStoreFake{}
+			}
+			if userStore == nil {
+				userStore = &userStoreFake{}
+			}
+
+			err := tt.call(newService(store, userStore, nil))
+
+			require.ErrorIs(t, err, tt.wantErr)
+			if tt.check != nil {
+				tt.check(t, store, userStore)
+			}
+		})
+	}
 }

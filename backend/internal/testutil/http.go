@@ -2,14 +2,28 @@ package testutil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/dto"
+	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
+
+func WithUserID(req *http.Request, userID pgtype.UUID) *http.Request {
+	return req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID.String()))
+}
+
+func WithRouteParam(req *http.Request, key, value string) *http.Request {
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add(key, value)
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+}
 
 func DoRequest(t *testing.T, h http.Handler, method, target string, headers map[string]string, cookies ...http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()

@@ -1,6 +1,9 @@
 package hierarchy
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type NodeResponse struct {
 	ID        string     `json:"id"`
@@ -15,3 +18,38 @@ type NodeResponse struct {
 }
 
 type GetChildrenResponse []NodeResponse
+type GetAncestorsResponse []NodeResponse
+type GetDescendantsResponse []NodeResponse
+type GetSubtreeResponse []NodeResponse
+
+type NullableString struct {
+	Value *string
+	IsSet bool
+}
+
+func (n *NullableString) UnmarshalJSON(data []byte) error {
+	n.IsSet = true
+
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	n.Value = &s
+	return nil
+}
+
+type MoveNodeRequest struct {
+	ParentID  NullableString `json:"parent_id"`
+	SortOrder *int64         `json:"sort_order" validate:"omitempty"`
+}
+
+type MoveNodeResponse struct {
+	ParentID  *string    `json:"parent_id"`
+	SortOrder int64      `json:"sort_order"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}

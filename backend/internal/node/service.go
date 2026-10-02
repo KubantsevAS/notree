@@ -14,9 +14,7 @@ import (
 
 type Store interface {
 	CreateNode(context.Context, node.CreateNodeParams) (node.Node, error)
-	GetNodeAncestors(context.Context, pgtype.UUID) ([]pgtype.UUID, error)
 	GetNodeByID(context.Context, node.GetNodeByIDParams) (node.Node, error)
-	MoveNode(context.Context, node.MoveNodeParams) (node.MoveNodeRow, error)
 	SoftDeleteNodeCascade(context.Context, node.SoftDeleteNodeCascadeParams) ([]pgtype.UUID, error)
 	UpdateNode(context.Context, node.UpdateNodeParams) (node.UpdateNodeRow, error)
 }
@@ -121,92 +119,4 @@ func (s *Service) UpdateNode(ctx context.Context, nodeID pgtype.UUID, userID pgt
 	}
 
 	return response, nil
-}
-
-func (s *Service) MoveNode(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID, req *MoveNodeRequest) (MoveNodeResponse, error) {
-	if !req.ParentID.IsSet && req.SortOrder == nil {
-		return MoveNodeResponse{}, domain.ErrEmptyUpdate
-	}
-
-	dbParams := &node.MoveNodeParams{
-		ID:           nodeID,
-		UserID:       userID,
-		UpdateParent: pgtype.Bool{Bool: req.ParentID.IsSet, Valid: true},
-		ParentID:     pgtype.UUID{Valid: false},
-	}
-
-	if req.ParentID.IsSet && req.ParentID.Value != nil {
-		if *req.ParentID.Value == "" {
-			return MoveNodeResponse{}, ErrInvalidParentID
-		}
-
-		parsedID, err := httputil.PgUUIDFromString(req.ParentID.Value)
-		if err != nil {
-			return MoveNodeResponse{}, ErrInvalidParentID
-		}
-		dbParams.ParentID = parsedID
-
-		if parsedID == nodeID {
-			return MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
-		}
-
-		if _, err := s.store.GetNodeByID(ctx, node.GetNodeByIDParams{ID: parsedID, UserID: userID}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return MoveNodeResponse{}, ErrParentNotFound
-			}
-			return MoveNodeResponse{}, err
-		}
-
-		isDescendantOfItself, err := s.isNodeDescendantOfItself(ctx, nodeID, parsedID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return MoveNodeResponse{}, ErrParentNotFound
-			}
-			return MoveNodeResponse{}, ErrInvalidParentID
-		}
-		if isDescendantOfItself {
-			return MoveNodeResponse{}, ErrNodeCannotBeADescendantOfItself
-		}
-	}
-
-	if req.SortOrder != nil {
-		dbParams.SortOrder = pgtype.Int8{Int64: *req.SortOrder, Valid: true}
-	}
-
-	dbRow, err := s.store.MoveNode(ctx, *dbParams)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return MoveNodeResponse{}, ErrNodeNotFoundOrNoAccess
-		}
-		return MoveNodeResponse{}, err
-	}
-
-	var responseParentID *string
-	if dbRow.ParentID.Valid {
-		str := dbRow.ParentID.String()
-		responseParentID = &str
-	}
-
-	response := MoveNodeResponse{
-		ParentID:  responseParentID,
-		SortOrder: dbRow.SortOrder,
-		UpdatedAt: &dbRow.UpdatedAt.Time,
-	}
-
-	return response, nil
-}
-
-func (s *Service) isNodeDescendantOfItself(ctx context.Context, nodeID pgtype.UUID, parentID pgtype.UUID) (bool, error) {
-	ancestors, err := s.store.GetNodeAncestors(ctx, parentID)
-	if err != nil {
-		return false, err
-	}
-
-	for _, id := range ancestors {
-		if id == nodeID {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
