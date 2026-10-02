@@ -1,3 +1,9 @@
+-- name: GetNode :one
+SELECT * FROM nodes
+WHERE id = $1
+  AND user_id = $2
+  AND deleted_at IS NULL;
+
 -- name: GetParent :one
 SELECT parent.*
 FROM nodes AS node
@@ -11,10 +17,10 @@ WHERE node.id = $1
 
 -- name: GetChildren :many
 SELECT * FROM nodes
-WHERE parent_id = $1 
-  AND user_id = $2 
+WHERE parent_id = @parent_id
+  AND user_id = @user_id
   AND deleted_at IS NULL
-ORDER BY sort_order ASC;
+ORDER BY sort_order ASC, id ASC;
 
 -- name: GetAncestors :many
 WITH RECURSIVE ancestors AS (
@@ -152,14 +158,50 @@ WHERE a.parent_id IS NULL;
 -- name: MoveNode :one
 UPDATE nodes
 SET
-    parent_id = CASE
-                    WHEN sqlc.narg('update_parent')::boolean THEN sqlc.narg('parent_id')
-                    ELSE parent_id
-                END,
-    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    parent_id = sqlc.narg('parent_id'),
+    sort_order = @sort_order,
     updated_at = NOW()
 WHERE id = @id AND user_id = @user_id AND deleted_at IS NULL
 RETURNING parent_id, sort_order, updated_at;
+
+-- name: LockUserHierarchy :exec
+SELECT pg_advisory_xact_lock(hashtextextended('hierarchy:' || (sqlc.arg('user_id')::uuid)::text, 0));
+
+-- name: GetPrevSiblingRank :one
+SELECT n.sort_order
+FROM nodes AS n
+WHERE n.user_id = @user_id
+  AND n.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
+  AND n.deleted_at IS NULL
+  AND n.id <> @exclude_id
+  AND (n.sort_order, n.id) < (sqlc.arg('before_rank')::bigint, sqlc.arg('before_id')::uuid)
+ORDER BY n.sort_order DESC, n.id DESC
+LIMIT 1;
+
+-- name: GetLastSiblingRank :one
+SELECT n.sort_order
+FROM nodes AS n
+WHERE n.user_id = @user_id
+  AND n.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
+  AND n.deleted_at IS NULL
+  AND n.id <> @exclude_id
+ORDER BY n.sort_order DESC, n.id DESC
+LIMIT 1;
+
+-- name: RebalanceChildren :exec
+UPDATE nodes AS n
+SET sort_order = ranked.position * sqlc.arg('gap')::bigint
+FROM (
+    SELECT
+        c.id,
+        ROW_NUMBER() OVER (ORDER BY c.sort_order, c.id) AS position
+    FROM nodes AS c
+    WHERE c.user_id = @user_id
+      AND c.parent_id IS NOT DISTINCT FROM sqlc.narg('parent_id')::uuid
+      AND c.deleted_at IS NULL
+      AND c.id <> @exclude_id
+) AS ranked
+WHERE n.id = ranked.id;
 
 -- name: IsInSubtree :one
 WITH RECURSIVE ancestors AS (

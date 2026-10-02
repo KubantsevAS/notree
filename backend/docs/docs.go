@@ -585,7 +585,7 @@ const docTemplate = `{
         },
         "/nodes/{id}/move": {
             "post": {
-                "description": "Changes the parent or sort order of a node. Pass ` + "`" + `null` + "`" + ` as parent_id to move the node to the root.",
+                "description": "Places a node under parent_id right before before_id. Both fields are required: ` + "`" + `null` + "`" + ` parent_id means the root, ` + "`" + `null` + "`" + ` before_id means the end of the list. The same parent_id reorders the node among its siblings.",
                 "consumes": [
                     "application/json"
                 ],
@@ -622,7 +622,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "invalid parent ID format or parent not found",
+                        "description": "parent_id or before_id missing, invalid or not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1177,12 +1177,18 @@ const docTemplate = `{
         },
         "hierarchy.MoveNodeRequest": {
             "type": "object",
+            "required": [
+                "before_id",
+                "parent_id"
+            ],
             "properties": {
-                "parent_id": {
-                    "$ref": "#/definitions/hierarchy.NullableString"
+                "before_id": {
+                    "type": "string",
+                    "x-nullable": true
                 },
-                "sort_order": {
-                    "type": "integer"
+                "parent_id": {
+                    "type": "string",
+                    "x-nullable": true
                 }
             }
         },
@@ -1228,17 +1234,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "hierarchy.NullableString": {
-            "type": "object",
-            "properties": {
-                "isSet": {
-                    "type": "boolean"
-                },
-                "value": {
                     "type": "string"
                 }
             }

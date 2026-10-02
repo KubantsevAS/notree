@@ -51,10 +51,15 @@ definitions:
     type: object
   hierarchy.MoveNodeRequest:
     properties:
+      before_id:
+        type: string
+        x-nullable: true
       parent_id:
-        $ref: '#/definitions/hierarchy.NullableString'
-      sort_order:
-        type: integer
+        type: string
+        x-nullable: true
+    required:
+    - before_id
+    - parent_id
     type: object
   hierarchy.MoveNodeResponse:
     properties:
@@ -84,13 +89,6 @@ definitions:
       updated_at:
         type: string
       user_id:
-        type: string
-    type: object
-  hierarchy.NullableString:
-    properties:
-      isSet:
-        type: boolean
-      value:
         type: string
     type: object
   node.CreateNodeRequest:
@@ -622,8 +620,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Changes the parent or sort order of a node. Pass `null` as parent_id
-        to move the node to the root.
+      description: 'Places a node under parent_id right before before_id. Both fields
+        are required: `null` parent_id means the root, `null` before_id means the
+        end of the list. The same parent_id reorders the node among its siblings.'
       parameters:
       - description: Node ID (UUID)
         in: path
@@ -644,7 +643,7 @@ paths:
           schema:
             $ref: '#/definitions/hierarchy.MoveNodeResponse'
         "400":
-          description: invalid parent ID format or parent not found
+          description: parent_id or before_id missing, invalid or not found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "401":

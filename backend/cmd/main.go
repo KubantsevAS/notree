@@ -55,13 +55,14 @@ func main() {
 	nodesStore := sqlcNode.New(pool)
 	usersStore := sqlcUser.New(pool)
 	hierarchyStore := sqlcHierarchy.New(pool)
+	transactor := db.NewTransactor(pool)
 
 	mailerService := mailer.NewConsoleMailer()
 
 	authModule := auth.NewModule(cfg, authStore, usersStore, mailerService)
 	userModule := user.NewModule(usersStore, mailerService)
 	nodeModule := node.NewModule(nodesStore)
-	hierarchyModule := hierarchy.NewModule(hierarchyStore, nodesStore)
+	hierarchyModule := hierarchy.NewModule(hierarchyStore, transactor)
 
 	router := router.New(cfg, log, authModule, userModule, nodeModule, hierarchyModule)
 

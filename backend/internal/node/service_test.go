@@ -8,6 +8,7 @@ import (
 
 	nodeDb "github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/hierarchy/rank"
 	"github.com/KubantsevAS/notree/backend/internal/node"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/jackc/pgx/v5"
@@ -15,19 +16,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateNode_SortOrderIncreases(t *testing.T) {
+func TestCreateNode_AppendsWithRankGap(t *testing.T) {
 	fake := &nodeStoreFake{}
-	service := node.NewService(fake)
 	request := &node.CreateNodeRequest{Type: "note", Title: "test"}
 
-	_, err := service.CreateNode(context.Background(), pgtype.UUID{}, request)
-	require.NoError(t, err)
+	_, err := node.NewService(fake).CreateNode(context.Background(), pgtype.UUID{}, request)
 
-	_, err = service.CreateNode(context.Background(), pgtype.UUID{}, request)
 	require.NoError(t, err)
-
-	require.Len(t, fake.createParams, 2)
-	require.Greater(t, fake.createParams[1].SortOrder, fake.createParams[0].SortOrder)
+	require.Len(t, fake.createParams, 1)
+	require.Equal(t, rank.Gap, fake.createParams[0].Gap)
 }
 
 func TestCreateNode_ValidatesParentID(t *testing.T) {

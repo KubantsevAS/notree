@@ -2,13 +2,16 @@ package hierarchy_test
 
 import (
 	"context"
+	"time"
 
 	sqlcHierarchy "github.com/KubantsevAS/notree/backend/internal/db/hierarchy"
-	sqlcNode "github.com/KubantsevAS/notree/backend/internal/db/node"
+	"github.com/KubantsevAS/notree/backend/internal/hierarchy"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type hierarchyStoreFake struct {
+	nodes               *nodeSet
 	children            []sqlcHierarchy.Node
 	childrenErr         error
 	parent              sqlcHierarchy.Node
@@ -30,7 +33,13 @@ type hierarchyStoreFake struct {
 	inSubtree           bool
 	inSubtreeErr        error
 	inSubtreeCalls      []sqlcHierarchy.IsInSubtreeParams
-	moveResult          sqlcHierarchy.MoveNodeRow
+	lockErr             error
+	lockCalls           []pgtype.UUID
+	siblingRanks        []*int64
+	prevRankCalls       []sqlcHierarchy.GetPrevSiblingRankParams
+	lastRankCalls       []sqlcHierarchy.GetLastSiblingRankParams
+	rebalanceErr        error
+	rebalanceCalls      []sqlcHierarchy.RebalanceChildrenParams
 	moveErr             error
 	moveCalls           []sqlcHierarchy.MoveNodeParams
 }
@@ -91,33 +100,85 @@ func (f *hierarchyStoreFake) IsInSubtree(_ context.Context, params sqlcHierarchy
 	return f.inSubtree, nil
 }
 
+func (f *hierarchyStoreFake) LockUserHierarchy(_ context.Context, userID pgtype.UUID) error {
+	f.lockCalls = append(f.lockCalls, userID)
+	return f.lockErr
+}
+
+func (f *hierarchyStoreFake) GetPrevSiblingRank(_ context.Context, params sqlcHierarchy.GetPrevSiblingRankParams) (int64, error) {
+	f.prevRankCalls = append(f.prevRankCalls, params)
+	return f.nextSiblingRank()
+}
+
+func (f *hierarchyStoreFake) GetLastSiblingRank(_ context.Context, params sqlcHierarchy.GetLastSiblingRankParams) (int64, error) {
+	f.lastRankCalls = append(f.lastRankCalls, params)
+	return f.nextSiblingRank()
+}
+
+func (f *hierarchyStoreFake) nextSiblingRank() (int64, error) {
+	call := len(f.prevRankCalls) + len(f.lastRankCalls) - 1
+	if call >= len(f.siblingRanks) || f.siblingRanks[call] == nil {
+		return 0, pgx.ErrNoRows
+	}
+	return *f.siblingRanks[call], nil
+}
+
+func (f *hierarchyStoreFake) RebalanceChildren(_ context.Context, params sqlcHierarchy.RebalanceChildrenParams) error {
+	f.rebalanceCalls = append(f.rebalanceCalls, params)
+	return f.rebalanceErr
+}
+
 func (f *hierarchyStoreFake) MoveNode(_ context.Context, params sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error) {
 	f.moveCalls = append(f.moveCalls, params)
 	if f.moveErr != nil {
 		return sqlcHierarchy.MoveNodeRow{}, f.moveErr
 	}
-	return f.moveResult, nil
+	return sqlcHierarchy.MoveNodeRow{
+		ParentID:  params.ParentID,
+		SortOrder: params.SortOrder,
+		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}, nil
 }
 
-type nodeStoreFake struct {
-	getNodeByIDResult map[string]sqlcNode.Node
-	getNodeByIDErr    error
+type nodeSet struct {
+	nodes map[string]sqlcHierarchy.Node
+	err   error
 }
 
-func (f *nodeStoreFake) GetNodeByID(_ context.Context, params sqlcNode.GetNodeByIDParams) (sqlcNode.Node, error) {
-	if f.getNodeByIDErr != nil {
-		return sqlcNode.Node{}, f.getNodeByIDErr
-	}
-	if node, ok := f.getNodeByIDResult[params.ID.String()]; ok && node.UserID == params.UserID {
-		return node, nil
-	}
-	return sqlcNode.Node{}, pgx.ErrNoRows
-}
-
-func nodeStoreWith(nodes ...sqlcNode.Node) *nodeStoreFake {
-	result := make(map[string]sqlcNode.Node, len(nodes))
+func nodeSetOf(nodes ...sqlcHierarchy.Node) *nodeSet {
+	result := make(map[string]sqlcHierarchy.Node, len(nodes))
 	for _, n := range nodes {
 		result[n.ID.String()] = n
 	}
-	return &nodeStoreFake{getNodeByIDResult: result}
+	return &nodeSet{nodes: result}
 }
+
+func (f *hierarchyStoreFake) GetNode(_ context.Context, params sqlcHierarchy.GetNodeParams) (sqlcHierarchy.Node, error) {
+	if f.nodes == nil {
+		return sqlcHierarchy.Node{}, pgx.ErrNoRows
+	}
+	if f.nodes.err != nil {
+		return sqlcHierarchy.Node{}, f.nodes.err
+	}
+	if node, ok := f.nodes.nodes[params.ID.String()]; ok && node.UserID == params.UserID {
+		return node, nil
+	}
+	return sqlcHierarchy.Node{}, pgx.ErrNoRows
+}
+
+type txFake struct {
+	store *hierarchyStoreFake
+	calls int
+}
+
+func (f *txFake) InTx(_ context.Context, fn func(hierarchy.Store) error) error {
+	f.calls++
+	return fn(f.store)
+}
+
+func newTestService(store *hierarchyStoreFake, nodes *nodeSet) *hierarchy.Service {
+	store.nodes = nodes
+	return hierarchy.NewService(store, &txFake{store: store})
+}
+
+func int64Ptr(v int64) *int64 { return &v }
