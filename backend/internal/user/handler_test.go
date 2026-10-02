@@ -11,10 +11,8 @@ import (
 	"time"
 
 	userDb "github.com/KubantsevAS/notree/backend/internal/db/user"
-	"github.com/KubantsevAS/notree/backend/internal/http/middleware"
 	"github.com/KubantsevAS/notree/backend/internal/testutil"
 	"github.com/KubantsevAS/notree/backend/internal/user"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,11 +37,6 @@ func newUserHandlerWithFakes(store *userStoreFake, mailer *fakeVerificationMaile
 	return user.NewHandler(service)
 }
 
-func withUserContext(t *testing.T, req *http.Request, userID pgtype.UUID) *http.Request {
-	t.Helper()
-	return req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID.String()))
-}
-
 func TestHandlerGetProfile(t *testing.T) {
 	now := time.Now()
 	store := &userStoreFake{
@@ -63,7 +56,7 @@ func TestHandlerGetProfile(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.GetProfile(res, req)
@@ -90,7 +83,7 @@ func TestHandlerGetProfile_Unauthorized(t *testing.T) {
 func TestHandlerGetProfile_UserNotFound(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{getUserByIdErr: sql.ErrNoRows}, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.GetProfile(res, req)
@@ -103,7 +96,7 @@ func TestHandlerGetProfile_InternalError(t *testing.T) {
 	store := &userStoreFake{getUserByIdErr: errors.New("db timeout")}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodGet, "/profile/me", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.GetProfile(res, req)
@@ -125,7 +118,7 @@ func TestHandlerUpdateProfile(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{
 		Username:  testutil.StringPtr(username),
 		AvatarUrl: testutil.StringPtr(avatarURL),
 	}), userID)
@@ -144,7 +137,7 @@ func TestHandlerUpdateProfile(t *testing.T) {
 func TestHandlerUpdateProfile_EmptyPayload(t *testing.T) {
 	handler := newUserHandlerWithFakes(&userStoreFake{}, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", map[string]any{}), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", map[string]any{}), userID)
 	res := httptest.NewRecorder()
 
 	handler.UpdateProfile(res, req)
@@ -168,7 +161,7 @@ func TestHandlerUpdatePreferences(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/preference", user.UpdateUserPreferencesRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/preference", user.UpdateUserPreferencesRequest{
 		Locale:      testutil.StringPtr(locale),
 		Timezone:    testutil.StringPtr(timezone),
 		Preferences: &preferences,
@@ -194,7 +187,7 @@ func TestHandlerChangePassword(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
 		OldPassword: "current-password",
 		NewPassword: "new-password-123",
 	}), userID)
@@ -214,7 +207,7 @@ func TestHandlerChangePassword_WrongOldPassword(t *testing.T) {
 	store := &userStoreFake{getUserPasswordHashResult: string(passwordHash)}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
 		OldPassword: "wrong-password",
 		NewPassword: "new-password-123",
 	}), userID)
@@ -235,7 +228,7 @@ func TestHandlerChangePassword_InternalError(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me/change-password", user.ChangePasswordRequest{
 		OldPassword: "current-password",
 		NewPassword: "new-password-123",
 	}), userID)
@@ -258,7 +251,7 @@ func TestHandlerSendVerificationToken(t *testing.T) {
 	}
 	handler := newUserHandlerWithFakes(store, mailer)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/send-verification", nil), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/send-verification", nil), userID)
 	res := httptest.NewRecorder()
 
 	handler.SendVerificationToken(res, req)
@@ -279,7 +272,7 @@ func TestHandlerVerifyEmailByToken(t *testing.T) {
 	store := &userStoreFake{verifyEmailByTokenResult: userID}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
 		Token: "valid-token",
 	}), userID)
 	res := httptest.NewRecorder()
@@ -295,7 +288,7 @@ func TestHandlerVerifyEmailByToken_InvalidToken(t *testing.T) {
 	store := &userStoreFake{verifyEmailByTokenErr: sql.ErrNoRows}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPost, "/profile/me/verify-email", user.VerifyEmailByTokenRequest{
 		Token: "invalid-token",
 	}), userID)
 	res := httptest.NewRecorder()
@@ -354,7 +347,7 @@ func TestHandlerUpdateProfile_InternalError(t *testing.T) {
 	store := &userStoreFake{updateUserProfileErr: errors.New("db error")}
 	handler := newUserHandlerWithFakes(store, nil)
 
-	req := withUserContext(t, testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{Username: testutil.StringPtr("new-name")}), userID)
+	req := testutil.WithUserID(testutil.NewJSONRequest(t, http.MethodPatch, "/profile/me", user.UpdateUserProfileRequest{Username: testutil.StringPtr("new-name")}), userID)
 	res := httptest.NewRecorder()
 
 	handler.UpdateProfile(res, req)

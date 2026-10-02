@@ -329,8 +329,8 @@ func TestGetUserById_TableDriven(t *testing.T) {
 		{
 			name:     "User with all optional fields",
 			email:    "test@example.com",
-			username: func() *string { s := "john_doe"; return &s }(),
-			verified: func() *bool { b := true; return &b }(),
+			username: testutil.StringPtr("john_doe"),
+			verified: testutil.BoolPtr(true),
 		},
 		{
 			name:     "User with only email",
@@ -341,8 +341,8 @@ func TestGetUserById_TableDriven(t *testing.T) {
 		{
 			name:     "User not verified",
 			email:    "unverified@example.com",
-			username: func() *string { s := "jane"; return &s }(),
-			verified: func() *bool { b := false; return &b }(),
+			username: testutil.StringPtr("jane"),
+			verified: testutil.BoolPtr(false),
 		},
 	}
 
