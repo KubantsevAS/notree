@@ -3,10 +3,10 @@ package node
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/KubantsevAS/notree/backend/internal/db/node"
 	"github.com/KubantsevAS/notree/backend/internal/domain"
+	"github.com/KubantsevAS/notree/backend/internal/hierarchy/rank"
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -46,11 +46,11 @@ func (s *Service) CreateNode(ctx context.Context, userID pgtype.UUID, req *Creat
 	}
 
 	dbParams := node.CreateNodeParams{
-		UserID:    userID,
-		ParentID:  parentID,
-		Type:      node.NodeType(req.Type),
-		Title:     req.Title,
-		SortOrder: time.Now().UnixNano(),
+		UserID:   userID,
+		ParentID: parentID,
+		Type:     node.NodeType(req.Type),
+		Title:    req.Title,
+		Gap:      rank.Gap,
 	}
 
 	nodeRow, err := s.store.CreateNode(ctx, dbParams)

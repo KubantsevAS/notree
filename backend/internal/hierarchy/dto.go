@@ -44,8 +44,8 @@ func (n *NullableString) UnmarshalJSON(data []byte) error {
 }
 
 type MoveNodeRequest struct {
-	ParentID  NullableString `json:"parent_id"`
-	SortOrder *int64         `json:"sort_order" validate:"omitempty"`
+	ParentID NullableString `json:"parent_id" swaggertype:"string" binding:"required" extensions:"x-nullable"`
+	BeforeID NullableString `json:"before_id" swaggertype:"string" binding:"required" extensions:"x-nullable"`
 }
 
 type MoveNodeResponse struct {

@@ -37,7 +37,7 @@ func (f *nodeStoreFake) CreateNode(_ context.Context, params nodeDb.CreateNodePa
 		ParentID:  params.ParentID,
 		Type:      params.Type,
 		Title:     params.Title,
-		SortOrder: params.SortOrder,
+		SortOrder: params.Gap,
 	}, nil
 }
 

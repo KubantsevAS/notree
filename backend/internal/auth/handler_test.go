@@ -190,7 +190,6 @@ func TestHandler_Errors(t *testing.T) {
 		wantStatus    int
 		wantMsg       string
 	}{
-		// Request validation
 		{
 			name: "register invalid email", call: (*auth.Handler).Register,
 			body:       `{"email":"not-an-email","password":"password123"}`,
@@ -211,8 +210,6 @@ func TestHandler_Errors(t *testing.T) {
 			body:       `{"token":"","new_password":"new-password-123"}`,
 			wantStatus: http.StatusBadRequest,
 		},
-
-		// Register
 		{
 			name: "register user exists", call: (*auth.Handler).Register,
 			body:       `{"email":"user@example.com","password":"password123"}`,
@@ -225,16 +222,12 @@ func TestHandler_Errors(t *testing.T) {
 			userStore:  &userStoreFake{getUserByEmailErr: sql.ErrNoRows, createUserErr: errors.New("db down")},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// Login
 		{
 			name: "login wrong password", call: (*auth.Handler).Login,
 			body:       `{"email":"user@example.com","password":"wrong-password"}`,
 			userStore:  &userStoreFake{getUserByEmailResult: existingUser},
 			wantStatus: http.StatusUnauthorized, wantMsg: auth.ErrWrongCredentials.Error(),
 		},
-
-		// RefreshTokens
 		{
 			name: "refresh missing cookie", call: (*auth.Handler).RefreshTokens,
 			wantStatus: http.StatusUnauthorized, wantMsg: "missing refresh token",
@@ -245,8 +238,6 @@ func TestHandler_Errors(t *testing.T) {
 			store:         &authStoreFake{getRefreshTokenErr: sql.ErrNoRows},
 			wantStatus:    http.StatusUnauthorized, wantMsg: auth.ErrInvalidRefreshToken.Error(),
 		},
-
-		// ResetPassword
 		{
 			name: "reset password unknown token", call: (*auth.Handler).ResetPassword,
 			body:       `{"token":"bad-token","new_password":"new-password-123"}`,

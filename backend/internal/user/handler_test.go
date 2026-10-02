@@ -200,15 +200,12 @@ func TestHandler_Errors(t *testing.T) {
 		wantStatus int
 		wantMsg    string
 	}{
-		// Every endpoint requires an authenticated user.
 		{name: "get profile unauthorized", call: (*user.Handler).GetProfile, method: http.MethodGet, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
 		{name: "update profile unauthorized", call: (*user.Handler).UpdateProfile, method: http.MethodPatch, body: updateProfileBody, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
 		{name: "update preferences unauthorized", call: (*user.Handler).UpdatePreferences, method: http.MethodPatch, body: user.UpdateUserPreferencesRequest{Locale: testutil.StringPtr("a")}, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
 		{name: "change password unauthorized", call: (*user.Handler).ChangePassword, method: http.MethodPatch, body: changePasswordBody, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
 		{name: "send verification unauthorized", call: (*user.Handler).SendVerificationToken, method: http.MethodPost, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
 		{name: "verify email unauthorized", call: (*user.Handler).VerifyEmailByToken, method: http.MethodPost, body: user.VerifyEmailByTokenRequest{Token: "a"}, anonymous: true, wantStatus: http.StatusUnauthorized, wantMsg: unauthorized},
-
-		// GetProfile
 		{
 			name: "get profile user not found", call: (*user.Handler).GetProfile, method: http.MethodGet,
 			store:      &userStoreFake{getUserByIdErr: sql.ErrNoRows},
@@ -219,8 +216,6 @@ func TestHandler_Errors(t *testing.T) {
 			store:      &userStoreFake{getUserByIdErr: dbErr},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// UpdateProfile
 		{
 			name: "update profile empty payload", call: (*user.Handler).UpdateProfile, method: http.MethodPatch,
 			body:       map[string]any{},
@@ -231,8 +226,6 @@ func TestHandler_Errors(t *testing.T) {
 			body: updateProfileBody, store: &userStoreFake{updateUserProfileErr: dbErr},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// ChangePassword
 		{
 			name: "change password wrong old password", call: (*user.Handler).ChangePassword, method: http.MethodPatch,
 			body:       user.ChangePasswordRequest{OldPassword: "wrong-password", NewPassword: "new-password-123"},
@@ -245,8 +238,6 @@ func TestHandler_Errors(t *testing.T) {
 			store:      &userStoreFake{getUserPasswordHashResult: string(hash), updateUserPasswordErr: dbErr},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// VerifyEmailByToken
 		{
 			name: "verify email invalid token", call: (*user.Handler).VerifyEmailByToken, method: http.MethodPost,
 			body:       user.VerifyEmailByTokenRequest{Token: "invalid-token"},

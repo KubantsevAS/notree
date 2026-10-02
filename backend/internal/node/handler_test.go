@@ -116,7 +116,6 @@ func TestHandler_Errors(t *testing.T) {
 		wantStatus int
 		wantMsg    string
 	}{
-		// Create
 		{
 			name: "create unauthorized", call: (*node.Handler).Create, method: http.MethodPost,
 			body: createBody, anonymous: true,
@@ -142,8 +141,6 @@ func TestHandler_Errors(t *testing.T) {
 			body: createBody, store: &nodeStoreFake{createErr: dbErr},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// Delete
 		{
 			name: "delete unauthorized", call: (*node.Handler).Delete, method: http.MethodDelete,
 			nodeID: testutil.UUID2, anonymous: true,
@@ -164,8 +161,6 @@ func TestHandler_Errors(t *testing.T) {
 			nodeID: testutil.UUID2, store: &nodeStoreFake{softDeleteErr: dbErr},
 			wantStatus: http.StatusInternalServerError, wantMsg: "internal server error",
 		},
-
-		// Update
 		{
 			name: "update unauthorized", call: (*node.Handler).Update, method: http.MethodPatch,
 			nodeID: testutil.UUID2, body: updateBody, anonymous: true,

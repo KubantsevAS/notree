@@ -53,7 +53,6 @@ func TestBetween(t *testing.T) {
 }
 
 func TestBetween_RepeatedInsertsExhaustGap(t *testing.T) {
-	// Inserting again and again right after the same node halves the gap each time.
 	prev, next := int64(0), rank.Gap
 	inserts := 0
 	for {
