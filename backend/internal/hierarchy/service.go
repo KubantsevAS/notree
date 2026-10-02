@@ -19,7 +19,7 @@ type Store interface {
 	GetChildren(context.Context, sqlcHierarchy.GetChildrenParams) ([]sqlcHierarchy.Node, error)
 
 	GetAncestors(context.Context, sqlcHierarchy.GetAncestorsParams) ([]sqlcHierarchy.Node, error)
-	// GetDescendants(context.Context, pgtype.UUID) ([]sqlcHierarchy.Node, error)
+	GetDescendants(context.Context, sqlcHierarchy.GetDescendantsParams) ([]sqlcHierarchy.Node, error)
 
 	//TODO IsDescendant(
 	// 	ctx context.Context,
@@ -145,7 +145,26 @@ func (s *Service) GetAncestors(ctx context.Context, nodeID pgtype.UUID, userID p
 	return response, nil
 }
 
-func (s *Service) GetDescendants(context.Context, pgtype.UUID) {}
+func (s *Service) GetDescendants(ctx context.Context, nodeID pgtype.UUID, userID pgtype.UUID) (GetDescendantsResponse, error) {
+	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
+		return nil, err
+	}
+
+	descendants, err := s.store.GetDescendants(ctx, sqlcHierarchy.GetDescendantsParams{
+		ParentID: nodeID,
+		UserID:   userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]NodeResponse, 0, len(descendants))
+	for _, n := range descendants {
+		response = append(response, mapNodeToResponse(n))
+	}
+
+	return response, nil
+}
 
 func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UUID) error {
 	_, err := s.nodeStore.GetNodeByID(ctx, sqlcNode.GetNodeByIDParams{

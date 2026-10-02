@@ -175,6 +175,167 @@ func TestHandlerGetParent_NodeNotFound(t *testing.T) {
 	testutil.AssertErrorJSON(t, res, "node not found")
 }
 
+func TestHandlerGetAncestors(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	nodeID := testutil.UUIDFromStringT(t, testUUID2)
+	parentID := testutil.UUIDFromStringT(t, testUUID3)
+	rootID := testutil.UUIDFromStringT(t, testUUID4)
+	updatedAt := time.Now()
+
+	fakeNodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID}},
+	}
+	fake := &hierarchyStoreFake{
+		ancestors: []sqlcHierarchy.Node{
+			{
+				ID:        rootID,
+				UserID:    userID,
+				Type:      sqlcHierarchy.NodeTypeFolder,
+				Title:     "root",
+				CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+				UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+			},
+			{
+				ID:        parentID,
+				UserID:    userID,
+				ParentID:  rootID,
+				Type:      sqlcHierarchy.NodeTypeFolder,
+				Title:     "parent",
+				CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+				UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+			},
+		},
+	}
+	handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
+
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil),
+		userID,
+	), "id", nodeID.String())
+	res := httptest.NewRecorder()
+
+	handler.GetAncestors(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	var payload hierarchy.GetAncestorsResponse
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
+	require.Len(t, payload, 2)
+	require.Equal(t, "root", payload[0].Title)
+	require.Nil(t, payload[0].ParentID)
+	require.Equal(t, "parent", payload[1].Title)
+	require.Equal(t, rootID.String(), *payload[1].ParentID)
+}
+
+func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	rootID := testutil.UUIDFromStringT(t, testUUID2)
+
+	fakeNodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
+	}
+	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, fakeNodeStore))
+
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil),
+		userID,
+	), "id", rootID.String())
+	res := httptest.NewRecorder()
+
+	handler.GetAncestors(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	require.JSONEq(t, "[]", res.Body.String())
+}
+
+func TestHandlerGetAncestors_NodeNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil),
+		userID,
+	), "id", testUUID2)
+	res := httptest.NewRecorder()
+
+	handler.GetAncestors(res, req)
+
+	require.Equal(t, http.StatusNotFound, res.Code)
+	testutil.AssertErrorJSON(t, res, "node not found")
+}
+
+func TestHandlerGetDescendants(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	rootID := testutil.UUIDFromStringT(t, testUUID2)
+	childID := testutil.UUIDFromStringT(t, testUUID3)
+	grandchildID := testutil.UUIDFromStringT(t, testUUID4)
+	updatedAt := time.Now()
+
+	fakeNodeStore := &nodeStoreFake{
+		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
+	}
+	fake := &hierarchyStoreFake{
+		descendants: []sqlcHierarchy.Node{
+			{
+				ID:        childID,
+				UserID:    userID,
+				ParentID:  rootID,
+				Type:      sqlcHierarchy.NodeTypeFolder,
+				Title:     "child",
+				CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+				UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+			},
+			{
+				ID:        grandchildID,
+				UserID:    userID,
+				ParentID:  childID,
+				Type:      sqlcHierarchy.NodeTypeNote,
+				Title:     "grandchild",
+				CreatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+				UpdatedAt: pgtype.Timestamptz{Time: updatedAt, Valid: true},
+			},
+		},
+	}
+	handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
+
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/descendants", nil),
+		userID,
+	), "id", rootID.String())
+	res := httptest.NewRecorder()
+
+	handler.GetDescendants(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	var payload hierarchy.GetDescendantsResponse
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &payload))
+	require.Len(t, payload, 2)
+	require.Equal(t, "child", payload[0].Title)
+	require.Equal(t, "grandchild", payload[1].Title)
+	require.Equal(t, childID.String(), *payload[1].ParentID)
+	require.Nil(t, payload[0].DeletedAt)
+}
+
+func TestHandlerGetDescendants_NodeNotFound(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testUUID1)
+	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+
+	req := withRouteParam(withNodeUserContext(
+		t,
+		httptest.NewRequest(http.MethodGet, "/nodes/:id/descendants", nil),
+		userID,
+	), "id", testUUID2)
+	res := httptest.NewRecorder()
+
+	handler.GetDescendants(res, req)
+
+	require.Equal(t, http.StatusNotFound, res.Code)
+	testutil.AssertErrorJSON(t, res, "node not found")
+}
+
 func TestHandler_Unauthorized(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -193,6 +354,18 @@ func TestHandler_Unauthorized(t *testing.T) {
 			nodeID:  testUUID1,
 			path:    "/nodes/" + testUUID1 + "/parent",
 			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
+		},
+		{
+			name:    "ancestors unauthorized",
+			nodeID:  testUUID1,
+			path:    "/nodes/" + testUUID1 + "/ancestors",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
+		},
+		{
+			name:    "descendants unauthorized",
+			nodeID:  testUUID1,
+			path:    "/nodes/" + testUUID1 + "/descendants",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
 		},
 	}
 
@@ -229,6 +402,18 @@ func TestHandler_InvalidUUID(t *testing.T) {
 			nodeID:  testUUIDBad,
 			path:    "/nodes/" + testUUIDBad + "/parent",
 			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
+		},
+		{
+			name:    "ancestors invalid UUID",
+			nodeID:  testUUIDBad,
+			path:    "/nodes/" + testUUIDBad + "/ancestors",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
+		},
+		{
+			name:    "descendants invalid UUID",
+			nodeID:  testUUIDBad,
+			path:    "/nodes/" + testUUIDBad + "/descendants",
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
 		},
 	}
 
@@ -314,6 +499,56 @@ func TestHandler_InternalErrors(t *testing.T) {
 					}}
 			},
 			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
+		},
+		{
+			name:     "get ancestors node store error",
+			method:   http.MethodGet,
+			routeKey: "id",
+			path:     "/nodes/" + testUUID1 + "/ancestors",
+			body:     nil,
+			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
+				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
+			},
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
+		},
+		{
+			name:     "get ancestors store error",
+			method:   http.MethodGet,
+			routeKey: "id",
+			path:     "/nodes/" + testUUID1 + "/ancestors",
+			body:     nil,
+			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
+				return &hierarchyStoreFake{ancestorsErr: sql.ErrConnDone},
+					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
+						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1), UserID: userID},
+					}}
+			},
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
+		},
+		{
+			name:     "get descendants node store error",
+			method:   http.MethodGet,
+			routeKey: "id",
+			path:     "/nodes/" + testUUID1 + "/descendants",
+			body:     nil,
+			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
+				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
+			},
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
+		},
+		{
+			name:     "get descendants store error",
+			method:   http.MethodGet,
+			routeKey: "id",
+			path:     "/nodes/" + testUUID1 + "/descendants",
+			body:     nil,
+			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
+				return &hierarchyStoreFake{descendantsErr: sql.ErrConnDone},
+					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
+						testUUID1: {ID: testutil.UUIDFromStringT(t, testUUID1), UserID: userID},
+					}}
+			},
+			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
 		},
 	}
 

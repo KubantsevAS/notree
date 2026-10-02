@@ -16,3 +16,4 @@ type NodeResponse struct {
 
 type GetChildrenResponse []NodeResponse
 type GetAncestorsResponse []NodeResponse
+type GetDescendantsResponse []NodeResponse

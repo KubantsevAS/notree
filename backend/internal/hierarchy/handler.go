@@ -102,5 +102,82 @@ func (h *Handler) GetParent(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
 
-func (s *Handler) GetAncestors(w http.ResponseWriter, r *http.Request)   {}
-func (s *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {}
+// GetAncestors godoc
+// @Summary      Get ancestor nodes
+// @Description  Retrieves all ancestor nodes for a specific node ordered from root to direct parent.
+// @Tags         Hierarchy
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      200 {array} NodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/ancestors [get]
+func (h *Handler) GetAncestors(w http.ResponseWriter, r *http.Request) {
+	nodeID := chi.URLParam(r, "id")
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	response, err := h.service.GetAncestors(r.Context(), parsedNodeID, userID)
+	if err != nil {
+		if errors.Is(err, ErrNodeNotFound) {
+			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
+
+// GetDescendants godoc
+// @Summary      Get descendant nodes
+// @Description  Retrieves all nested descendant nodes for a specific node in depth-first order.
+// @Tags         Hierarchy
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      200 {array} NodeResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/descendants [get]
+func (h *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {
+	nodeID := chi.URLParam(r, "id")
+
+	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
+	if err != nil {
+		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
+	if err != nil {
+		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
+		return
+	}
+
+	response, err := h.service.GetDescendants(r.Context(), parsedNodeID, userID)
+	if err != nil {
+		if errors.Is(err, ErrNodeNotFound) {
+			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
+			return
+		}
+		httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
