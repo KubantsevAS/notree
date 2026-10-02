@@ -22,9 +22,7 @@ func TestHandlerGetChildren(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	updatedAt := time.Now()
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{parentID.String(): {ID: parentID, UserID: userID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: parentID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		children: []sqlcHierarchy.Node{{
 			ID:        testutil.UUIDFromStringT(t, testutil.UUID3),
@@ -53,19 +51,6 @@ func TestHandlerGetChildren(t *testing.T) {
 	require.Nil(t, payload[0].DeletedAt)
 }
 
-func TestHandlerGetChildren_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/children", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetChildren(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
-}
-
 func TestHandlerGetParent(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
@@ -73,11 +58,7 @@ func TestHandlerGetParent(t *testing.T) {
 	grandparentID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{
-			nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID},
-		},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	fake := &hierarchyStoreFake{
 		parent: sqlcHierarchy.Node{
 			ID:        parentID,
@@ -107,41 +88,6 @@ func TestHandlerGetParent(t *testing.T) {
 	require.Nil(t, payload.DeletedAt)
 }
 
-func TestHandlerGetParent_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{
-			rootID.String(): {ID: rootID, UserID: userID},
-		},
-	}
-	fake := &hierarchyStoreFake{parentErr: errors.New("GetParent must not be called for root node")}
-	handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/parent", nil), userID), "id", rootID.String())
-	res := httptest.NewRecorder()
-
-	handler.GetParent(res, req)
-
-	require.Equal(t, http.StatusNoContent, res.Code)
-	require.Empty(t, res.Body.String())
-}
-
-func TestHandlerGetParent_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/parent", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetParent(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
-}
-
 func TestHandlerGetAncestors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
@@ -149,9 +95,7 @@ func TestHandlerGetAncestors(t *testing.T) {
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: parentID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: parentID})
 	fake := &hierarchyStoreFake{
 		ancestors: []sqlcHierarchy.Node{
 			{
@@ -194,9 +138,7 @@ func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
 	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, fakeNodeStore))
 
 	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", rootID.String())
@@ -208,19 +150,6 @@ func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
 	require.JSONEq(t, "[]", res.Body.String())
 }
 
-func TestHandlerGetAncestors_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetAncestors(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
-}
-
 func TestHandlerGetDescendants(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
@@ -228,9 +157,7 @@ func TestHandlerGetDescendants(t *testing.T) {
 	grandchildID := testutil.UUIDFromStringT(t, testutil.UUID4)
 	updatedAt := time.Now()
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{rootID.String(): {ID: rootID, UserID: userID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: rootID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		descendants: []sqlcHierarchy.Node{
 			{
@@ -270,28 +197,13 @@ func TestHandlerGetDescendants(t *testing.T) {
 	require.Nil(t, payload[0].DeletedAt)
 }
 
-func TestHandlerGetDescendants_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/descendants", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetDescendants(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
-}
-
 func TestHandlerGetSubtree(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	childID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	updatedAt := time.Now()
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		subtree: []sqlcHierarchy.Node{
 			{
@@ -329,28 +241,13 @@ func TestHandlerGetSubtree(t *testing.T) {
 	require.Equal(t, nodeID.String(), *payload[1].ParentID)
 }
 
-func TestHandlerGetSubtree_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/subtree", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetSubtree(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
-}
-
 func TestHandlerGetRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID3)
 	updatedAt := time.Now()
 
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID, ParentID: rootID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: rootID})
 	fake := &hierarchyStoreFake{
 		root: sqlcHierarchy.Node{
 			ID:        rootID,
@@ -376,90 +273,32 @@ func TestHandlerGetRoot(t *testing.T) {
 	require.Nil(t, payload.ParentID)
 }
 
-func TestHandlerGetRoot_NodeNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+type handlerFunc func(*hierarchy.Handler, http.ResponseWriter, *http.Request)
 
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/root", nil), userID), "id", testutil.UUID2)
-	res := httptest.NewRecorder()
-
-	handler.GetRoot(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "node not found")
+var readEndpoints = []struct {
+	name string
+	call handlerFunc
+}{
+	{"children", (*hierarchy.Handler).GetChildren},
+	{"parent", (*hierarchy.Handler).GetParent},
+	{"ancestors", (*hierarchy.Handler).GetAncestors},
+	{"descendants", (*hierarchy.Handler).GetDescendants},
+	{"subtree", (*hierarchy.Handler).GetSubtree},
+	{"root", (*hierarchy.Handler).GetRoot},
 }
 
-func TestHandlerGetRoot_RootNotFound(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{nodeID.String(): {ID: nodeID, UserID: userID}},
-	}
-	fake := &hierarchyStoreFake{rootErr: pgx.ErrNoRows}
-	handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/root", nil), userID), "id", nodeID.String())
-	res := httptest.NewRecorder()
-
-	handler.GetRoot(res, req)
-
-	require.Equal(t, http.StatusNotFound, res.Code)
-	testutil.AssertErrorJSON(t, res, "root not found")
+func newReadRequest(endpoint, nodeID string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, "/nodes/"+nodeID+"/"+endpoint, nil)
+	return testutil.WithRouteParam(req, "id", nodeID)
 }
 
 func TestHandler_Unauthorized(t *testing.T) {
-	tests := []struct {
-		name    string
-		nodeID  string
-		path    string
-		execute func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request)
-	}{
-		{
-			name:    "children unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/children",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
-		},
-		{
-			name:    "parent unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/parent",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
-		},
-		{
-			name:    "ancestors unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/ancestors",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
-		},
-		{
-			name:    "descendants unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/descendants",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
-		},
-		{
-			name:    "subtree unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/subtree",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetSubtree(w, r) },
-		},
-		{
-			name:    "root unauthorized",
-			nodeID:  testutil.UUID1,
-			path:    "/nodes/" + testutil.UUID1 + "/root",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetRoot(w, r) },
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, ep := range readEndpoints {
+		t.Run(ep.name, func(t *testing.T) {
 			handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-			req := testutil.WithRouteParam(httptest.NewRequest(http.MethodGet, tc.path, nil), "id", tc.nodeID)
 			res := httptest.NewRecorder()
 
-			tc.execute(handler, res, req)
+			ep.call(handler, res, newReadRequest(ep.name, testutil.UUID1))
 
 			require.Equal(t, http.StatusUnauthorized, res.Code)
 			testutil.AssertErrorJSON(t, res, "User ID not found in context")
@@ -469,57 +308,13 @@ func TestHandler_Unauthorized(t *testing.T) {
 
 func TestHandler_InvalidUUID(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	tests := []struct {
-		name    string
-		nodeID  string
-		path    string
-		execute func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request)
-	}{
-		{
-			name:    "children invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/children",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
-		},
-		{
-			name:    "parent invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/parent",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
-		},
-		{
-			name:    "ancestors invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/ancestors",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
-		},
-		{
-			name:    "descendants invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/descendants",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
-		},
-		{
-			name:    "subtree invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/subtree",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetSubtree(w, r) },
-		},
-		{
-			name:    "root invalid UUID",
-			nodeID:  testutil.BadUUID,
-			path:    "/nodes/" + testutil.BadUUID + "/root",
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetRoot(w, r) },
-		},
-	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, ep := range readEndpoints {
+		t.Run(ep.name, func(t *testing.T) {
 			handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
-			req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, tc.path, nil), userID), "id", tc.nodeID)
 			res := httptest.NewRecorder()
 
-			tc.execute(handler, res, req)
+			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.BadUUID), userID))
 
 			require.Equal(t, http.StatusBadRequest, res.Code)
 			testutil.AssertErrorJSON(t, res, "invalid node id format")
@@ -527,189 +322,126 @@ func TestHandler_InvalidUUID(t *testing.T) {
 	}
 }
 
-func TestHandler_InternalErrors(t *testing.T) {
+func TestHandler_NodeNotFound(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+
+	for _, ep := range readEndpoints {
+		t.Run(ep.name, func(t *testing.T) {
+			handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, &nodeStoreFake{}))
+			res := httptest.NewRecorder()
+
+			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.UUID2), userID))
+
+			require.Equal(t, http.StatusNotFound, res.Code)
+			testutil.AssertErrorJSON(t, res, "node not found")
+		})
+	}
+}
+
+func TestHandler_NodeLookupError(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+
+	for _, ep := range readEndpoints {
+		t.Run(ep.name, func(t *testing.T) {
+			nodeStore := &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
+			handler := hierarchy.NewHandler(hierarchy.NewService(&hierarchyStoreFake{}, nodeStore))
+			res := httptest.NewRecorder()
+
+			ep.call(handler, res, testutil.WithUserID(newReadRequest(ep.name, testutil.UUID2), userID))
+
+			require.Equal(t, http.StatusInternalServerError, res.Code)
+			testutil.AssertErrorJSON(t, res, "internal server error")
+		})
+	}
+}
+
+func TestHandler_StoreError(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	nodeStore := nodeStoreWith(sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)})
+
 	tests := []struct {
-		name     string
-		method   string
-		routeKey string
-		path     string
-		body     any
-		setup    func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake)
-		execute  func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request)
+		endpoint string
+		call     handlerFunc
+		store    *hierarchyStoreFake
+	}{
+		{"children", (*hierarchy.Handler).GetChildren, &hierarchyStoreFake{childrenErr: sql.ErrConnDone}},
+		{"parent", (*hierarchy.Handler).GetParent, &hierarchyStoreFake{parentErr: sql.ErrConnDone}},
+		{"ancestors", (*hierarchy.Handler).GetAncestors, &hierarchyStoreFake{ancestorsErr: sql.ErrConnDone}},
+		{"descendants", (*hierarchy.Handler).GetDescendants, &hierarchyStoreFake{descendantsErr: sql.ErrConnDone}},
+		{"subtree", (*hierarchy.Handler).GetSubtree, &hierarchyStoreFake{subtreeErr: sql.ErrConnDone}},
+		{"root", (*hierarchy.Handler).GetRoot, &hierarchyStoreFake{rootErr: sql.ErrConnDone}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.endpoint, func(t *testing.T) {
+			handler := hierarchy.NewHandler(hierarchy.NewService(tc.store, nodeStore))
+			res := httptest.NewRecorder()
+
+			tc.call(handler, res, testutil.WithUserID(newReadRequest(tc.endpoint, nodeID.String()), userID))
+
+			require.Equal(t, http.StatusInternalServerError, res.Code)
+			testutil.AssertErrorJSON(t, res, "internal server error")
+		})
+	}
+}
+
+func TestHandler_DomainErrors(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	rootNode := sqlcNode.Node{ID: nodeID, UserID: userID}
+	childNode := sqlcNode.Node{ID: nodeID, UserID: userID, ParentID: testutil.UUIDFromStringT(t, testutil.UUID3)}
+
+	tests := []struct {
+		name       string
+		endpoint   string
+		call       handlerFunc
+		node       sqlcNode.Node
+		store      *hierarchyStoreFake
+		wantStatus int
+		wantMsg    string
 	}{
 		{
-			name:     "get children db error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/children",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
+			name:       "parent of root node",
+			endpoint:   "parent",
+			call:       (*hierarchy.Handler).GetParent,
+			node:       rootNode,
+			store:      &hierarchyStoreFake{parentErr: errors.New("GetParent must not be called for root node")},
+			wantStatus: http.StatusNoContent,
 		},
 		{
-			name:     "get children store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/children",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{childrenErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {ID: testutil.UUIDFromStringT(t, testutil.UUID1), UserID: userID},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetChildren(w, r) },
+			name:       "parent row missing",
+			endpoint:   "parent",
+			call:       (*hierarchy.Handler).GetParent,
+			node:       childNode,
+			store:      &hierarchyStoreFake{parentErr: pgx.ErrNoRows},
+			wantStatus: http.StatusNotFound,
+			wantMsg:    "parent not found",
 		},
 		{
-			name:     "get parent node store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/parent",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
-		},
-		{
-			name:     "get parent store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/parent",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{parentErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {
-							ID:       testutil.UUIDFromStringT(t, testutil.UUID1),
-							UserID:   userID,
-							ParentID: testutil.UUIDFromStringT(t, testutil.UUID2),
-						},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetParent(w, r) },
-		},
-		{
-			name:     "get ancestors node store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/ancestors",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
-		},
-		{
-			name:     "get ancestors store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/ancestors",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{ancestorsErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {ID: testutil.UUIDFromStringT(t, testutil.UUID1), UserID: userID},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetAncestors(w, r) },
-		},
-		{
-			name:     "get descendants node store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/descendants",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
-		},
-		{
-			name:     "get descendants store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/descendants",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{descendantsErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {ID: testutil.UUIDFromStringT(t, testutil.UUID1), UserID: userID},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetDescendants(w, r) },
-		},
-		{
-			name:     "get subtree node store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/subtree",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetSubtree(w, r) },
-		},
-		{
-			name:     "get subtree store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/subtree",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{subtreeErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {ID: testutil.UUIDFromStringT(t, testutil.UUID1), UserID: userID},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetSubtree(w, r) },
-		},
-		{
-			name:     "get root node store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/root",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{}, &nodeStoreFake{getNodeByIDErr: sql.ErrConnDone}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetRoot(w, r) },
-		},
-		{
-			name:     "get root store error",
-			method:   http.MethodGet,
-			routeKey: "id",
-			path:     "/nodes/" + testutil.UUID1 + "/root",
-			body:     nil,
-			setup: func(t *testing.T) (*hierarchyStoreFake, *nodeStoreFake) {
-				return &hierarchyStoreFake{rootErr: sql.ErrConnDone},
-					&nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-						testutil.UUID1: {ID: testutil.UUIDFromStringT(t, testutil.UUID1), UserID: userID},
-					}}
-			},
-			execute: func(h *hierarchy.Handler, w http.ResponseWriter, r *http.Request) { h.GetRoot(w, r) },
+			name:       "root not found",
+			endpoint:   "root",
+			call:       (*hierarchy.Handler).GetRoot,
+			node:       childNode,
+			store:      &hierarchyStoreFake{rootErr: pgx.ErrNoRows},
+			wantStatus: http.StatusNotFound,
+			wantMsg:    "root not found",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fake, fakeNodeStore := tc.setup(t)
-			handler := hierarchy.NewHandler(hierarchy.NewService(fake, fakeNodeStore))
-
-			req := testutil.NewJSONRequest(t, tc.method, tc.path, tc.body)
-			req = testutil.WithUserID(req, userID)
-
-			req = testutil.WithRouteParam(req, tc.routeKey, testutil.UUID1)
-
+			handler := hierarchy.NewHandler(hierarchy.NewService(tc.store, nodeStoreWith(tc.node)))
 			res := httptest.NewRecorder()
 
-			tc.execute(handler, res, req)
+			tc.call(handler, res, testutil.WithUserID(newReadRequest(tc.endpoint, nodeID.String()), userID))
 
-			require.Equal(t, http.StatusInternalServerError, res.Code)
-			testutil.AssertErrorJSON(t, res, "internal server error")
+			require.Equal(t, tc.wantStatus, res.Code)
+			if tc.wantMsg == "" {
+				require.Empty(t, res.Body.String())
+				return
+			}
+			testutil.AssertErrorJSON(t, res, tc.wantMsg)
 		})
 	}
 }
@@ -722,9 +454,7 @@ func newMoveRequest(t *testing.T, userID pgtype.UUID, nodeID string, body any) *
 func TestHandlerMove(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	fakeNodeStore := &nodeStoreFake{
-		getNodeByIDResult: map[string]sqlcNode.Node{testutil.UUID3: {ID: parentID, UserID: userID}},
-	}
+	fakeNodeStore := nodeStoreWith(sqlcNode.Node{ID: parentID, UserID: userID})
 	fake := &hierarchyStoreFake{
 		moveResult: sqlcHierarchy.MoveNodeRow{
 			ParentID:  parentID,
@@ -749,9 +479,7 @@ func TestHandlerMove(t *testing.T) {
 
 func TestHandlerMove_Errors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	parentExists := &nodeStoreFake{getNodeByIDResult: map[string]sqlcNode.Node{
-		testutil.UUID3: {ID: testutil.UUIDFromStringT(t, testutil.UUID3), UserID: userID},
-	}}
+	parentExists := nodeStoreWith(sqlcNode.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID3), UserID: userID})
 
 	tests := []struct {
 		name       string
