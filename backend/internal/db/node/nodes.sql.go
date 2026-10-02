@@ -13,16 +13,28 @@ import (
 
 const createNode = `-- name: CreateNode :one
 INSERT INTO nodes (user_id, parent_id, type, title, sort_order)
-VALUES ($1, $2, $3, $4, $5)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    COALESCE((
+        SELECT MAX(sibling.sort_order)
+        FROM nodes AS sibling
+        WHERE sibling.parent_id IS NOT DISTINCT FROM $2::uuid
+          AND sibling.user_id = $1
+          AND sibling.deleted_at IS NULL
+    ), 0) + $5::bigint
+)
 RETURNING id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at
 `
 
 type CreateNodeParams struct {
-	UserID    pgtype.UUID `json:"user_id"`
-	ParentID  pgtype.UUID `json:"parent_id"`
-	Type      NodeType    `json:"type"`
-	Title     string      `json:"title"`
-	SortOrder int64       `json:"sort_order"`
+	UserID   pgtype.UUID `json:"user_id"`
+	ParentID pgtype.UUID `json:"parent_id"`
+	Type     NodeType    `json:"type"`
+	Title    string      `json:"title"`
+	Gap      int64       `json:"gap"`
 }
 
 func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, error) {
@@ -31,7 +43,7 @@ func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, e
 		arg.ParentID,
 		arg.Type,
 		arg.Title,
-		arg.SortOrder,
+		arg.Gap,
 	)
 	var i Node
 	err := row.Scan(
