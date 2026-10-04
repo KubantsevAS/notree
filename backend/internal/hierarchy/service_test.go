@@ -107,21 +107,6 @@ func TestGetParent(t *testing.T) {
 	require.Equal(t, userID, store.lastGetParentParams.UserID)
 }
 
-func TestGetParent_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	root := sqlcHierarchy.Node{ID: rootID, UserID: userID}
-	nodes := nodeSetOf(root)
-	store := &hierarchyStoreFake{parentErr: errors.New("GetParent must not be called for root node")}
-
-	service := newTestService(store, nodes)
-	_, err := service.GetParent(context.Background(), rootID, userID)
-
-	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
-	require.Zero(t, store.getParentCalls)
-}
-
 func TestGetAncestors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
@@ -149,18 +134,103 @@ func TestGetAncestors(t *testing.T) {
 	require.Equal(t, userID, store.lastAncestorsArgs.UserID)
 }
 
-func TestGetAncestors_NodeIsRoot(t *testing.T) {
+func TestService_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	tests := []struct {
+		name               string
+		call               func(*hierarchy.Service) (any, error)
+		wantResponse       any
+		wantErr            error
+		wantGetParentCalls int
+	}{
+		{
+			name: "GetParent",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetParent(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.NodeResponse{},
+			wantErr:      hierarchy.ErrNodeIsRoot,
+		},
+		{
+			name: "GetAncestors",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetAncestors(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.GetAncestorsResponse{},
+		},
+		{
+			name: "GetBreadcrumbs",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetBreadcrumbs(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.BreadcrumbsResponse(nil),
+			wantErr:      hierarchy.ErrNodeIsRoot,
+		},
+	}
 
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &hierarchyStoreFake{}
+			nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+			service := newTestService(store, nodes)
 
-	service := newTestService(&hierarchyStoreFake{}, nodes)
-	res, err := service.GetAncestors(context.Background(), rootID, userID)
+			response, err := tt.call(service)
+
+			require.Equal(t, tt.wantResponse, response)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantGetParentCalls, store.getParentCalls)
+		})
+	}
+}
+
+func TestGetBreadcrumbs(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
+	nodes := nodeSetOf(sqlcHierarchy.Node{
+		ID:       nodeID,
+		UserID:   userID,
+		ParentID: parentID,
+	})
+	store := &hierarchyStoreFake{
+		breadcrumbs: []sqlcHierarchy.GetBreadcrumbsRow{
+			{ID: rootID, Title: "root"},
+			{ID: parentID, Title: "parent"},
+		},
+	}
+
+	service := newTestService(store, nodes)
+	response, err := service.GetBreadcrumbs(context.Background(), nodeID, userID)
 
 	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Empty(t, res)
+	require.Equal(t, hierarchy.BreadcrumbsResponse{
+		{ID: rootID.String(), Title: "root"},
+		{ID: parentID.String(), Title: "parent"},
+	}, response)
+	require.Equal(t, sqlcHierarchy.GetBreadcrumbsParams{ID: nodeID, UserID: userID}, store.breadcrumbsParam)
+}
+
+func TestGetBreadcrumbs_StoreError(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	storeErr := errors.New("get breadcrumbs failed")
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	store := &hierarchyStoreFake{breadcrumbsErr: storeErr}
+
+	service := newTestService(store, nodes)
+	_, err := service.GetBreadcrumbs(context.Background(), nodeID, userID)
+
+	require.ErrorIs(t, err, storeErr)
 }
 
 func TestGetDescendants(t *testing.T) {
@@ -355,7 +425,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "before a sibling",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1000)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -385,7 +455,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "end of list",
 			req:   moveReq(str(testutil.UUID3), nil),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(5000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(5000)}},
 			nodes: nodeSetOf(moving, parent),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -418,7 +488,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "reorder within same parent skips parent checks",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1000)}},
 			nodes: nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID}, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -429,7 +499,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "no gap rebalances siblings",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1999), testutil.Int64Ptr(0)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -472,7 +542,7 @@ func TestMoveNode_NoGapAfterRebalance(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	store := &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(1999)}}
+	store := &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1999), testutil.Int64Ptr(1999)}}
 	nodes := nodeSetOf(
 		sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID},
 		sqlcHierarchy.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID4), UserID: userID, ParentID: parentID, SortOrder: 2000},

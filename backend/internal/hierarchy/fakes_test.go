@@ -42,6 +42,9 @@ type hierarchyStoreFake struct {
 	rebalanceCalls      []sqlcHierarchy.RebalanceChildrenParams
 	moveErr             error
 	moveCalls           []sqlcHierarchy.MoveNodeParams
+	breadcrumbs         []sqlcHierarchy.GetBreadcrumbsRow
+	breadcrumbsParam    sqlcHierarchy.GetBreadcrumbsParams
+	breadcrumbsErr      error
 }
 
 func (f *hierarchyStoreFake) GetChildren(context.Context, sqlcHierarchy.GetChildrenParams) ([]sqlcHierarchy.Node, error) {
@@ -140,6 +143,14 @@ func (f *hierarchyStoreFake) MoveNode(_ context.Context, params sqlcHierarchy.Mo
 	}, nil
 }
 
+func (f *hierarchyStoreFake) GetBreadcrumbs(_ context.Context, params sqlcHierarchy.GetBreadcrumbsParams) ([]sqlcHierarchy.GetBreadcrumbsRow, error) {
+	f.breadcrumbsParam = params
+	if f.breadcrumbsErr != nil {
+		return nil, f.breadcrumbsErr
+	}
+	return f.breadcrumbs, nil
+}
+
 type nodeSet struct {
 	nodes map[string]sqlcHierarchy.Node
 	err   error
@@ -180,5 +191,3 @@ func newTestService(store *hierarchyStoreFake, nodes *nodeSet) *hierarchy.Servic
 	store.nodes = nodes
 	return hierarchy.NewService(store, &txFake{store: store})
 }
-
-func int64Ptr(v int64) *int64 { return &v }

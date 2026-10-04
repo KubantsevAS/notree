@@ -82,6 +82,68 @@ func (q *Queries) GetAncestors(ctx context.Context, arg GetAncestorsParams) ([]N
 	return items, nil
 }
 
+const getBreadcrumbs = `-- name: GetBreadcrumbs :many
+WITH RECURSIVE breadcrumbs AS (
+    SELECT
+        n.id,
+        n.title,
+        n.parent_id,
+        0 AS depth
+    FROM nodes AS n
+    WHERE n.id = $1
+      AND n.user_id = $2
+      AND n.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.title,
+        parent.parent_id,
+        breadcrumbs.depth + 1
+    FROM breadcrumbs
+    JOIN nodes AS parent
+      ON parent.id = breadcrumbs.parent_id
+     AND parent.user_id = $2
+     AND parent.deleted_at IS NULL
+)
+SELECT
+    id,
+    title
+FROM breadcrumbs
+ORDER BY depth DESC
+`
+
+type GetBreadcrumbsParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+type GetBreadcrumbsRow struct {
+	ID    pgtype.UUID `json:"id"`
+	Title string      `json:"title"`
+}
+
+func (q *Queries) GetBreadcrumbs(ctx context.Context, arg GetBreadcrumbsParams) ([]GetBreadcrumbsRow, error) {
+	rows, err := q.db.Query(ctx, getBreadcrumbs, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBreadcrumbsRow
+	for rows.Next() {
+		var i GetBreadcrumbsRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getChildren = `-- name: GetChildren :many
 SELECT id, user_id, parent_id, type, title, sort_order, created_at, updated_at, deleted_at FROM nodes
 WHERE parent_id = $1

@@ -134,20 +134,58 @@ func TestHandlerGetAncestors(t *testing.T) {
 	require.Equal(t, rootID.String(), *payload[1].ParentID)
 }
 
-func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
+func TestHandler_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
-	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
+	tests := []struct {
+		name string
+		call handlerFunc
+	}{
+		{"ancestors", (*hierarchy.Handler).GetAncestors},
+		{"breadcrumbs", (*hierarchy.Handler).GetBreadcrumbs},
+	}
 
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", rootID.String())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
+			req := testutil.WithUserID(newReadRequest(tt.name, rootID.String()), userID)
+			res := httptest.NewRecorder()
+
+			tt.call(handler, res, req)
+
+			require.Equal(t, http.StatusOK, res.Code)
+			require.JSONEq(t, "[]", res.Body.String())
+		})
+	}
+}
+
+func TestHandlerGetBreadcrumbs(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	store := &hierarchyStoreFake{
+		breadcrumbs: []sqlcHierarchy.GetBreadcrumbsRow{
+			{ID: rootID, Title: "root"},
+			{ID: parentID, Title: "parent"},
+		},
+	}
+	handler := hierarchy.NewHandler(newTestService(store, nodes))
+	req := testutil.WithRouteParam(
+		testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/breadcrumbs", nil), userID),
+		"id",
+		nodeID.String(),
+	)
 	res := httptest.NewRecorder()
 
-	handler.GetAncestors(res, req)
+	handler.GetBreadcrumbs(res, req)
 
 	require.Equal(t, http.StatusOK, res.Code)
-	require.JSONEq(t, "[]", res.Body.String())
+	require.JSONEq(t, `[{"id":"`+rootID.String()+`","title":"root"},{"id":"`+parentID.String()+`","title":"parent"}]`, res.Body.String())
+	require.Equal(t, sqlcHierarchy.GetBreadcrumbsParams{ID: nodeID, UserID: userID}, store.breadcrumbsParam)
 }
 
 func TestHandlerGetDescendants(t *testing.T) {
@@ -285,6 +323,7 @@ var readEndpoints = []struct {
 	{"descendants", (*hierarchy.Handler).GetDescendants},
 	{"subtree", (*hierarchy.Handler).GetSubtree},
 	{"root", (*hierarchy.Handler).GetRoot},
+	{"breadcrumbs", (*hierarchy.Handler).GetBreadcrumbs},
 }
 
 func newReadRequest(endpoint, nodeID string) *http.Request {
@@ -301,7 +340,8 @@ func TestHandler_Unauthorized(t *testing.T) {
 			ep.call(handler, res, newReadRequest(ep.name, testutil.UUID1))
 
 			require.Equal(t, http.StatusUnauthorized, res.Code)
-			testutil.AssertErrorJSON(t, res, "User ID not found in context")
+			wantMessage := "unauthorized"
+			testutil.AssertErrorJSON(t, res, wantMessage)
 		})
 	}
 }
@@ -371,6 +411,7 @@ func TestHandler_StoreError(t *testing.T) {
 		{"descendants", (*hierarchy.Handler).GetDescendants, &hierarchyStoreFake{descendantsErr: sql.ErrConnDone}},
 		{"subtree", (*hierarchy.Handler).GetSubtree, &hierarchyStoreFake{subtreeErr: sql.ErrConnDone}},
 		{"root", (*hierarchy.Handler).GetRoot, &hierarchyStoreFake{rootErr: sql.ErrConnDone}},
+		{"breadcrumbs", (*hierarchy.Handler).GetBreadcrumbs, &hierarchyStoreFake{breadcrumbsErr: sql.ErrConnDone}},
 	}
 
 	for _, tc := range tests {
@@ -551,5 +592,5 @@ func TestHandlerMove_Unauthorized(t *testing.T) {
 	handler.Move(res, req)
 
 	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "User ID not found in context")
+	testutil.AssertErrorJSON(t, res, "unauthorized")
 }

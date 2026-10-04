@@ -53,3 +53,10 @@ type MoveNodeResponse struct {
 	SortOrder int64      `json:"sort_order"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
+
+type BreadcrumbResponse struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type BreadcrumbsResponse []BreadcrumbResponse

@@ -24,7 +24,7 @@ type Store interface {
 
 	IsInSubtree(context.Context, sqlcHierarchy.IsInSubtreeParams) (bool, error)
 
-	//TODO GetBreadcrumbs(context.Context, pgtype.UUID) (BreadcrumbItem, error)
+	GetBreadcrumbs(context.Context, sqlcHierarchy.GetBreadcrumbsParams) ([]sqlcHierarchy.GetBreadcrumbsRow, error)
 
 	LockUserHierarchy(context.Context, pgtype.UUID) error
 	GetPrevSiblingRank(context.Context, sqlcHierarchy.GetPrevSiblingRankParams) (int64, error)
@@ -32,12 +32,6 @@ type Store interface {
 	RebalanceChildren(context.Context, sqlcHierarchy.RebalanceChildrenParams) error
 	MoveNode(context.Context, sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error)
 }
-
-// * Example
-// * type BreadcrumbItem struct {
-// *   ID    pgtype.UUID `json: "ID"`
-// *   Title string      `json: "title"`
-// * }
 
 type Service struct {
 	store Store
@@ -63,10 +57,7 @@ func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pg
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(nodes))
-	for _, n := range nodes {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(nodes, mapNodeToResponse)
 
 	return response, nil
 }
@@ -132,10 +123,7 @@ func (s *Service) GetAncestors(ctx context.Context, nodeID pgtype.UUID, userID p
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(ancestors))
-	for _, n := range ancestors {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(ancestors, mapNodeToResponse)
 
 	return response, nil
 }
@@ -153,10 +141,7 @@ func (s *Service) GetDescendants(ctx context.Context, nodeID pgtype.UUID, userID
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(descendants))
-	for _, n := range descendants {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(descendants, mapNodeToResponse)
 
 	return response, nil
 }
@@ -174,10 +159,7 @@ func (s *Service) GetSubtree(ctx context.Context, nodeID pgtype.UUID, userID pgt
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(subtree))
-	for _, n := range subtree {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(subtree, mapNodeToResponse)
 
 	return response, nil
 }
@@ -376,4 +358,44 @@ func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UU
 	default:
 		return err
 	}
+}
+
+func (s *Service) GetBreadcrumbs(ctx context.Context, nodeID, userID pgtype.UUID) (BreadcrumbsResponse, error) {
+	node, err := s.store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: nodeID, UserID: userID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNodeNotFound
+		}
+		return nil, err
+	}
+	if !node.ParentID.Valid {
+		return nil, ErrNodeIsRoot
+	}
+
+	breadcrumbs, err := s.store.GetBreadcrumbs(ctx, sqlcHierarchy.GetBreadcrumbsParams{
+		ID:     nodeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	response := mapSlice(breadcrumbs, mapBreadcrumbToResponse)
+
+	return response, nil
+}
+
+func mapBreadcrumbToResponse(r sqlcHierarchy.GetBreadcrumbsRow) BreadcrumbResponse {
+	return BreadcrumbResponse{
+		ID:    r.ID.String(),
+		Title: r.Title,
+	}
+}
+
+func mapSlice[T, R any](items []T, fn func(T) R) []R {
+	out := make([]R, 0, len(items))
+	for _, item := range items {
+		out = append(out, fn(item))
+	}
+	return out
 }

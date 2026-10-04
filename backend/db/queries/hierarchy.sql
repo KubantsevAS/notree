@@ -154,7 +154,6 @@ JOIN nodes AS n
  AND n.deleted_at IS NULL
 WHERE a.parent_id IS NULL;
 
-
 -- name: MoveNode :one
 UPDATE nodes
 SET
@@ -227,3 +226,34 @@ WITH RECURSIVE ancestors AS (
 )
 SELECT COALESCE(bool_or(a.id = sqlc.arg('root_id')::uuid), false)::boolean AS is_in_subtree
 FROM ancestors AS a;
+
+-- name: GetBreadcrumbs :many
+WITH RECURSIVE breadcrumbs AS (
+    SELECT
+        n.id,
+        n.title,
+        n.parent_id,
+        0 AS depth
+    FROM nodes AS n
+    WHERE n.id = $1
+      AND n.user_id = $2
+      AND n.deleted_at IS NULL
+
+    UNION ALL
+
+    SELECT
+        parent.id,
+        parent.title,
+        parent.parent_id,
+        breadcrumbs.depth + 1
+    FROM breadcrumbs
+    JOIN nodes AS parent
+      ON parent.id = breadcrumbs.parent_id
+     AND parent.user_id = $2
+     AND parent.deleted_at IS NULL
+)
+SELECT
+    id,
+    title
+FROM breadcrumbs
+ORDER BY depth DESC;
