@@ -107,21 +107,6 @@ func TestGetParent(t *testing.T) {
 	require.Equal(t, userID, store.lastGetParentParams.UserID)
 }
 
-func TestGetParent_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	root := sqlcHierarchy.Node{ID: rootID, UserID: userID}
-	nodes := nodeSetOf(root)
-	store := &hierarchyStoreFake{parentErr: errors.New("GetParent must not be called for root node")}
-
-	service := newTestService(store, nodes)
-	_, err := service.GetParent(context.Background(), rootID, userID)
-
-	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
-	require.Zero(t, store.getParentCalls)
-}
-
 func TestGetAncestors(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
@@ -149,30 +134,61 @@ func TestGetAncestors(t *testing.T) {
 	require.Equal(t, userID, store.lastAncestorsArgs.UserID)
 }
 
-func TestGetAncestors_NodeIsRoot(t *testing.T) {
+func TestService_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	tests := []struct {
+		name               string
+		call               func(*hierarchy.Service) (any, error)
+		wantResponse       any
+		wantErr            error
+		wantGetParentCalls int
+	}{
+		{
+			name: "GetParent",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetParent(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.NodeResponse{},
+			wantErr:      hierarchy.ErrNodeIsRoot,
+		},
+		{
+			name: "GetAncestors",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetAncestors(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.GetAncestorsResponse{},
+		},
+		{
+			name: "GetBreadcrumbs",
+			call: func(s *hierarchy.Service) (any, error) {
+				response, err := s.GetBreadcrumbs(context.Background(), rootID, userID)
+				return response, err
+			},
+			wantResponse: hierarchy.BreadcrumbsResponse(nil),
+			wantErr:      hierarchy.ErrNodeIsRoot,
+		},
+	}
 
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &hierarchyStoreFake{}
+			nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+			service := newTestService(store, nodes)
 
-	service := newTestService(&hierarchyStoreFake{}, nodes)
-	res, err := service.GetAncestors(context.Background(), rootID, userID)
+			response, err := tt.call(service)
 
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Empty(t, res)
-}
-
-func TestGetBreadcrumbs_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
-
-	service := newTestService(&hierarchyStoreFake{}, nodes)
-	_, err := service.GetBreadcrumbs(context.Background(), rootID, userID)
-
-	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
+			require.Equal(t, tt.wantResponse, response)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantGetParentCalls, store.getParentCalls)
+		})
+	}
 }
 
 func TestGetBreadcrumbs(t *testing.T) {

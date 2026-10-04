@@ -134,36 +134,31 @@ func TestHandlerGetAncestors(t *testing.T) {
 	require.Equal(t, rootID.String(), *payload[1].ParentID)
 }
 
-func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
+func TestHandler_NodeIsRoot(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
 
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
-	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
+	tests := []struct {
+		name string
+		call handlerFunc
+	}{
+		{"ancestors", (*hierarchy.Handler).GetAncestors},
+		{"breadcrumbs", (*hierarchy.Handler).GetBreadcrumbs},
+	}
 
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/ancestors", nil), userID), "id", rootID.String())
-	res := httptest.NewRecorder()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+			handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
+			req := testutil.WithUserID(newReadRequest(tt.name, rootID.String()), userID)
+			res := httptest.NewRecorder()
 
-	handler.GetAncestors(res, req)
+			tt.call(handler, res, req)
 
-	require.Equal(t, http.StatusOK, res.Code)
-	require.JSONEq(t, "[]", res.Body.String())
-}
-
-func TestHandlerGetBreadcrumbs_NodeIsRoot(t *testing.T) {
-	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
-	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
-
-	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
-	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
-
-	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/breadcrumbs", nil), userID), "id", rootID.String())
-	res := httptest.NewRecorder()
-
-	handler.GetBreadcrumbs(res, req)
-
-	require.Equal(t, http.StatusOK, res.Code)
-	require.JSONEq(t, "[]", res.Body.String())
+			require.Equal(t, http.StatusOK, res.Code)
+			require.JSONEq(t, "[]", res.Body.String())
+		})
+	}
 }
 
 func TestHandlerGetBreadcrumbs(t *testing.T) {
