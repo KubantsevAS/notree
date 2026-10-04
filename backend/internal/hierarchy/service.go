@@ -57,10 +57,7 @@ func (s *Service) GetChildren(ctx context.Context, nodeID pgtype.UUID, userID pg
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(nodes))
-	for _, n := range nodes {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(nodes, mapNodeToResponse)
 
 	return response, nil
 }
@@ -126,10 +123,7 @@ func (s *Service) GetAncestors(ctx context.Context, nodeID pgtype.UUID, userID p
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(ancestors))
-	for _, n := range ancestors {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(ancestors, mapNodeToResponse)
 
 	return response, nil
 }
@@ -147,10 +141,7 @@ func (s *Service) GetDescendants(ctx context.Context, nodeID pgtype.UUID, userID
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(descendants))
-	for _, n := range descendants {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(descendants, mapNodeToResponse)
 
 	return response, nil
 }
@@ -168,10 +159,7 @@ func (s *Service) GetSubtree(ctx context.Context, nodeID pgtype.UUID, userID pgt
 		return nil, err
 	}
 
-	response := make([]NodeResponse, 0, len(subtree))
-	for _, n := range subtree {
-		response = append(response, mapNodeToResponse(n))
-	}
+	response := mapSlice(subtree, mapNodeToResponse)
 
 	return response, nil
 }
@@ -385,10 +373,7 @@ func (s *Service) GetBreadcrumbs(ctx context.Context, nodeID, userID pgtype.UUID
 		return nil, err
 	}
 
-	response := make([]BreadcrumbResponse, 0, len(breadcrumbs))
-	for _, b := range breadcrumbs {
-		response = append(response, mapBreadcrumbToResponse(b))
-	}
+	response := mapSlice(breadcrumbs, mapBreadcrumbToResponse)
 
 	return response, nil
 }
@@ -398,4 +383,12 @@ func mapBreadcrumbToResponse(r sqlcHierarchy.GetBreadcrumbsRow) BreadcrumbRespon
 		ID:    r.ID.String(),
 		Title: r.Title,
 	}
+}
+
+func mapSlice[T, R any](items []T, fn func(T) R) []R {
+	out := make([]R, 0, len(items))
+	for _, item := range items {
+		out = append(out, fn(item))
+	}
+	return out
 }
