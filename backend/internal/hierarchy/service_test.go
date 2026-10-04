@@ -175,6 +175,48 @@ func TestGetBreadcrumbs_NodeIsRoot(t *testing.T) {
 	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
 }
 
+func TestGetBreadcrumbs(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID4)
+	nodes := nodeSetOf(sqlcHierarchy.Node{
+		ID:       nodeID,
+		UserID:   userID,
+		ParentID: parentID,
+	})
+	store := &hierarchyStoreFake{
+		breadcrumbs: []sqlcHierarchy.GetBreadcrumbsRow{
+			{ID: rootID, Title: "root"},
+			{ID: parentID, Title: "parent"},
+		},
+	}
+
+	service := newTestService(store, nodes)
+	response, err := service.GetBreadcrumbs(context.Background(), nodeID, userID)
+
+	require.NoError(t, err)
+	require.Equal(t, hierarchy.BreadcrumbsResponse{
+		{ID: rootID.String(), Title: "root"},
+		{ID: parentID.String(), Title: "parent"},
+	}, response)
+	require.Equal(t, sqlcHierarchy.GetBreadcrumbsParams{ID: nodeID, UserID: userID}, store.breadcrumbsParam)
+}
+
+func TestGetBreadcrumbs_StoreError(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
+	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
+	storeErr := errors.New("get breadcrumbs failed")
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID})
+	store := &hierarchyStoreFake{breadcrumbsErr: storeErr}
+
+	service := newTestService(store, nodes)
+	_, err := service.GetBreadcrumbs(context.Background(), nodeID, userID)
+
+	require.ErrorIs(t, err, storeErr)
+}
+
 func TestGetDescendants(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
