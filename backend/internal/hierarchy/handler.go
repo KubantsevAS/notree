@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/KubantsevAS/notree/backend/internal/http/httputil"
-	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
@@ -29,21 +28,12 @@ func NewHandler(s *Service) *Handler {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/children [get]
 func (h *Handler) GetChildren(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetChildren(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetChildren(r.Context(), parsedID, userID)
 	if err != nil {
 		if errors.Is(err, ErrNodeNotFound) {
 			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
@@ -70,21 +60,12 @@ func (h *Handler) GetChildren(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/parent [get]
 func (h *Handler) GetParent(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetParent(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetParent(r.Context(), parsedID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNodeNotFound):
@@ -115,21 +96,12 @@ func (h *Handler) GetParent(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/ancestors [get]
 func (h *Handler) GetAncestors(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetAncestors(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetAncestors(r.Context(), parsedID, userID)
 	if err != nil {
 		if errors.Is(err, ErrNodeNotFound) {
 			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
@@ -155,21 +127,12 @@ func (h *Handler) GetAncestors(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/descendants [get]
 func (h *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetDescendants(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetDescendants(r.Context(), parsedID, userID)
 	if err != nil {
 		if errors.Is(err, ErrNodeNotFound) {
 			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
@@ -195,21 +158,12 @@ func (h *Handler) GetDescendants(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/subtree [get]
 func (h *Handler) GetSubtree(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetSubtree(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetSubtree(r.Context(), parsedID, userID)
 	if err != nil {
 		if errors.Is(err, ErrNodeNotFound) {
 			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
@@ -235,21 +189,12 @@ func (h *Handler) GetSubtree(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {object} dto.ErrorResponse "internal server error"
 // @Router       /nodes/{id}/root [get]
 func (h *Handler) GetRoot(w http.ResponseWriter, r *http.Request) {
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetRoot(r.Context(), parsedNodeID, userID)
+	response, err := h.service.GetRoot(r.Context(), parsedID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNodeNotFound):
@@ -287,21 +232,12 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodeID := chi.URLParam(r, "id")
-
-	userID, err := httputil.GetUserPgUUIDFromCtx(r.Context())
-	if err != nil {
-		httputil.WriteErrorJSON(w, err.Error(), http.StatusUnauthorized)
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
 		return
 	}
 
-	parsedNodeID, err := httputil.PgUUIDFromString(&nodeID)
-	if err != nil {
-		httputil.WriteErrorJSON(w, "invalid node id format", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.MoveNode(r.Context(), parsedNodeID, userID, body)
+	response, err := h.service.MoveNode(r.Context(), parsedID, userID, body)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrParentIDRequired):
