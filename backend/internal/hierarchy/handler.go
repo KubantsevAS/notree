@@ -328,3 +328,37 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteResponseJSON(w, response, http.StatusOK)
 }
+
+// GetBreadcrumbs godoc
+// @Summary      Get breadcrumbs
+// @Description  Retrieves the breadcrumb path from the root to the current node. For a root node, returns an empty array.
+// @Tags         Hierarchy
+// @Produce      json
+// @Param        id path string true "Node ID (UUID)"
+// @Success      200 {array} BreadcrumbResponse
+// @Failure      400 {object} dto.ErrorResponse "invalid node id format"
+// @Failure      401 {object} dto.ErrorResponse "unauthorized"
+// @Failure      404 {object} dto.ErrorResponse "node not found"
+// @Failure      500 {object} dto.ErrorResponse "internal server error"
+// @Router       /nodes/{id}/breadcrumbs [get]
+func (h *Handler) GetBreadcrumbs(w http.ResponseWriter, r *http.Request) {
+	parsedID, userID, ok := httputil.PathParamIDAndUser(w, r)
+	if !ok {
+		return
+	}
+
+	response, err := h.service.GetBreadcrumbs(r.Context(), parsedID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNodeNotFound):
+			httputil.WriteErrorJSON(w, "node not found", http.StatusNotFound)
+		case errors.Is(err, ErrNodeIsRoot):
+			httputil.WriteResponseJSON(w, BreadcrumbsResponse{}, http.StatusOK)
+		default:
+			httputil.WriteErrorJSON(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	httputil.WriteResponseJSON(w, response, http.StatusOK)
+}
