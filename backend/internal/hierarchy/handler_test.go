@@ -340,10 +340,7 @@ func TestHandler_Unauthorized(t *testing.T) {
 			ep.call(handler, res, newReadRequest(ep.name, testutil.UUID1))
 
 			require.Equal(t, http.StatusUnauthorized, res.Code)
-			wantMessage := "User ID not found in context"
-			if ep.name == "breadcrumbs" {
-				wantMessage = "unauthorized"
-			}
+			wantMessage := "unauthorized"
 			testutil.AssertErrorJSON(t, res, wantMessage)
 		})
 	}
@@ -595,5 +592,5 @@ func TestHandlerMove_Unauthorized(t *testing.T) {
 	handler.Move(res, req)
 
 	require.Equal(t, http.StatusUnauthorized, res.Code)
-	testutil.AssertErrorJSON(t, res, "User ID not found in context")
+	testutil.AssertErrorJSON(t, res, "unauthorized")
 }
