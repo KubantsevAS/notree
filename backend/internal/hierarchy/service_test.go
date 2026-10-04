@@ -355,7 +355,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "before a sibling",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1000)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -385,7 +385,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "end of list",
 			req:   moveReq(str(testutil.UUID3), nil),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(5000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(5000)}},
 			nodes: nodeSetOf(moving, parent),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -418,7 +418,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "reorder within same parent skips parent checks",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1000)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1000)}},
 			nodes: nodeSetOf(sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID}, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -429,7 +429,7 @@ func TestMoveNode(t *testing.T) {
 		{
 			name:  "no gap rebalances siblings",
 			req:   moveReq(str(testutil.UUID3), str(testutil.UUID4)),
-			store: &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(0)}},
+			store: &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1999), testutil.Int64Ptr(0)}},
 			nodes: nodeSetOf(moving, parent, sibling),
 			check: func(t *testing.T, resp hierarchy.MoveNodeResponse, store *hierarchyStoreFake) {
 				t.Helper()
@@ -472,7 +472,7 @@ func TestMoveNode_NoGapAfterRebalance(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	nodeID := testutil.UUIDFromStringT(t, testutil.UUID2)
 	parentID := testutil.UUIDFromStringT(t, testutil.UUID3)
-	store := &hierarchyStoreFake{siblingRanks: []*int64{int64Ptr(1999), int64Ptr(1999)}}
+	store := &hierarchyStoreFake{siblingRanks: []*int64{testutil.Int64Ptr(1999), testutil.Int64Ptr(1999)}}
 	nodes := nodeSetOf(
 		sqlcHierarchy.Node{ID: nodeID, UserID: userID, ParentID: parentID},
 		sqlcHierarchy.Node{ID: testutil.UUIDFromStringT(t, testutil.UUID4), UserID: userID, ParentID: parentID, SortOrder: 2000},

@@ -24,7 +24,7 @@ type Store interface {
 
 	IsInSubtree(context.Context, sqlcHierarchy.IsInSubtreeParams) (bool, error)
 
-	//TODO GetBreadcrumbs(context.Context, pgtype.UUID) (BreadcrumbItem, error)
+	GetBreadcrumbs(context.Context, sqlcHierarchy.GetBreadcrumbsParams) ([]sqlcHierarchy.GetBreadcrumbsRow, error)
 
 	LockUserHierarchy(context.Context, pgtype.UUID) error
 	GetPrevSiblingRank(context.Context, sqlcHierarchy.GetPrevSiblingRankParams) (int64, error)
@@ -32,12 +32,6 @@ type Store interface {
 	RebalanceChildren(context.Context, sqlcHierarchy.RebalanceChildrenParams) error
 	MoveNode(context.Context, sqlcHierarchy.MoveNodeParams) (sqlcHierarchy.MoveNodeRow, error)
 }
-
-// * Example
-// * type BreadcrumbItem struct {
-// *   ID    pgtype.UUID `json: "ID"`
-// *   Title string      `json: "title"`
-// * }
 
 type Service struct {
 	store Store
@@ -375,5 +369,33 @@ func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UU
 		return ErrNodeNotFound
 	default:
 		return err
+	}
+}
+
+func (s *Service) GetBreadcrumbs(ctx context.Context, nodeID, userID pgtype.UUID) (BreadcrumbsResponse, error) {
+	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
+		return nil, err
+	}
+
+	breadcrumbs, err := s.store.GetBreadcrumbs(ctx, sqlcHierarchy.GetBreadcrumbsParams{
+		ID:     nodeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]BreadcrumbResponse, 0, len(breadcrumbs))
+	for _, b := range breadcrumbs {
+		response = append(response, mapBreadcrumbToResponse(b))
+	}
+
+	return response, nil
+}
+
+func mapBreadcrumbToResponse(r sqlcHierarchy.GetBreadcrumbsRow) BreadcrumbResponse {
+	return BreadcrumbResponse{
+		ID:    r.ID.String(),
+		Title: r.Title,
 	}
 }
