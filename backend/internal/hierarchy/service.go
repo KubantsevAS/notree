@@ -361,8 +361,15 @@ func (s *Service) ensureNodeExists(ctx context.Context, nodeID, userID pgtype.UU
 }
 
 func (s *Service) GetBreadcrumbs(ctx context.Context, nodeID, userID pgtype.UUID) (BreadcrumbsResponse, error) {
-	if err := s.ensureNodeExists(ctx, nodeID, userID); err != nil {
+	node, err := s.store.GetNode(ctx, sqlcHierarchy.GetNodeParams{ID: nodeID, UserID: userID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNodeNotFound
+		}
 		return nil, err
+	}
+	if !node.ParentID.Valid {
+		return nil, ErrNodeIsRoot
 	}
 
 	breadcrumbs, err := s.store.GetBreadcrumbs(ctx, sqlcHierarchy.GetBreadcrumbsParams{

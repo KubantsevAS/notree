@@ -163,6 +163,18 @@ func TestGetAncestors_NodeIsRoot(t *testing.T) {
 	require.Empty(t, res)
 }
 
+func TestGetBreadcrumbs_NodeIsRoot(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
+
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+
+	service := newTestService(&hierarchyStoreFake{}, nodes)
+	_, err := service.GetBreadcrumbs(context.Background(), rootID, userID)
+
+	require.ErrorIs(t, err, hierarchy.ErrNodeIsRoot)
+}
+
 func TestGetDescendants(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)

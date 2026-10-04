@@ -150,6 +150,22 @@ func TestHandlerGetAncestors_NodeIsRoot(t *testing.T) {
 	require.JSONEq(t, "[]", res.Body.String())
 }
 
+func TestHandlerGetBreadcrumbs_NodeIsRoot(t *testing.T) {
+	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
+	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
+
+	nodes := nodeSetOf(sqlcHierarchy.Node{ID: rootID, UserID: userID})
+	handler := hierarchy.NewHandler(newTestService(&hierarchyStoreFake{}, nodes))
+
+	req := testutil.WithRouteParam(testutil.WithUserID(httptest.NewRequest(http.MethodGet, "/nodes/:id/breadcrumbs", nil), userID), "id", rootID.String())
+	res := httptest.NewRecorder()
+
+	handler.GetBreadcrumbs(res, req)
+
+	require.Equal(t, http.StatusOK, res.Code)
+	require.JSONEq(t, "[]", res.Body.String())
+}
+
 func TestHandlerGetDescendants(t *testing.T) {
 	userID := testutil.UUIDFromStringT(t, testutil.UUID1)
 	rootID := testutil.UUIDFromStringT(t, testutil.UUID2)
